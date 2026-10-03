@@ -102,9 +102,8 @@ static func burst(amount: int, speed: float, quad_size: float, colors: Array, ad
 static func free_after(node: Node, seconds: float) -> void:
 	if not node.is_inside_tree():
 		return
-	node.get_tree().create_timer(seconds, false, true).timeout.connect(func():
-		if is_instance_valid(node):
-			node.queue_free())
+	# 노드가 먼저 지워지면 연결도 함께 사라진다
+	node.get_tree().create_timer(seconds, false, true).timeout.connect(node.queue_free)
 
 
 ## 검고 둥근 몸통 + 짧은 목 + 천 심지 + 심지 불꽃.
