@@ -28,11 +28,9 @@ func _ready() -> void:
 	# 조준점: 작은 점 하나
 	var dot_bg := ColorRect.new()
 	dot_bg.color = Color(0, 0, 0, 0.6)
-	dot_bg.size = Vector2(6, 6)
-	dot_bg.set_anchors_preset(Control.PRESET_CENTER)
-	dot_bg.position = Vector2(-3, -3)
 	dot_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(dot_bg)
+	_place(dot_bg, Vector4(0.5, 0.5, 0.5, 0.5), Vector4(-3, -3, 3, 3))
 	var dot := ColorRect.new()
 	dot.color = Color(1, 1, 1)
 	dot.size = Vector2(2, 2)
@@ -40,42 +38,43 @@ func _ready() -> void:
 	dot_bg.add_child(dot)
 
 	_title = _label(root, 24)
-	_title.position = Vector2(24, 18)
+	_place(_title, Vector4(0, 0, 0, 0), Vector4(24, 16, 900, 50))
 	_objective = _label(root, 18)
-	_objective.position = Vector2(24, 52)
+	_place(_objective, Vector4(0, 0, 0, 0), Vector4(24, 52, 1100, 80))
 
 	_ammo = _label(root, 22)
-	_ammo.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_ammo.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_ammo.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	_ammo.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_ammo.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_ammo.position = Vector2(-24, -24)
+	_place(_ammo, Vector4(1, 1, 1, 1), Vector4(-600, -140, -24, -20))
 
 	_help = _label(root, 15)
-	_help.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_help.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_help.position = Vector2(24, -20)
+	_help.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_help.modulate = Color(1, 1, 1, 0.75)
 	_help.text = "WASD 이동 · 마우스 시점 · 좌클릭 투척 · 우클릭 줌 · 1/2·휠 탄종 · R 재시작 · F1~F6 스테이지 · Esc 마우스 해제"
+	_place(_help, Vector4(0, 1, 0, 1), Vector4(24, -50, 1000, -18))
 
 	_banner = _label(root, 64)
-	_banner.set_anchors_preset(Control.PRESET_CENTER)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_banner.position = Vector2(0, -150)
+	_place(_banner, Vector4(0, 0.5, 1, 0.5), Vector4(0, -220, 0, -130))
 	_sub = _label(root, 22)
-	_sub.set_anchors_preset(Control.PRESET_CENTER)
 	_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_sub.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_sub.position = Vector2(0, -70)
+	_place(_sub, Vector4(0, 0.5, 1, 0.5), Vector4(0, -125, 0, -50))
 
 	_toast = _label(root, 26)
-	_toast.set_anchors_preset(Control.PRESET_CENTER)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_toast.position = Vector2(0, 60)
+	_place(_toast, Vector4(0, 0.5, 1, 0.5), Vector4(0, 50, 0, 95))
 
+
+## 앵커(왼, 위, 오른, 아래)와 오프셋으로 배치한다.
+func _place(c: Control, anchors: Vector4, offsets: Vector4) -> void:
+	c.anchor_left = anchors.x
+	c.anchor_top = anchors.y
+	c.anchor_right = anchors.z
+	c.anchor_bottom = anchors.w
+	c.offset_left = offsets.x
+	c.offset_top = offsets.y
+	c.offset_right = offsets.z
+	c.offset_bottom = offsets.w
 
 func _label(parent: Control, font_size: int) -> Label:
 	var l := Label.new()

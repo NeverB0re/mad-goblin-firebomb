@@ -58,7 +58,7 @@ func _make_ground() -> void:
 	plane.size = Vector2(1200, 1200)
 	mesh.mesh = plane
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.9, 0.9, 0.9)
+	m.albedo_color = Color(0.6, 0.6, 0.59)
 	m.roughness = 1.0
 	mesh.material_override = m
 	ground.add_child(mesh)

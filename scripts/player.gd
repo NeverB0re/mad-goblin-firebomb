@@ -51,8 +51,9 @@ func set_held_model(model_scale: float) -> void:
 	if _held:
 		_held.queue_free()
 	_held_scale = model_scale
-	_held = Fx.molotov_model(model_scale)
-	_held.position = Vector3(0.32, -0.3, -0.6)
+	# 화면 가까이에서는 불꽃 파티클이 하얗게 번지므로 손에 든 모델은 불꽃 없이 작게 표시한다
+	_held = Fx.molotov_model(model_scale * 0.45, false)
+	_held.position = Vector3(0.3, -0.26, -0.62)
 	_held.rotation = Vector3(0.2, 0, -0.25)
 	camera.add_child(_held)
 

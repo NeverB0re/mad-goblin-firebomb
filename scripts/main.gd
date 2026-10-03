@@ -40,7 +40,7 @@ func _setup_environment() -> void:
 	var env := Environment.new()
 	var sky := Sky.new()
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.78, 0.82, 0.88)
+	sky_mat.sky_top_color = Color(0.62, 0.72, 0.86)
 	sky_mat.sky_horizon_color = Color(0.95, 0.95, 0.95)
 	sky_mat.ground_horizon_color = Color(0.95, 0.95, 0.95)
 	sky_mat.ground_bottom_color = Color(0.85, 0.85, 0.85)
