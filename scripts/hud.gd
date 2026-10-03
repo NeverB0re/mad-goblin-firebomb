@@ -11,6 +11,7 @@ var _toast: Label
 var _help: Label
 var _toast_time := 0.0
 var _stage: Stage
+var follow_cam: FollowCam
 
 
 func _ready() -> void:
@@ -52,7 +53,7 @@ func _ready() -> void:
 	_help = _label(root, 15)
 	_help.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_help.modulate = Color(1, 1, 1, 0.75)
-	_help.text = "WASD 이동 · 마우스 시점 · 좌클릭 투척 · 우클릭 줌 · 1/2·휠 탄종 · R 재시작 · F1~F6 스테이지 · Esc 마우스 해제"
+	_help.text = "WASD 이동 · 마우스 시점 · 좌클릭 누름 준비 / 뗌 투척 · 우클릭 줌 · 1/2·휠 탄종 · R 재시작 · F1~F6 스테이지 · Esc 마우스 해제"
 	_place(_help, Vector4(0, 1, 0, 1), Vector4(24, -50, 1000, -18))
 
 	_banner = _label(root, 64)
@@ -61,6 +62,9 @@ func _ready() -> void:
 	_sub = _label(root, 22)
 	_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_place(_sub, Vector4(0, 0.5, 1, 0.5), Vector4(0, -125, 0, -50))
+
+	follow_cam = FollowCam.new()
+	root.add_child(follow_cam)
 
 	_toast = _label(root, 26)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -99,6 +103,9 @@ func bind(stage: Stage) -> void:
 	stage.ammo_changed.connect(_refresh_ammo)
 	stage.state_changed.connect(_on_state)
 	stage.toast.connect(show_toast)
+	follow_cam.reset()
+	stage.projectile_thrown.connect(follow_cam.track)
+	stage.shake_requested.connect(follow_cam.shake)
 	_refresh_ammo()
 
 

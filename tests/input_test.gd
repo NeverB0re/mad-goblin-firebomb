@@ -42,14 +42,24 @@ func _run() -> void:
 	_check(player.pitch > pitch0, "마우스 위로 이동 → 시선 올라감 (%.3f → %.3f)" % [pitch0, player.pitch])
 
 	var ammo0 := stage.total_ammo()
-	for pressed in [true, false]:
-		var click := InputEventMouseButton.new()
-		click.button_index = MOUSE_BUTTON_LEFT
-		click.pressed = pressed
-		click.position = center
-		root.push_input(click)
-		await _frames(2)
-	_check(stage.total_ammo() == ammo0 - 1, "좌클릭 → 투척 (탄약 %d → %d)" % [ammo0, stage.total_ammo()])
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = center
+	root.push_input(click)
+	await _frames(10)
+	_check(player.winding and stage.total_ammo() == ammo0, "좌클릭 누름 → 준비 자세, 아직 안 던짐")
+	var release := click.duplicate()
+	release.pressed = false
+	root.push_input(release)
+	await _frames(2)
+	_check(not player.winding and stage.total_ammo() == ammo0 - 1, "좌클릭 뗌 → 투척 (탄약 %d → %d)" % [ammo0, stage.total_ammo()])
+	# 20m 이상 날아가면 추적 화면이 켜진다
+	var shown := false
+	for i in 90:
+		await process_frame
+		shown = shown or main.hud.follow_cam.visible
+	_check(shown, "투척 후 추적 화면 표시")
 
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

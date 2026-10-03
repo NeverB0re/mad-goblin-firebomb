@@ -4,9 +4,9 @@ extends SceneTree
 
 const StageTest := preload("res://tests/stage_test.gd")
 const SHOTS := [
-	[0, Vector3(0, 2.7, -58.5), 3.0],
+	[0, Vector3(0, 2.7, -58.5), 2.2],
 	[1, Vector3(0, 1.4, -78.6), 8.0],
-	[2, Vector3(0, 11.2, -88.55), 4.0],
+	[2, Vector3(0, 12.6, -90.8), 4.6],
 	[3, Vector3(-10, 0.9, -56), 2.5],
 	[4, Vector3(0, 1.4, -78.6), 18.0],
 	[5, Vector3(0.4, 0.5, -97.65), 6.6],
@@ -35,8 +35,10 @@ func _run() -> void:
 		for i in 4:
 			var dir := StageTest.aim(s.player.throw_origin(), shot[1], v)
 			s.player.look_at_angles(atan2(-dir.x, -dir.z), asin(dir.y))
-		await _frames(5)
+		s.player.winding = true
+		await _frames(20)
 		root.get_texture().get_image().save_png("res://tests/out/stage%d_a.png" % shot[0])
+		s.player.winding = false
 		s.try_throw(s.player.throw_origin(), s.player.throw_direction())
 		# 목표 쪽으로 시선을 낮춰 결과를 본다
 		s.player.look_at_angles(s.player.rotation.y, -0.02)

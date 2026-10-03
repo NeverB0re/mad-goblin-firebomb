@@ -5,6 +5,9 @@ extends Node3D
 signal state_changed(state: int, message: String)
 signal ammo_changed
 signal toast(text: String)
+signal projectile_thrown(projectile: Projectile)
+## 착탄·폭발의 화면 흔들림 (세기 0~1, 추적 화면용)
+signal shake_requested(amount: float)
 
 enum State { PLAYING, CLEARED, FAILED }
 enum Goal { CORE, ENEMY }
@@ -210,6 +213,7 @@ func try_throw(origin: Vector3, direction: Vector3) -> bool:
 	p.launch(origin, direction, slot.type, excluded)
 	p.impacted.connect(_on_impact)
 	_projectiles.append(p)
+	projectile_thrown.emit(p)
 	Sfx.play(self, "throw", origin, -4.0)
 	if throws == 1:
 		for e in enemies:
@@ -226,6 +230,7 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 		return
 	var ammo := p.ammo
 	Sfx.play(self, "break", pos, 0.0)
+	_impact_juice(pos, ammo.impact_strength / 30.0)
 	var shards := Fx.burst(18, 4.0, 0.12, [Color(0.1, 0.1, 0.1, 1), Color(0.2, 0.2, 0.2, 0)], false)
 	add_child(shards)
 	shards.global_position = pos
@@ -267,6 +272,7 @@ func explode(pos: Vector3, radius: float, strength: float) -> void:
 	add_child(smoke)
 	smoke.global_position = pos
 	Fx.free_after(smoke, 20.0)
+	_impact_juice(pos, 3.0)
 	for s in structures:
 		s.apply_impact(pos, radius, strength)
 	for b in get_tree().get_nodes_in_group("flammable"):
@@ -275,6 +281,27 @@ func explode(pos: Vector3, radius: float, strength: float) -> void:
 	for e in enemies:
 		if e.global_position.distance_to(pos) <= radius * 0.7:
 			e.ignite()
+
+
+## 과장된 착탄 연출: 불덩이 튀김, 순간 섬광, 화면 흔들림 (게임 판정과 무관).
+func _impact_juice(pos: Vector3, power: float) -> void:
+	var burst := Fx.burst(int(20 * power) + 10, 5.0 + 2.0 * power, 0.35 + 0.1 * power, Fx.FLAME_COLORS)
+	add_child(burst)
+	burst.global_position = pos
+	burst.emitting = true
+	Fx.free_after(burst, 2.0)
+	var flash := OmniLight3D.new()
+	flash.light_color = Color(1.0, 0.7, 0.35)
+	flash.light_energy = 6.0 * power
+	flash.omni_range = 6.0 + 3.0 * power
+	add_child(flash)
+	flash.global_position = pos + Vector3(0, 0.8, 0)
+	create_tween().tween_property(flash, "light_energy", 0.0, 0.35)
+	Fx.free_after(flash, 0.5)
+	shake_requested.emit(clampf(0.45 * power, 0.0, 1.0))
+	if player:
+		var dist := player.global_position.distance_to(pos)
+		player.add_shake(clampf(0.5 * power * 25.0 / maxf(dist, 25.0), 0.0, 1.0))
 
 
 func on_block_burnt(b: Block) -> void:

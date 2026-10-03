@@ -27,6 +27,17 @@ var cooldown := 0.0
 var _held: Node3D
 var _held_scale := 1.0
 var _body: Node3D
+var _arm: MeshInstance3D
+## 좌클릭을 누르고 있는 동안 준비 자세, 떼면 던진다 (힘은 항상 같다)
+var winding := false
+var _wind := 0.0
+var _follow := 0.0
+var _shake := 0.0
+var _shake_t := 0.0
+
+const HELD_REST := Vector3(0.45, -0.32, -0.35)
+const HELD_WIND := Vector3(0.55, 0.22, 0.4)
+const HELD_FOLLOW := Vector3(0.3, -0.05, -0.75)
 
 
 func _init() -> void:
@@ -62,7 +73,7 @@ func set_held_model(model_scale: float) -> void:
 	# 카메라 가까이에서는 불꽃 파티클이 하얗게 번지므로 손에 든 모델은 불꽃 없이 표시한다.
 	# 들고 있는 자세는 조준점을 가리지 않도록 오른쪽 아래. 던질 때는 카메라 중심선 위의 손 위치에서 출발한다
 	_held = Fx.molotov_model(model_scale, false)
-	_held.position = Vector3(0.45, -0.32, -0.35)
+	_held.position = HELD_REST
 	head.add_child(_held)
 
 
@@ -100,6 +111,7 @@ func _build_body() -> void:
 	arm.mesh = arm_mesh
 	arm.material_override = mat
 	arm.name = "Arm"
+	_arm = arm
 	arm.position = Vector3(0.36, -0.28, -0.12)
 	head.add_child(arm)
 
@@ -138,11 +150,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 		match event.button_index:
 			MOUSE_BUTTON_LEFT:
-				_throw()
+				if cooldown <= 0.0:
+					winding = true
 			MOUSE_BUTTON_WHEEL_UP:
 				slot_cycle_requested.emit(-1)
 			MOUSE_BUTTON_WHEEL_DOWN:
 				slot_cycle_requested.emit(1)
+	elif event is InputEventMouseButton and not event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if winding:
+			winding = false
+			_throw()
 	elif event.is_action_pressed("ammo_1"):
 		slot_requested.emit(0)
 	elif event.is_action_pressed("ammo_2"):
@@ -153,7 +170,35 @@ func _throw() -> void:
 	if cooldown > 0.0:
 		return
 	cooldown = THROW_COOLDOWN
+	_follow = 1.0
 	throw_requested.emit(throw_origin(), throw_direction())
+
+
+## 화면 흔들림 (연출 전용. h/v_offset은 카메라 변환을 바꾸지 않아 투척 방향에 영향 없음)
+func add_shake(amount: float) -> void:
+	_shake = clampf(maxf(_shake, amount), 0.0, 1.0)
+
+
+func _process(delta: float) -> void:
+	_wind = move_toward(_wind, 1.0 if winding else 0.0, delta * 7.0)
+	_follow = maxf(0.0, _follow - delta * 4.0)
+	if _held:
+		var pose := HELD_REST.lerp(HELD_WIND, ease(_wind, -2.0))
+		pose = pose.lerp(HELD_FOLLOW, sin(_follow * PI) * (1.0 - _wind))
+		_held.position = pose
+		_held.rotation = Vector3(-_wind * 0.9, 0, 0)
+	if _arm:
+		var hand := _held.position if _held else HELD_REST
+		var shoulder := Vector3(0.28, -0.22, 0.1)
+		_arm.position = (shoulder + hand) * 0.5
+		_arm.scale = Vector3(1, 1, maxf(0.3, shoulder.distance_to(hand) / 0.45))
+		if shoulder.distance_to(hand) > 0.01:
+			_arm.look_at(head.to_global(hand), head.global_transform.basis.y)
+	_shake = maxf(0.0, _shake - delta * 1.8)
+	_shake_t += delta
+	var s := _shake * _shake * 0.35
+	camera.h_offset = sin(_shake_t * 47.0) * s
+	camera.v_offset = cos(_shake_t * 39.0) * s
 
 
 func _physics_process(delta: float) -> void:
@@ -164,6 +209,8 @@ func _physics_process(delta: float) -> void:
 
 	var zooming := Input.is_action_pressed("zoom") if InputMap.has_action("zoom") else false
 	var target_fov := zoom_fov if zooming else BASE_FOV
+	# 준비 자세에서는 살짝 조여서 집중되는 느낌
+	target_fov *= 1.0 - 0.08 * _wind
 	camera.fov = lerpf(camera.fov, target_fov, 1.0 - exp(-delta * 14.0))
 
 	var input := Vector2.ZERO
