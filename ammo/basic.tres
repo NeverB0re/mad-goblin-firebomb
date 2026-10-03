@@ -6,10 +6,10 @@
 script = ExtResource("1")
 display_name = "기본 화염병"
 weight = 1.0
-throw_speed = 40.0
+throw_speed = 30.0
 impact_radius = 3.0
 impact_strength = 30.0
 pool_radius = 2.5
 pool_duration = 5.0
 burn_multiplier = 1.0
-model_scale = 1.0
+model_scale = 1.15

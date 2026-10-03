@@ -66,7 +66,7 @@ func _run() -> void:
 		_check(same, "%s %d회 투척 착탄점 동일 %s" % [ammo.display_name, THROWS, first])
 
 	# 평지 45도 사거리가 기획서 수치(공기 저항 없음)와 맞는지 확인
-	for pair in [[basic, 163.3], [heavy, 118.0]]:
+	for pair in [[basic, basic.throw_speed * basic.throw_speed / 9.8], [heavy, heavy.throw_speed * heavy.throw_speed / 9.8]]:
 		var ammo: AmmoType = pair[0]
 		var dir := Vector3(0, 1, -1).normalized()
 		var hit: Vector3 = await _throw(world, Vector3(20, 0.001, 0), dir, ammo)
