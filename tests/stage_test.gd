@@ -5,6 +5,7 @@ extends SceneTree
 
 const G := 9.8
 const MAX_TIME := 50.0
+const D := StageDefs.DIST
 
 var _failures := 0
 
@@ -88,28 +89,28 @@ func _run() -> void:
 	# T1: 창고 앞 도리를 맞힌다
 	s = _new_stage(0)
 	await physics_frame
-	_throw_at(s, Vector3(0, 2.7, -58.5))
+	_throw_at(s, Vector3(0, 2.7, -D[0] + 1.5))
 	await _expect(s, Stage.State.CLEARED, "T1 창고 위쪽 명중")
 
 	# T1 실패: 전부 20m 앞에 던진다
 	s = _new_stage(0)
 	await physics_frame
 	for i in 5:
-		_throw_at(s, Vector3(0, 0, -40))
+		_throw_at(s, Vector3(0, 0, -D[0] + 20.0))
 		await _wait(s, 0.7)
 	await _expect(s, Stage.State.FAILED, "T1 전부 빗나감")
 
 	# T2: 앞쪽 가로대를 태워 두 기둥에 불을 옮긴다
 	s = _new_stage(1)
 	await physics_frame
-	_throw_at(s, Vector3(0, 1.4, -78.6))
+	_throw_at(s, Vector3(0, 1.4, -D[1] + 1.4))
 	await _expect(s, Stage.State.CLEARED, "T2 가로대 점화")
 
 	# T2: 석재만 맞히면 무너지지 않는다
 	s = _new_stage(1)
 	await physics_frame
 	for i in 5:
-		_throw_at(s, Vector3(0, 8.5, -78.2))
+		_throw_at(s, Vector3(0, 8.5, -D[1] + 1.8))
 		await _wait(s, 0.7)
 	await _expect(s, Stage.State.FAILED, "T2 석재만 명중")
 
@@ -117,18 +118,18 @@ func _run() -> void:
 	for y in [13.8, 13.0, 12.2, 11.4, 10.8]:
 		s = _new_stage(2)
 		await physics_frame
-		_throw_at(s, Vector3(0, y, -90.8))
+		_throw_at(s, Vector3(0, y, -D[2] - 0.8))
 		await _expect(s, Stage.State.CLEARED, "T3 밧줄 y=%.1f 명중" % y)
 	s = _new_stage(2)
 	await physics_frame
-	_throw_at(s, Vector3(0, 11.2, -90.05))
+	_throw_at(s, Vector3(0, 11.2, -D[2] - 0.05))
 	await _expect(s, Stage.State.CLEARED, "T3 추 앞면 명중")
 
 	# T3: 벽만 맞히면 무너지지 않는다
 	s = _new_stage(2)
 	await physics_frame
 	for i in 4:
-		_throw_at(s, Vector3(0, 4.0, -89.45))
+		_throw_at(s, Vector3(0, 4.0, -D[2] + 0.55))
 		await _wait(s, 0.7)
 	await _expect(s, Stage.State.FAILED, "T3 벽만 명중")
 
@@ -161,20 +162,20 @@ func _run() -> void:
 	# T5: 중량 화염병으로 같은 가로대
 	s = _new_stage(4)
 	await physics_frame
-	_throw_at(s, Vector3(0, 1.4, -78.6))
+	_throw_at(s, Vector3(0, 1.4, -D[4] + 1.4))
 	await _expect(s, Stage.State.CLEARED, "T5 중량 가로대 점화")
 
 	# T6: 화약통
 	s = _new_stage(5)
 	await physics_frame
-	_throw_at(s, Vector3(0.4, 0.5, -97.65))
+	_throw_at(s, Vector3(0.4, 0.5, -D[5] + 2.35))
 	await _expect(s, Stage.State.CLEARED, "T6 화약통 기본탄")
 
 	s = _new_stage(5)
 	await physics_frame
 	s.select_slot(1)
 	_check(s.current_ammo().display_name == "중량 화염병", "T6 탄종 교체")
-	_throw_at(s, Vector3(0.4, 0.5, -97.65))
+	_throw_at(s, Vector3(0.4, 0.5, -D[5] + 2.35))
 	await _expect(s, Stage.State.CLEARED, "T6 화약통 중량탄")
 
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)

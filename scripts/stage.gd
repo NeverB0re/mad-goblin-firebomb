@@ -71,13 +71,16 @@ func _make_ground() -> void:
 func set_zone(center: Vector3, half_extents: Vector2, yaw_deg := 0.0) -> void:
 	player = Player.new()
 	player.name = "Player"
-	player.position = center
+	# 바위 턱 끝 가까이에서 시작해 아래가 잘 보이게 한다
+	player.position = center + Vector3(0, 0, -half_extents.y + 0.6)
 	add_child(player)
 	player.rotation.y = deg_to_rad(yaw_deg)
 	player.set_zone(center, half_extents)
 	player.throw_requested.connect(try_throw)
 	player.slot_requested.connect(select_slot)
 	player.slot_cycle_requested.connect(func(step): cycle_slot(step))
+	if center.y > 0.1:
+		_make_perch(center, half_extents)
 	# 투척 구역 테두리
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.15, 0.15, 0.15)
@@ -94,6 +97,24 @@ func set_zone(center: Vector3, half_extents: Vector2, yaw_deg := 0.0) -> void:
 		line.material_override = mat
 		line.position = center + spec[0] + Vector3(0, 0.01, 0)
 		add_child(line)
+
+
+## 고블린이 올라선 높은 바위 턱. 앞쪽 끝이 투척 구역 바로 앞이라 아래를 내려다보며 던진다.
+func _make_perch(center: Vector3, half_extents: Vector2) -> void:
+	var rock := Color(0.33, 0.31, 0.3)
+	var rock_dark := Color(0.25, 0.24, 0.23)
+	var h := center.y
+	var front := center.z - half_extents.y - 0.3
+	var back := center.z + half_extents.y + 7.0
+	var wide := half_extents.x + 4.0
+	add_prop(Vector3(center.x, h * 0.5, (front + back) * 0.5), Vector3(wide * 2.0, h, back - front), rock)
+	# 아래로 갈수록 넓어지는 절벽 (로우폴리 층)
+	add_prop(Vector3(center.x, h * 0.3, (front + back) * 0.5 + 1.5), Vector3(wide * 2.0 + 4.0, h * 0.6, back - front + 6.0), rock_dark)
+	add_prop(Vector3(center.x - 2.0, h * 0.12, (front + back) * 0.5 + 2.5), Vector3(wide * 2.0 + 9.0, h * 0.24, back - front + 10.0), rock)
+	# 양옆과 뒤의 바위 턱 (앞은 비워 둔다)
+	for sx in [-1.0, 1.0]:
+		add_prop(Vector3(center.x + sx * (wide - 0.6), h + 0.6, center.z + 1.0), Vector3(1.2, 1.2, half_extents.y * 2.0 + 4.0), rock_dark)
+	add_prop(Vector3(center.x, h + 0.9, back - 0.8), Vector3(wide * 2.0, 1.8, 1.6), rock_dark)
 
 
 func add_structure() -> Structure:

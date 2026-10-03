@@ -1,6 +1,7 @@
 class_name StageDefs
 extends RefCounted
-## 테스트 스테이지 T1~T6. 플레이어는 원점 근처 투척 구역에서 -Z 방향을 본다.
+## 테스트 스테이지 T1~T6. 플레이어(미친 고블린)는 투척 구역 앞쪽 끝에서 시작한다.
+## 미친 고블린이 높은 바위 턱(투척 구역) 위에서 -Z 방향 아래쪽 목표를 내려다본다.
 
 const BASIC := preload("res://ammo/basic.tres")
 const HEAVY := preload("res://ammo/heavy.tres")
@@ -8,6 +9,13 @@ const M := Block.Mat
 
 const COUNT := 6
 const NAMES := ["T1", "T2", "T3", "T4", "T5", "T6"]
+## 투척 구역(바위 턱) 높이. 목표물은 지면(y=0)에 있어 내려다보며 던진다
+const PERCH_HEIGHT := 25.0
+## 스테이지별 목표 수평 거리 (m). 기본탄 최대 약 114m, 중량탄 약 85m (높이 25m 기준)
+const DIST := [50.0, 65.0, 70.0, 0.0, 65.0, 75.0]
+## T4 적 경로
+const T4_FROM := Vector3(-22, 0, -36)
+const T4_TO := Vector3(32, 0, -82)
 
 
 static func build(index: int, s: Stage) -> void:
@@ -22,15 +30,15 @@ static func build(index: int, s: Stage) -> void:
 
 
 static func _zone(s: Stage) -> void:
-	s.set_zone(Vector3(0, 0, 0), Vector2(3.0, 3.0))
+	s.set_zone(Vector3(0, PERCH_HEIGHT, 0), Vector2(3.0, 3.0))
 
 
-## T1. 얇은 목재 창고 60m, 기본 5발. 충격만으로 무너진다.
+## T1. 얇은 목재 창고, 기본 5발. 충격만으로 무너진다.
 static func _t1(s: Stage) -> void:
 	s.begin("T1", "T1 · 얇은 목재 창고", "창고를 무너뜨려 빨간 코어를 땅에 떨어뜨려라", Stage.Goal.CORE)
 	_zone(s)
 	s.add_ammo(BASIC, 5)
-	build_shed(s.add_structure(), Vector3(0, 0, -60))
+	build_shed(s.add_structure(), Vector3(0, 0, -DIST[0]))
 
 
 static func build_shed(st: Structure, c: Vector3) -> void:
@@ -68,12 +76,12 @@ static func build_shed(st: Structure, c: Vector3) -> void:
 			z += w
 
 
-## T2. 목재 기둥이 받치는 석재 망루 80m, 기본 5발.
+## T2. 목재 기둥이 받치는 석재 망루, 기본 5발.
 static func _t2(s: Stage) -> void:
 	s.begin("T2", "T2 · 석재 망루", "망루를 받치는 기둥을 태워 코어를 떨어뜨려라", Stage.Goal.CORE)
 	_zone(s)
 	s.add_ammo(BASIC, 5)
-	build_tower(s.add_structure(), Vector3(0, 0, -80))
+	build_tower(s.add_structure(), Vector3(0, 0, -DIST[1]))
 
 
 static func build_tower(st: Structure, c: Vector3) -> void:
@@ -97,13 +105,13 @@ static func build_tower(st: Structure, c: Vector3) -> void:
 	st.add_block(M.CORE, c + Vector3(0, y + 0.4, 0), Vector3(0.8, 0.8, 0.8))
 
 
-## T3. 밧줄에 매달린 추가 있는 석재 벽 90m, 기본 4발.
+## T3. 밧줄에 매달린 추가 있는 석재 벽, 기본 4발.
 static func _t3(s: Stage) -> void:
 	s.begin("T3", "T3 · 석재 벽과 매달린 추", "석재 벽 위의 코어를 떨어뜨려라", Stage.Goal.CORE)
 	_zone(s)
 	s.add_ammo(BASIC, 4)
 	var st := s.add_structure()
-	var c := Vector3(0, 0, -90)
+	var c := Vector3(0, 0, -DIST[2])
 	# 석재 벽 6m x 6m (2m 벽돌 3열)
 	for layer in 6:
 		for col in [-2.0, 0.0, 2.0]:
@@ -125,13 +133,13 @@ static func _t3(s: Stage) -> void:
 	weight.hanging = true
 
 
-## T4. 옆을 지나 멀어지는 적 1명 50~110m, 기본 6발.
+## T4. 옆을 지나 멀어지는 적 1명 약 40~85m, 기본 6발.
 static func _t4(s: Stage) -> void:
 	s.begin("T4", "T4 · 도망치는 적", "달아나는 적에게 불을 붙여라 (첫 투척과 함께 달린다)", Stage.Goal.ENEMY)
 	_zone(s)
 	s.add_ammo(BASIC, 6)
-	var from := Vector3(-28, 0, -42)
-	var to := Vector3(42, 0, -100)
+	var from := T4_FROM
+	var to := T4_TO
 	s.add_enemy(from, to, 4.5)
 	# 길을 따라 일정한 간격의 울타리 기둥
 	var dir := (to - from).normalized()
@@ -154,17 +162,17 @@ static func _t5(s: Stage) -> void:
 	s.begin("T5", "T5 · 석재 망루 (중량 화염병)", "무게가 달라진 화염병으로 망루를 무너뜨려라", Stage.Goal.CORE)
 	_zone(s)
 	s.add_ammo(HEAVY, 5)
-	build_tower(s.add_structure(), Vector3(0, 0, -80))
+	build_tower(s.add_structure(), Vector3(0, 0, -DIST[4]))
 
 
-## T6. 화약통이 있는 석재 건물 100m, 기본 3발 + 중량 3발.
+## T6. 화약통이 있는 석재 건물, 기본 3발 + 중량 3발.
 static func _t6(s: Stage) -> void:
 	s.begin("T6", "T6 · 화약통과 석재 탑", "1/2 키나 휠로 탄종을 바꿀 수 있다", Stage.Goal.CORE)
 	_zone(s)
 	s.add_ammo(BASIC, 3)
 	s.add_ammo(HEAVY, 3)
 	var st := s.add_structure()
-	var c := Vector3(0, 0, -100)
+	var c := Vector3(0, 0, -DIST[5])
 	for layer in 6:
 		for sx in [-1, 1]:
 			for sz in [-1, 1]:
