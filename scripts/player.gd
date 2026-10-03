@@ -81,34 +81,70 @@ func set_held_model(model_scale: float) -> void:
 	head.add_child(_held)
 
 
-## 단색 로우폴리 몸체 (SUPERHOT 풍의 어두운 인형).
+## 미친 고블린: 초록 피부, 큰 머리와 뾰족한 귀, 구부정한 몸, 누더기 조끼 (단색 로우폴리).
 func _build_body() -> void:
 	_body = Node3D.new()
 	add_child(_body)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.2, 0.21, 0.24)
+	mat.albedo_color = Color(0.36, 0.56, 0.22)
 	mat.roughness = 0.8
+	var cloth := StandardMaterial3D.new()
+	cloth.albedo_color = Color(0.36, 0.24, 0.14)
+	cloth.roughness = 1.0
+	var eye_mat := StandardMaterial3D.new()
+	eye_mat.albedo_color = Color(1.0, 0.85, 0.1)
+	eye_mat.emission_enabled = true
+	eye_mat.emission = Color(1.0, 0.7, 0.0)
+	# 구부정하게 앞으로 숙인 몸통과 조끼
 	var torso := MeshInstance3D.new()
 	var cap := CapsuleMesh.new()
-	cap.radius = 0.3
-	cap.height = 1.35
+	cap.radius = 0.32
+	cap.height = 1.1
 	cap.radial_segments = 8
 	cap.rings = 2
 	torso.mesh = cap
 	torso.material_override = mat
-	torso.position = Vector3(0, 0.68, 0)
+	torso.position = Vector3(0, 0.75, 0.05)
+	torso.rotation.x = -0.3
 	_body.add_child(torso)
+	var vest := MeshInstance3D.new()
+	var vest_mesh := BoxMesh.new()
+	vest_mesh.size = Vector3(0.62, 0.5, 0.5)
+	vest.mesh = vest_mesh
+	vest.material_override = cloth
+	vest.position = Vector3(0, 0.82, 0.02)
+	vest.rotation.x = -0.3
+	_body.add_child(vest)
+	# 큰 머리, 뾰족한 귀, 빛나는 눈
 	var head_mesh := MeshInstance3D.new()
 	var sph := SphereMesh.new()
-	sph.radius = 0.19
-	sph.height = 0.38
+	sph.radius = 0.27
+	sph.height = 0.5
 	sph.radial_segments = 8
 	sph.rings = 4
 	head_mesh.mesh = sph
 	head_mesh.material_override = mat
-	head_mesh.position = Vector3(0, 1.57, 0)
+	head_mesh.position = Vector3(0, 1.5, -0.12)
 	_body.add_child(head_mesh)
-	# 오른팔: 어깨에서 손(투척 출발점)까지, 시점의 위아래 각도를 따라 움직인다
+	for sx in [-1.0, 1.0]:
+		var ear := MeshInstance3D.new()
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = 0.09
+		cone.height = 0.45
+		cone.radial_segments = 4
+		ear.mesh = cone
+		ear.material_override = mat
+		ear.position = Vector3(sx * 0.33, 1.58, -0.1)
+		ear.rotation = Vector3(0, 0, -sx * 1.25)
+		_body.add_child(ear)
+		var eye := MeshInstance3D.new()
+		var eye_mesh := BoxMesh.new()
+		eye_mesh.size = Vector3(0.08, 0.05, 0.03)
+		eye.mesh = eye_mesh
+		eye.material_override = eye_mat
+		eye.position = Vector3(sx * 0.1, 1.55, -0.38)
+		_body.add_child(eye)	# 오른팔: 어깨에서 손(투척 출발점)까지, 시점의 위아래 각도를 따라 움직인다
 	var arm := MeshInstance3D.new()
 	var arm_mesh := BoxMesh.new()
 	arm_mesh.size = Vector3(0.12, 0.12, 0.45)
