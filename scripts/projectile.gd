@@ -8,7 +8,10 @@ signal impacted(projectile: Projectile, position: Vector3, normal: Vector3, coll
 const GRAVITY := 9.8
 ## 1 = 지형/블록, 2 = 적
 const HIT_MASK := 1 | 2
-const MAX_TIME := 20.0
+const MAX_TIME := 25.0
+## 비행 시계 배율. 궤적(착탄점)은 그대로 두고 날아가는 시간만 늘려 무게감을 준다.
+## 투척 속도 × k, 중력 × k² 로 바꾼 것과 같아서 사거리 표는 변하지 않는다.
+const FLIGHT_TIME_SCALE := 0.8
 
 var ammo: AmmoType
 var velocity := Vector3.ZERO
@@ -67,4 +70,4 @@ func step(dt: float) -> void:
 
 
 func _physics_process(_delta: float) -> void:
-	step(1.0 / Engine.physics_ticks_per_second)
+	step(FLIGHT_TIME_SCALE / Engine.physics_ticks_per_second)

@@ -34,7 +34,8 @@ static func aim(origin: Vector3, target: Vector3, v: float) -> Vector3:
 
 static func flight_time(origin: Vector3, target: Vector3, dir: Vector3, v: float) -> float:
 	var x := Vector2(target.x - origin.x, target.z - origin.z).length()
-	return x / (v * Vector2(dir.x, dir.z).length())
+	# 비행 시계 배율만큼 실제 시간은 더 걸린다
+	return x / (v * Vector2(dir.x, dir.z).length()) / Projectile.FLIGHT_TIME_SCALE
 
 
 func _point_player(stage: Stage, target: Vector3) -> void:
