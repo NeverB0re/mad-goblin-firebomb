@@ -112,11 +112,16 @@ func _run() -> void:
 		await _wait(s, 0.7)
 	await _expect(s, Stage.State.FAILED, "T2 석재만 명중")
 
-	# T3: 추 앞면(밧줄 근처)을 맞힌다
+	# T3: 밧줄의 어느 높이를 맞혀도 추가 떨어져 코어를 쳐내야 한다
+	for y in [13.8, 13.0, 12.2, 11.4, 10.8]:
+		s = _new_stage(2)
+		await physics_frame
+		_throw_at(s, Vector3(0, y, -90.8))
+		await _expect(s, Stage.State.CLEARED, "T3 밧줄 y=%.1f 명중" % y)
 	s = _new_stage(2)
 	await physics_frame
-	_throw_at(s, Vector3(0, 11.2, -88.55))
-	await _expect(s, Stage.State.CLEARED, "T3 밧줄 근처 명중")
+	_throw_at(s, Vector3(0, 11.2, -90.05))
+	await _expect(s, Stage.State.CLEARED, "T3 추 앞면 명중")
 
 	# T3: 벽만 맞히면 무너지지 않는다
 	s = _new_stage(2)

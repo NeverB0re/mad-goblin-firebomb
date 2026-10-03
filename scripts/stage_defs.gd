@@ -109,18 +109,19 @@ static func _t3(s: Stage) -> void:
 		for col in [-2.0, 0.0, 2.0]:
 			st.add_block(M.STONE, c + Vector3(col, layer + 0.5, 0), Vector3(2.0, 1.0, 1.0))
 	st.add_block(M.CORE, c + Vector3(0, 6.4, 0), Vector3(0.8, 0.8, 0.8))
-	# 석재 기둥과 팔
+	# 석재 기둥과 팔. 추는 코어 뒤쪽 모서리에 걸치게 매달아, 떨어지면 코어를 짓누르지 않고 벽 앞쪽으로 쳐낸다
+	var hang_z := -0.9
 	var post_h := 15.0
-	st.add_block(M.STONE, c + Vector3(-4.5, post_h * 0.5, 0.6), Vector3(1.0, post_h, 1.0))
-	st.add_block(M.STONE, c + Vector3(-2.25, post_h + 0.4, 0.6), Vector3(5.5, 0.8, 1.0))
+	st.add_block(M.STONE, c + Vector3(-4.5, post_h * 0.5, hang_z), Vector3(1.0, post_h, 1.0))
+	st.add_block(M.STONE, c + Vector3(-2.25, post_h + 0.4, hang_z), Vector3(5.5, 0.8, 1.0))
 	# 밧줄 (두 마디) + 추
 	var rope_top := post_h
 	var rope_len := 3.0
 	for i in 2:
-		var r := st.add_block(M.ROPE, c + Vector3(0, rope_top - rope_len * 0.25 - i * rope_len * 0.5, 0.6), Vector3(0.18, rope_len * 0.5, 0.18))
+		var r := st.add_block(M.ROPE, c + Vector3(0, rope_top - rope_len * 0.25 - i * rope_len * 0.5, hang_z), Vector3(0.18, rope_len * 0.5, 0.18))
 		r.hanging = true
 	var wsize := 1.6
-	var weight := st.add_block(M.WEIGHT, c + Vector3(0, rope_top - rope_len - wsize * 0.5, 0.6), Vector3(wsize, wsize, wsize))
+	var weight := st.add_block(M.WEIGHT, c + Vector3(0, rope_top - rope_len - wsize * 0.5, hang_z), Vector3(wsize, wsize, wsize))
 	weight.hanging = true
 
 

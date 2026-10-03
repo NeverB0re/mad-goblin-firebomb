@@ -12,11 +12,11 @@ const IMPACT_K := 2.2
 ## joint: 연결 강도, ignite: 점화에 필요한 누적 열(초), burn: 다 타는 시간(초, -1 = 굵기로 계산)
 ## ratio: 처음 받침 수 중 몇 비율이 남아야 버티는지 (0 = 받침 규칙 없음)
 const INFO := {
-	Mat.WOOD_THIN: {"color": Color(0.82, 0.64, 0.42), "density": 0.6, "joint": 10.0, "flammable": true, "ignite": 0.8, "burn": 8.0, "ratio": 1.0},
-	Mat.WOOD_BEAM: {"color": Color(0.30, 0.18, 0.09), "density": 0.7, "joint": 70.0, "flammable": true, "ignite": 2.0, "burn": -1.0, "ratio": 1.0},
+	Mat.WOOD_THIN: {"color": Color(0.82, 0.64, 0.42), "density": 0.6, "joint": 10.0, "flammable": true, "ignite": 0.4, "burn": 3.5, "ratio": 1.0},
+	Mat.WOOD_BEAM: {"color": Color(0.30, 0.18, 0.09), "density": 0.7, "joint": 70.0, "flammable": true, "ignite": 0.8, "burn": -1.0, "ratio": 1.0},
 	Mat.STONE: {"color": Color(0.64, 0.65, 0.68), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
-	Mat.ROPE: {"color": Color(0.86, 0.78, 0.55), "density": 0.5, "joint": 15.0, "flammable": true, "ignite": 0.5, "burn": 4.0, "ratio": 0.0},
-	Mat.STRAW: {"color": Color(0.94, 0.83, 0.36), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.2, "burn": 4.0, "ratio": 1.0},
+	Mat.ROPE: {"color": Color(0.86, 0.78, 0.55), "density": 0.5, "joint": 15.0, "flammable": true, "ignite": 0.3, "burn": 2.0, "ratio": 0.0},
+	Mat.STRAW: {"color": Color(0.94, 0.83, 0.36), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.15, "burn": 2.0, "ratio": 1.0},
 	Mat.KEG: {"color": Color(0.06, 0.06, 0.06), "density": 0.9, "joint": 30.0, "flammable": true, "ignite": 0.3, "burn": 0.8, "ratio": 1.0},
 	Mat.CORE: {"color": Color(0.92, 0.07, 0.07), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 1.0},
 	Mat.WEIGHT: {"color": Color(0.16, 0.16, 0.18), "density": 7.8, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.0},
@@ -49,6 +49,8 @@ var _fire: GPUParticles3D
 var _last_velocity := Vector3.ZERO
 var _impact_cooldown := 0.0
 var _burn_clock := 0.0
+var _react := 0.0
+var _react_dir := Vector3.ZERO
 
 
 func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
@@ -61,9 +63,9 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 	mass = maxf(0.05, size.x * size.y * size.z * info.density)
 	burn_time = info.burn
 	if burn_time < 0.0:
-		# 목재는 굵기에 따라 약 8~20초 뒤 끊어진다
+		# 목재는 굵기에 따라 약 3~8초 뒤 끊어진다 (기획서 초기값 8~20초에서 플레이 피드백으로 단축)
 		var thick := minf(size.x, minf(size.y, size.z))
-		burn_time = 8.0 + 12.0 * clampf((thick - 0.2) / 0.6, 0.0, 1.0)
+		burn_time = 3.0 + 5.0 * clampf((thick - 0.2) / 0.6, 0.0, 1.0)
 	freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
 	freeze = true
 	collision_layer = 1
@@ -177,6 +179,11 @@ func _unfreeze(impulse: Vector3) -> void:
 	sleeping = false
 	if impulse != Vector3.ZERO:
 		apply_central_impulse(impulse)
+		# 날아가는 방향에 수직한 축으로 굴러가듯 회전 (결정적, 무작위 없음)
+		var axis := impulse.cross(Vector3.UP)
+		if axis.length() < 0.001:
+			axis = Vector3.RIGHT * impulse.length()
+		apply_torque_impulse(axis * 0.25 * maxf(size.length(), 0.5))
 
 
 func _physics_process(delta: float) -> void:
@@ -212,12 +219,35 @@ func _on_body_entered(other: Node) -> void:
 	var speed := _last_velocity.length()
 	if speed < 2.0:
 		return
-	_impact_cooldown = 0.3
 	var energy := mass * speed * IMPACT_K
 	if other is Block and not other.fallen and other.structure:
+		# 함께 떨어지는 잔해(끊어진 밧줄 등)와 닿은 것은 무시하고, 서 있는 블록을 칠 때만 쿨다운을 건다
+		_impact_cooldown = 0.3
 		var dir: Vector3 = (other.global_position - global_position).normalized()
 		var contact := global_position + dir * minf(size.y, size.length()) * 0.5
 		var radius := clampf(size.length() * 1.2, 1.0, 3.0)
 		other.structure.call_deferred("apply_impact", contact, radius, energy)
 	if structure and energy > 120.0:
 		structure.notify_heavy_landing(global_position, energy)
+
+
+## 충격을 받은 블록의 과장된 반응: 하얗게 번쩍이며 충격 방향으로 흔들린다 (연출 전용, 물리 무관).
+func hit_react(amount: float, from: Vector3) -> void:
+	_react = maxf(_react, clampf(amount, 0.2, 1.0))
+	var dir := global_position - from
+	_react_dir = dir.normalized() if dir.length() > 0.01 else Vector3.UP
+
+
+func _process(delta: float) -> void:
+	if _react <= 0.0:
+		return
+	_react = maxf(0.0, _react - delta * 3.0)
+	var wobble := sin(_react * 40.0) * _react
+	_mesh.position = _react_dir * wobble * 0.12
+	_mesh.scale = Vector3.ONE * (1.0 + _react * 0.08)
+	var base := _base_color.lerp(CHAR_COLOR, clampf(1.0 - health, 0.0, 1.0))
+	_material.albedo_color = base.lerp(Color(1.0, 0.95, 0.8), _react * 0.8)
+	if _react <= 0.0:
+		_mesh.position = Vector3.ZERO
+		_mesh.scale = Vector3.ONE
+		_material.albedo_color = base

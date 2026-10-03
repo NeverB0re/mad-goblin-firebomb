@@ -45,7 +45,11 @@ func _run() -> void:
 				if b.fallen: fallen += 1
 		var core_info := ""
 		for c in get_nodes_in_group("core"):
-			core_info = "core fallen=%s low=%.2f ground=%s frz=%s slp=%s v=%.2f" % [c.fallen, c.lowest_point(), c.touched_ground, c.freeze, c.sleeping, c.linear_velocity.y]
+			core_info = "core z=%.2f fallen=%s low=%.2f ground=%s frz=%s slp=%s v=%.2f" % [c.global_position.z, c.fallen, c.lowest_point(), c.touched_ground, c.freeze, c.sleeping, c.linear_velocity.y]
+		for st in s.structures:
+			for b in st.blocks:
+				if b.mat == Block.Mat.WEIGHT:
+					core_info += " weight=(%.1f,%.1f,%.1f) fallen=%s" % [b.global_position.x, b.global_position.y, b.global_position.z, b.fallen]
 		var line := "burning=%d fallen=%d/%d %s state=%d" % [burning, fallen, total, core_info, s.state]
 		if line != last:
 			print("t=%.2f %s" % [s.elapsed, line])

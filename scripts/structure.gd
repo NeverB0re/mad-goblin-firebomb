@@ -111,6 +111,13 @@ func _count_below(b: Block) -> int:
 
 ## 거리 감쇠 충격. 끊긴 연결 수를 돌려준다.
 func apply_impact(pos: Vector3, radius: float, strength: float) -> int:
+	# 범위 안 블록은 끊기지 않아도 번쩍이며 흔들린다
+	for b in blocks:
+		if b.fallen:
+			continue
+		var bd := b.distance_to_point(pos)
+		if bd < radius * 1.3:
+			b.hit_react(strength * (1.0 - bd / (radius * 1.3)) / 40.0, pos)
 	var broken := 0
 	for j in joints:
 		if j.broken:
@@ -183,13 +190,15 @@ func _drop(b: Block, origin: Vector3, strength: float, radius: float) -> void:
 		j.broken = true
 	var impulse := Vector3.ZERO
 	if origin != Vector3.INF and radius > 0.0:
-		# 충격으로 떨어지는 블록은 착탄점 반대쪽으로 밀려난다 (속도 변화량 기준)
+		# 충격으로 떨어지는 블록은 착탄점 반대쪽으로 과장되게 튕겨 나가며 위로 솟고 회전한다
 		var d := b.global_position.distance_to(origin)
 		if d < radius * 1.5:
-			# 가벼운 판자는 튕겨 나가고 무거운 석재나 추는 거의 밀리지 않는다
-			var dir := (b.global_position - origin).normalized()
+			var away := b.global_position - origin
+			var flat := Vector3(away.x, 0.0, away.z)
+			var dir := (away.normalized() * 0.4 + flat.normalized() * 1.2 + Vector3.UP * 0.5).normalized()
 			var falloff := 1.0 - d / (radius * 1.5)
-			impulse = dir * minf(strength * 0.15 * falloff, b.mass * 8.0)
+			# 가벼운 판자는 크게 튕기고 무거운 석재나 추는 덜 밀린다
+			impulse = dir * minf(strength * 0.35 * falloff, b.mass * 14.0)
 	b.drop(impulse)
 
 
