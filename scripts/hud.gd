@@ -35,6 +35,8 @@ func _ready() -> void:
 	dot.color = Color(1, 1, 1)
 	dot.size = Vector2(2, 2)
 	dot.position = Vector2(2, 2)
+	# 마우스가 캡처되면 커서가 화면 중앙(이 점 위)에 있으므로 입력을 가로채지 않게 한다
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dot_bg.add_child(dot)
 
 	_title = _label(root, 24)
