@@ -2,6 +2,7 @@ class_name Player
 extends CharacterBody3D
 ## 3인칭(어깨 너머) 플레이어. 투척 구역 안에서만 이동하고, 시선의 위아래 각도가 곧 투척 각도다.
 ## 투척 출발점(오른손)은 카메라 중심선 위에 있어서 화면 중앙의 점과 투척 방향이 정확히 일치한다.
+## 좌클릭을 누르고 있으면 카메라가 같은 중심선을 따라 앞으로 미끄러져 1인칭으로 줌인한다.
 
 signal throw_requested(origin: Vector3, direction: Vector3)
 signal slot_requested(index: int)
@@ -15,6 +16,8 @@ const EYE_HEIGHT := 1.6
 const CAMERA_OFFSET := Vector3(0.55, 0.3, 3.2)
 ## 오른손 위치 = 카메라 중심선 위의 앞쪽 점
 const HAND_FORWARD := 0.45
+## 준비 자세(1인칭)에서의 카메라 깊이. 중심선 위에서 z만 바뀌므로 조준은 그대로다
+const FIRST_PERSON_Z := 0.1
 const THROW_COOLDOWN := 0.6
 
 var zone_min := Vector2(-3, -3)
@@ -36,7 +39,8 @@ var _shake := 0.0
 var _shake_t := 0.0
 
 const HELD_REST := Vector3(0.45, -0.32, -0.35)
-const HELD_WIND := Vector3(0.55, 0.22, 0.4)
+## 1인칭 화면 오른쪽 아래에 들어 올린 화염병이 살짝 보이는 위치
+const HELD_WIND := Vector3(1.2, 0.02, -0.62)
 const HELD_FOLLOW := Vector3(0.3, -0.05, -0.75)
 
 
@@ -122,13 +126,14 @@ func set_zone(center: Vector3, half_extents: Vector2) -> void:
 
 
 ## 화면 중앙(조준점)에서 나가는 투척 방향과 출발점.
+## 카메라가 줌인 중이어도 값이 바뀌지 않도록 시점 회전 중심(head) 기준으로 계산한다.
 func throw_direction() -> Vector3:
-	return -camera.global_transform.basis.z
+	return -head.global_transform.basis.z
 
 
 func throw_origin() -> Vector3:
 	# 카메라 중심선 위, 플레이어 오른손 위치
-	return camera.global_position + throw_direction() * (CAMERA_OFFSET.z + HAND_FORWARD)
+	return head.global_transform * Vector3(CAMERA_OFFSET.x, CAMERA_OFFSET.y, -HAND_FORWARD)
 
 
 func look_at_angles(yaw: float, pitch_rad: float) -> void:
@@ -194,6 +199,13 @@ func _process(delta: float) -> void:
 		_arm.scale = Vector3(1, 1, maxf(0.3, shoulder.distance_to(hand) / 0.45))
 		if shoulder.distance_to(hand) > 0.01:
 			_arm.look_at(head.to_global(hand), head.global_transform.basis.y)
+	# 준비 자세: 같은 중심선을 따라 1인칭까지 줌인, 몸은 숨긴다
+	var fp := ease(_wind, -2.0)
+	camera.position = Vector3(CAMERA_OFFSET.x, CAMERA_OFFSET.y, lerpf(CAMERA_OFFSET.z, FIRST_PERSON_Z, fp))
+	if _body:
+		_body.visible = fp < 0.6
+	if _arm:
+		_arm.visible = fp < 0.6
 	_shake = maxf(0.0, _shake - delta * 1.8)
 	_shake_t += delta
 	var s := _shake * _shake * 0.35
