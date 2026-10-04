@@ -11,6 +11,7 @@ extends CanvasLayer
 ##  6. 언덕 위의 미친 고블린이 화염병에 불을 붙인다
 ## 엔딩: 후방의 탄도미사일 발사 → 본진이 박살 나며 지휘관이 날아감 → 그을린 부족장과 고블린들이 기뻐한다.
 ## 월드 시작 (두 칸): 그 월드의 인간 지휘관이 부족장을 내세워 으름장 → 고블린들이 새 무기에 불을 붙이며 웃는다.
+## 4월드만 세 칸: 으름장 → 그을린 동료가 발사대의 거대 로켓을 보여 준다 → 동료가 조명탄을 건넨다 (조명탄 불빛을 보고 로켓이 날아간다).
 
 signal finished
 
@@ -41,7 +42,8 @@ func panel_count() -> int:
 			return 6
 		Mode.ENDING:
 			return 3
-	return 2
+	# 4월드는 한 칸 더: 동료가 로켓을 보여 주고 조명탄을 건넨다
+	return 3 if world == 3 else 2
 
 
 func _ready() -> void:
@@ -327,8 +329,11 @@ func _rain(c: CanvasItem, s: Vector2, t: float) -> void:
 
 
 ## 2. 고블린들이 이 월드의 새 무기에 불을 붙이며 웃는다.
-## 1월드 화염탄, 2월드 기름병(비), 3월드 조명탄(밤), 4월드 플레어건과 미사일, 5월드 고폭탄.
+## 1월드 화염탄, 2월드 기름병(비), 3월드 조명탄(밤), 4월드 로켓(동료가 발사대의 거대 로켓을 보여 준다), 5월드 고폭탄.
 func _world_2(c: CanvasItem, s: Vector2, t: float) -> void:
+	if world == 3:
+		_rocket_intro(c, s, t)
+		return
 	match world:
 		1:
 			A.backdrop(c, s, Color(0.35, 0.37, 0.4), Color(0.58, 0.58, 0.58), Color(0.36, 0.32, 0.28), 0.8)
@@ -336,14 +341,45 @@ func _world_2(c: CanvasItem, s: Vector2, t: float) -> void:
 			A.backdrop(c, s, Color(0.1, 0.1, 0.2), Color(0.3, 0.25, 0.35), Color(0.3, 0.26, 0.24), 0.8)
 		_:
 			A.backdrop(c, s, Color(0.98, 0.62, 0.3), Color(1.0, 0.85, 0.5), Color(0.55, 0.42, 0.3), 0.8)
-	if world == 3:
-		A.rocket(c, Vector2(s.x * 0.6, s.y * 0.45), 1.2, -0.5, t)
-	var kinds := [0, 2, 0, 0, 1]
+	var kinds := [0, 2, 3, 3, 1]
 	for i in 3:
-		var pose := {"grin": true, "bounce": true, "bomb": world != 3, "bomb_kind": kinds[world % kinds.size()], "arms_up": world == 3}
+		var pose := {"grin": true, "bounce": true, "bomb": true, "bomb_kind": kinds[world % kinds.size()]}
 		A.goblin(c, Vector2(s.x * (0.18 + i * 0.32), s.y * 1.02), 2.0, pose, t + i)
 	if world == 1:
 		_rain(c, s, t)
 	if world == 2:
 		# 조명탄: 하늘에 솟은 밝은 불꽃
 		A.boom(c, Vector2(s.x * 0.5, s.y * 0.2), 30.0, t, 9)
+
+
+## 4월드 2칸: 그을린 동료 고블린이 나무 발사대에 세운 거대 로켓을 자랑스럽게 보여 준다. 미친 고블린은 눈이 휘둥그레.
+func _rocket_intro(c: CanvasItem, s: Vector2, t: float) -> void:
+	A.backdrop(c, s, Color(0.5, 0.62, 0.8), Color(0.85, 0.85, 0.8), Color(0.45, 0.42, 0.36), 0.8)
+	var base := Vector2(s.x * 0.52, s.y * 0.8)
+	for sx in [-1.0, 1.0]:
+		A.line(c, base + Vector2(sx * 60, 0), base + Vector2(sx * 22, -s.y * 0.62), 9.0, A.WOOD)
+	A.line(c, base + Vector2(-48, -s.y * 0.25), base + Vector2(48, -s.y * 0.25), 7.0, A.WOOD)
+	# 하늘을 향해 선 로켓 (아직 불 안 붙음)
+	A.rocket(c, base + Vector2(0, -s.y * 0.38), 1.25 * s.y / 300.0, -PI * 0.5, t, false)
+	A.goblin(c, Vector2(s.x * 0.22, s.y * 1.0), 1.7, {"arms_up": true, "grin": true, "soot": true, "bounce": true}, t)
+	A.goblin(c, Vector2(s.x * 0.84, s.y * 1.0), 1.7, {"grin": true, "crazy": true, "flip": true}, t + 1.0)
+	A.speed_lines(c, Vector2(s.x * 0.72, s.y * 0.55), Vector2(-1, -0.3), 3, 30)
+
+
+## 4월드 3칸: 동료가 조명탄을 건넨다. 하늘의 조명탄 불빛을 향해 로켓이 날아가는 모습이 말풍선 그림으로 떠 있다.
+func _world_3(c: CanvasItem, s: Vector2, t: float) -> void:
+	A.backdrop(c, s, Color(0.98, 0.62, 0.3), Color(1.0, 0.85, 0.5), Color(0.55, 0.42, 0.3), 0.8)
+	# 생각 그림: 조명탄 불빛 → 로켓 → 쾅
+	var bubble := Vector2(s.x * 0.5, s.y * 0.3)
+	A.ellipse(c, bubble, Vector2(s.x * 0.36, s.y * 0.22), Color(1, 1, 1, 0.92))
+	for k in 3:
+		A.ellipse(c, Vector2(s.x * (0.62 + k * 0.06), s.y * (0.55 + k * 0.07)), Vector2(10 - k * 3, 8 - k * 2), Color(1, 1, 1, 0.92), 2.0)
+	var flare := bubble + Vector2(s.x * 0.2, -s.y * 0.04)
+	c.draw_circle(flare, 16.0 * (1.0 + 0.2 * sin(t * 18.0)), Color(1.0, 0.82, 0.15))
+	c.draw_circle(flare, 8.0, Color(1.0, 1.0, 0.85))
+	A.boom(c, flare + Vector2(0, s.y * 0.1), 18.0, t, 9)
+	var k2 := fmod(t * 0.5, 1.0)
+	A.rocket(c, bubble + Vector2(-s.x * 0.24 + k2 * s.x * 0.3, s.y * 0.1 - k2 * s.y * 0.06), 0.6, -0.2, t)
+	# 동료가 조명탄을 건네고, 미친 고블린이 받는다
+	A.goblin(c, Vector2(s.x * 0.3, s.y * 1.0), 1.8, {"bomb": true, "bomb_kind": 3, "grin": true, "soot": true}, t)
+	A.goblin(c, Vector2(s.x * 0.72, s.y * 1.0), 1.8, {"arms_up": true, "grin": true, "crazy": true, "flip": true, "bounce": true}, t + 0.5)

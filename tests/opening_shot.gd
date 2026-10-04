@@ -47,13 +47,21 @@ func _run() -> void:
 	print("  ", "PASS" if ending.panel_count() == 3 else "FAIL", " 엔딩 3컷")
 	ending.finish()
 	await _frames(30)
-	# 월드 시작 컷 (5월드)
+	# 월드 시작 컷 (5월드, 4월드는 로켓 소개까지 세 칸)
+	var probe := Opening.new(Opening.Mode.WORLD, 3)
+	var four_ok := probe.panel_count() == 3
+	probe.free()
+	if not four_ok:
+		_failures += 1
+	print("  ", "PASS" if four_ok else "FAIL", " 4월드 시작 컷은 로켓 소개와 조명탄 건네기까지 세 칸")
 	for w in 5:
 		var card := Opening.new(Opening.Mode.WORLD, w)
 		root.add_child(card)
 		await _frames(30)
-		card.reveal_next()
-		await _frames(40)
+		for k in card.panel_count() - 1:
+			card.reveal_next()
+			await _frames(20)
+		await _frames(30)
 		root.get_texture().get_image().save_png("res://tests/out/world_%d.png" % (w + 1))
 		card.finish()
 		await _frames(25)

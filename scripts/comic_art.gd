@@ -92,6 +92,13 @@ static func bomb(c: CanvasItem, p: Vector2, s: float, lit := true, t := 0.0, kin
 			line(c, p + Vector2(-13, -2) * s, p + Vector2(13, -2) * s, 3.0 * s, Color(0.55, 0.5, 0.45))
 		2:
 			shape(c, PackedVector2Array([p + Vector2(-9, -10) * s, p + Vector2(9, -10) * s, p + Vector2(12, 10) * s, p + Vector2(-12, 10) * s]), Color(0.55, 0.34, 0.18))
+		3:
+			# 조명탄: 가늘고 긴 종이 통, 끝에서 하얗게 타오른다
+			rect(c, p + Vector2(-5, -18) * s, Vector2(10, 34) * s, Color(0.93, 0.86, 0.6), 2.0)
+			for y in [-8.0, 6.0]:
+				line(c, p + Vector2(-5, y) * s, p + Vector2(5, y) * s, 3.0 * s, Color(0.25, 0.2, 0.15))
+			if lit:
+				c.draw_circle(p + Vector2(0, -22) * s, 11.0 * s * (1.0 + 0.15 * sin(t * 25.0)), Color(1.0, 1.0, 0.85, 0.8))
 		_:
 			ellipse(c, p, Vector2(11, 12) * s, Color(0.12, 0.12, 0.13))
 			rect(c, p + Vector2(-4, -19) * s, Vector2(8, 8) * s, Color(0.12, 0.12, 0.13), 2.0)
@@ -247,9 +254,10 @@ static func hut(c: CanvasItem, base: Vector2, w: float, h: float, burning := fal
 
 
 ## 탄도미사일 (가죽끈으로 묶은 거대 로켓). angle: 진행 방향 라디안.
-static func rocket(c: CanvasItem, p: Vector2, s: float, angle: float, t := 0.0) -> void:
+static func rocket(c: CanvasItem, p: Vector2, s: float, angle: float, t := 0.0, lit := true) -> void:
 	c.draw_set_transform(p, angle, Vector2.ONE * s)
-	boom(c, Vector2(-70, 0), 22, t, 8)
+	if lit:
+		boom(c, Vector2(-70, 0), 22, t, 8)
 	shape(c, PackedVector2Array([Vector2(-60, -14), Vector2(40, -14), Vector2(70, 0), Vector2(40, 14), Vector2(-60, 14)]), Color(0.18, 0.18, 0.19))
 	for x in [-40.0, 0.0]:
 		rect(c, Vector2(x, -16), Vector2(8, 32), Color(0.45, 0.3, 0.16), 2.0)
