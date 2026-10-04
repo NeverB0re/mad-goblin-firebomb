@@ -1,26 +1,37 @@
 class_name ResultScreen
 extends CanvasLayer
-## 승리 연출과 실패 그림 (확장 기획서 7장). 판정이 끝난 뒤에만 시간을 늦추므로 영점과 무관하다.
+## 승리 연출과 실패 그림. 판정이 끝난 뒤에만 시간을 늦추므로 영점과 무관하다.
 ##
-## 승리 (약 3초): 추적 카메라 시점이 전체 화면으로 → 0.25배속, 소리 먹먹, 가장자리 어둡게 →
-## 지휘관이 비명을 지르며 팽이처럼 날아감 → 0.9초 뒤 멈춤 + 흰 플래시 + 기울어진 "박살!" →
-## 남은 탄약과 버튼. 아무 입력이나 누르면 바로 넘어간다 (R은 다시 하기).
-## 실패: 고블린 그림 한 장(1.2초) + 원인 한 줄 → 다시 하기. 아무 입력이나 누르면 넘어간다.
+## 승리: 쓰러진 방식에 따라 다르게 찍고, 마지막에 화면을 멈추고 흰 플래시 + 기울어진 "박살!" + 버튼.
+##  - 날아감 (직격·폭발): 과장되게 날아가는 모습을 옆에서 따라가며 잠시 감상 → 공중에서 확대샷
+##  - 불탐: 날아가지 않고 불붙어 당황하는 모습을 정면에서
+##  - 깔림·추락: 줌을 당겨 무너진 건물과 깔린 지휘관을 함께
+##  - 봉화대 (전령 스테이지): 타 버린 봉화대 앞에서 허둥대는 전령
+## 아무 입력이나 누르면 바로 넘어간다 (R은 다시 하기).
+## 실패: 고블린 그림 한 장(1.2초) + 원인 한 줄 → 다시 하기.
 
 signal proceed(action: String)
 
-const SLOW := 0.25
-const FLIGHT_REAL := 0.9
+## 날아가는 모습을 감상하는 시간 (현실 시간)과 그동안의 배속
+const FLY_WATCH := 1.5
+const FLY_SLOW := 0.45
+const BURN_WATCH := 1.6
+const CRUSH_WATCH := 2.0
 
 var _root: Control
 var _vignette: TextureRect
 var _flash: ColorRect
 var _ready_for_input := false
-var _cam: Camera3D
-var _cam_from: Transform3D
-var _cam_to: Transform3D
-var _cam_t := 0.0
 var _victory := false
+var _cam: Camera3D
+## 카메라 이동 (현실 시간 기준): from → to 위치로 옮기며 _look_node(인물) 또는 _look_point를 바라본다
+var _cam_from := Vector3.ZERO
+var _cam_to := Vector3.ZERO
+var _cam_move := 0.5
+var _cam_t := 1.0
+var _look_node: Node3D
+var _look_point := Vector3.ZERO
+var _last_ms := 0
 static var _lowpass_idx := -1
 
 
@@ -36,6 +47,7 @@ func _ready() -> void:
 	theme.default_font = font
 	_root.theme = theme
 	add_child(_root)
+	_last_ms = Time.get_ticks_msec()
 
 
 func _label(text: String, size: int, color: Color) -> Label:
@@ -61,31 +73,40 @@ static func _set_lowpass(on: bool) -> void:
 	AudioServer.set_bus_effect_enabled(0, _lowpass_idx, on)
 
 
-## 승리 연출. start_cam: 추적 화면이 비추던 시점 (없으면 null).
-func play_victory(stage: Stage, commander: Commander, start_cam: Camera3D) -> void:
+func _wait_real(seconds: float) -> void:
+	await get_tree().create_timer(seconds, true, false, true).timeout
+
+
+## 카메라를 지금 자리에서 to로 seconds(현실 시간) 동안 옮긴다. 0이면 바로 자른다.
+func _move_cam(to: Vector3, seconds: float) -> void:
+	_cam_from = _cam.global_position
+	_cam_to = to
+	_cam_move = maxf(seconds, 0.001)
+	_cam_t = 0.0 if seconds > 0.0 else 1.0
+	if seconds <= 0.0:
+		_cam.global_position = to
+		_aim_cam()
+
+
+func _aim_cam() -> void:
+	var p := _look_node.global_position + Vector3.UP * 1.1 if is_instance_valid(_look_node) else _look_point
+	if _cam.global_position.distance_to(p) > 0.05:
+		_cam.look_at(p, Vector3.UP)
+
+
+## 승리 연출. target: 쓰러진 인물 (봉화대를 태운 경우 null). start_cam: 추적 화면이 비추던 시점.
+func play_victory(stage: Stage, target: Actor, cause: String, focus: Vector3, start_cam: Camera3D) -> void:
 	_victory = true
-	# 1. 연출 카메라: 추적 카메라 시점에서 지휘관을 크게 잡는 자리로 옮겨 간다
 	_cam = Camera3D.new()
 	_cam.fov = 55.0
 	_cam.far = 1500.0
 	stage.add_child(_cam)
-	var target := commander.chest()
-	var away := commander.global_position - stage.player.global_position
-	away.y = 0
-	away = away.normalized()
-	var frame_pos := stage.cine_cam_pos
-	if frame_pos == Vector3.INF:
-		frame_pos = _side_view(stage, target, away)
-	_cam_to = Transform3D(Basis(), frame_pos).looking_at(target + Vector3.UP * 3.0, Vector3.UP)
-	if start_cam and start_cam.is_inside_tree() and start_cam.global_position.distance_to(target) < 45.0:
-		_cam_from = start_cam.global_transform
+	if start_cam and start_cam.is_inside_tree() and start_cam.global_position.distance_to(focus) < 45.0:
+		_cam.global_transform = start_cam.global_transform
 	else:
-		_cam_from = _cam_to
-	_cam.global_transform = _cam_from
+		_cam.global_position = stage.player.global_position + Vector3.UP * 2.0
 	_cam.make_current()
-	# 2. 느려지고, 먹먹해지고, 가장자리가 어두워진다
-	Engine.time_scale = SLOW
-	_set_lowpass(true)
+	_look_point = focus
 	_vignette = TextureRect.new()
 	var g := Gradient.new()
 	g.colors = PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0.75)])
@@ -102,12 +123,104 @@ func play_victory(stage: Stage, commander: Commander, start_cam: Camera3D) -> vo
 	_vignette.modulate.a = 0.0
 	_root.add_child(_vignette)
 	_tween().tween_property(_vignette, "modulate:a", 1.0, 0.3)
-	# 3. 지휘관이 비명을 길게 지르며 날아간다 (비행 방식은 다섯 가지를 돌려 쓴다)
-	# 0.25배속에서 0.9초(게임 시간 약 0.23초) 안에 확실히 날아가 보이도록 과장된 속도로 띄운다
-	commander.launch(away, stage.throws + stage.stage_id.hash(), 2.6)
-	Sfx.play(stage, "scream", target, 4.0)
-	# 4. 0.9초 뒤 멈춤 + 흰 플래시 + 박살!
-	await get_tree().create_timer(FLIGHT_REAL, true, false, true).timeout
+	_set_lowpass(true)
+	var away := focus - stage.player.global_position
+	away.y = 0.0
+	away = away.normalized()
+	var side := away.cross(Vector3.UP).normalized()
+	if target == null:
+		await _shot_beacon(stage, focus, away, side)
+	elif cause == "fire":
+		await _shot_burn(stage, target)
+	elif cause == "crush" or cause == "fall":
+		await _shot_crush(stage, target, away, side)
+	else:
+		await _shot_fly(stage, target, away)
+	await _smash(stage)
+
+
+## 날아감: 크게 띄워 옆에서 따라가며 감상 → 공중에서 확대샷.
+func _shot_fly(stage: Stage, target: Actor, away: Vector3) -> void:
+	var chest := target.chest()
+	_look_node = target
+	_move_cam(_side_view(stage, chest, away), 0.45)
+	Engine.time_scale = FLY_SLOW
+	target.launch(away, stage.throws + stage.stage_id.hash(), 1.9)
+	Sfx.play(stage, "scream", chest, 4.0)
+	await _wait_real(FLY_WATCH)
+	# 공중 확대샷: 빙글빙글 날아가는 몸 한가운데를 조금 떨어져서 잡고 멈춘다
+	var body := target.visual.global_transform * Vector3(0, 0.9, 0) if target.visual else target.chest()
+	var to_cam := _cam.global_position - body
+	to_cam.y = 0.0
+	to_cam = to_cam.normalized()
+	_look_node = null
+	_look_point = body
+	_move_cam(body + to_cam * 4.6 + Vector3.UP * 0.9, 0.0)
+
+
+## 불탐: 날아가지 않고 불붙어 당황하는 모습을 정면에서.
+func _shot_burn(stage: Stage, target: Actor) -> void:
+	Engine.time_scale = 0.8
+	target.burn_panic()
+	Sfx.play(stage, "scream", target.chest(), 2.0)
+	var fwd := target.global_transform.basis * Vector3.FORWARD
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	_look_node = target
+	var front := target.global_position + fwd * 4.8 + Vector3.UP * 1.5
+	_move_cam(front + fwd * 3.0 + Vector3.UP * 1.0, 0.0)
+	_move_cam(front, 0.6)
+	await _wait_real(BURN_WATCH)
+
+
+## 깔림·추락: 무너진 건물과 깔린 지휘관을 함께 보이게 줌을 당긴다 (잔해가 가라앉는 동안).
+func _shot_crush(stage: Stage, target: Actor, away: Vector3, side: Vector3) -> void:
+	Engine.time_scale = 1.0
+	var p := target.global_position
+	# 옆쪽(트인 쪽)에서 낮게: 잔해 더미와 그 밖으로 삐져나온 다리가 함께 보인다
+	var near := _find_view(stage, p + Vector3.UP * 0.4, [side - away * 0.5, -side - away * 0.5, -away, side, -side], 6.5, 2.8)
+	# 잔해 밖으로 다리가 삐져나오게 카메라 쪽으로 눕힌다
+	var to_cam := near - p
+	to_cam.y = 0.0
+	target.squash(to_cam.normalized())
+	_look_node = null
+	_look_point = (target.visual.global_position if target.visual else p) + Vector3.UP * 0.9
+	_move_cam(p + (near - p) * 1.8 + Vector3.UP * 3.0, 0.0)
+	_move_cam(near, CRUSH_WATCH * 0.8)
+	Sfx.play(stage, "scream", target.chest(), -2.0)
+	await _wait_real(CRUSH_WATCH)
+
+
+## 봉화대: 타 버린 봉화대 앞, 지원을 부르지 못하고 허둥대는 전령.
+func _shot_beacon(stage: Stage, focus: Vector3, away: Vector3, side: Vector3) -> void:
+	Engine.time_scale = 1.0
+	_look_point = focus + Vector3.UP * 1.5
+	for m in stage.messengers:
+		if not m.dead:
+			m.running = false
+			m.burn_panic()
+	var near := _find_view(stage, focus + Vector3.UP * 1.5, [-away + side * 0.6, -away - side * 0.6, side, -side], 9.0, 3.0)
+	_move_cam(focus + (near - focus) * 1.6 + Vector3.UP * 2.0, 0.0)
+	_move_cam(near, 1.2)
+	await _wait_real(1.6)
+
+
+## 지형(바위, 절벽)에 가리지 않고 target을 볼 수 있는 자리. 블록(잔해)은 가려도 된다.
+func _find_view(stage: Stage, target: Vector3, dirs: Array, dist: float, height: float) -> Vector3:
+	var space := stage.get_world_3d().direct_space_state
+	for dir in dirs:
+		var flat: Vector3 = dir
+		flat.y = 0.0
+		var cand := target + flat.normalized() * dist + Vector3.UP * height
+		var q := PhysicsRayQueryParameters3D.create(cand, target, 1)
+		var hit := space.intersect_ray(q)
+		if hit.is_empty() or hit.collider is Block or hit.collider.is_in_group("ground"):
+			return cand
+	return target + (dirs[0] as Vector3).normalized() * dist + Vector3.UP * (height + 4.0)
+
+
+## 마무리: 멈춤 + 흰 플래시 + 박살! + 남은 탄약과 버튼.
+func _smash(stage: Stage) -> void:
 	Engine.time_scale = 0.0
 	_set_lowpass(false)
 	Sfx.play(stage, "win", _cam.global_position, 0.0)
@@ -118,29 +231,28 @@ func play_victory(stage: Stage, commander: Commander, start_cam: Camera3D) -> vo
 	_root.add_child(_flash)
 	_tween().tween_property(_flash, "color:a", 0.0, 0.35)
 	var smash := _label(Texts.t("win"), 150, Color(1.0, 0.82, 0.15))
-	_place(smash, Vector4(0.5, 0.42, 0.5, 0.42), Vector4(-500, -130, 500, 130))
+	_place(smash, Vector4(0.5, 0.3, 0.5, 0.3), Vector4(-500, -130, 500, 130))
 	smash.pivot_offset = Vector2(500, 130)
 	smash.rotation = -0.18
 	smash.scale = Vector2.ONE * 2.6
 	_tween().tween_property(smash, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# 5. 남은 탄약과 버튼
-	await get_tree().create_timer(0.45, true, false, true).timeout
+	await _wait_real(0.45)
 	var left := _label("%s  %d" % [Texts.t("ammo_left"), stage.total_ammo()], 26, Color(1, 1, 1))
 	_place(left, Vector4(0, 0.62, 1, 0.7))
 	_buttons([Texts.t("next"), Texts.t("retry") + " (R)"])
 	_ready_for_input = true
 
 
-## 지휘관이 날아가는 모습을 옆에서 잡는 자리. 가려지지 않는 쪽을 고른다.
+## 날아가는 모습을 옆에서 잡는 자리. 가려지지 않는 쪽을 고른다.
 func _side_view(stage: Stage, target: Vector3, away: Vector3) -> Vector3:
 	var side := away.cross(Vector3.UP).normalized()
 	var space := stage.get_world_3d().direct_space_state
-	for candidate in [target + side * 9.0 - away * 2.0 + Vector3.UP * 3.0, target - side * 9.0 - away * 2.0 + Vector3.UP * 3.0,
-			target - away * 8.0 + Vector3.UP * 7.0, target + Vector3.UP * 12.0 - away * 3.0]:
+	for candidate in [target + side * 11.0 - away * 3.0 + Vector3.UP * 4.0, target - side * 11.0 - away * 3.0 + Vector3.UP * 4.0,
+			target - away * 10.0 + Vector3.UP * 8.0, target + Vector3.UP * 14.0 - away * 4.0]:
 		var q := PhysicsRayQueryParameters3D.create(candidate, target + Vector3.UP * 1.5, 1)
 		if space.intersect_ray(q).is_empty():
 			return candidate
-	return target - away * 8.0 + Vector3.UP * 7.0
+	return target - away * 10.0 + Vector3.UP * 8.0
 
 
 ## 앵커(왼, 위, 오른, 아래)와 오프셋으로 배치한다.
@@ -192,7 +304,7 @@ func play_failure(cause_text: String, picture: int) -> void:
 	line.anchor_right = 1.0
 	line.anchor_top = 0.64
 	line.anchor_bottom = 0.72
-	await get_tree().create_timer(1.2, true, false, true).timeout
+	await _wait_real(1.2)
 	_buttons([Texts.t("retry")])
 	_ready_for_input = true
 
@@ -239,12 +351,19 @@ func _tween() -> Tween:
 	return tw
 
 
-func _process(delta: float) -> void:
-	if _cam and _cam_t < 1.0:
-		# 시간 배율과 무관하게 0.5초 동안 연출 카메라 자리로
-		_cam_t = minf(1.0, _cam_t + delta / maxf(Engine.time_scale, 0.001) / 0.5) if Engine.time_scale > 0.0 else 1.0
+func _process(_delta: float) -> void:
+	# 연출 카메라는 시간 배율(슬로모션·멈춤)과 무관하게 현실 시간으로 움직인다
+	var now := Time.get_ticks_msec()
+	var real_dt := (now - _last_ms) / 1000.0
+	_last_ms = now
+	if _cam == null or not is_instance_valid(_cam):
+		return
+	if _cam_t < 1.0:
+		_cam_t = minf(1.0, _cam_t + real_dt / _cam_move)
 		var k := 1.0 - pow(1.0 - _cam_t, 3.0)
-		_cam.global_transform = _cam_from.interpolate_with(_cam_to, k)
+		_cam.global_position = _cam_from.lerp(_cam_to, k)
+	if Engine.time_scale > 0.0:
+		_aim_cam()
 
 
 func _input(event: InputEvent) -> void:

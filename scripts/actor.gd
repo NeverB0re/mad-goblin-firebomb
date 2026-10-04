@@ -22,6 +22,7 @@ var _flying := false
 var _fly_vel := Vector3.ZERO
 var _fly_spin := Vector3.ZERO
 var _fly_time := 0.0
+var _burn_panic := false
 
 
 func _init() -> void:
@@ -71,7 +72,8 @@ func on_blast(pos: Vector3, radius: float) -> void:
 		return
 	if chest().distance_to(pos) > radius:
 		return
-	var q := PhysicsRayQueryParameters3D.create(pos + (chest() - pos).normalized() * 0.3, chest(), 1)
+	# 착탄면 바깥쪽에서 시작해야 벽 안에서 시작한 광선이 벽을 그냥 통과하지 않는다
+	var q := PhysicsRayQueryParameters3D.create(pos - (chest() - pos).normalized() * 0.05, chest(), 1)
 	var hit := get_world_3d().direct_space_state.intersect_ray(q)
 	if not hit.is_empty():
 		return
@@ -133,6 +135,50 @@ func launch(dir: Vector3, style: int, power := 1.0) -> void:
 	_fly_vel *= power
 
 
+## 불타며 허둥댄다 (승리 연출: 날아가지 않고 불탄 경우). 쓰러진 뒤에도 몸짓을 계속한다.
+func burn_panic() -> void:
+	_burn_panic = true
+	var fire := Fx.fire(Vector3(0.3, 0.7, 0.3), 36, 0.45)
+	fire.position = Vector3(0, 1.0, 0)
+	add_child(fire)
+	var smoke := Fx.smoke_column(12)
+	smoke.position = Vector3(0, 2.0, 0)
+	add_child(smoke)
+	# 그을림
+	if visual:
+		for m in visual.find_children("*", "MeshInstance3D", true, false):
+			var mi := m as MeshInstance3D
+			if mi.material_override is StandardMaterial3D:
+				var dark := (mi.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
+				dark.albedo_color = dark.albedo_color.darkened(0.55)
+				mi.material_override = dark
+
+
+## 무너진 건물에 깔려 납작해진다 (승리 연출: 깔림·추락).
+## toward: 다리가 삐져나올 방향 (보통 카메라 쪽). 잔해 가장자리를 찾아 다리가 그 밖으로 나오게 한다.
+func squash(toward := Vector3.FORWARD) -> void:
+	if visual == null:
+		return
+	var dir := Vector3(toward.x, 0, toward.z).normalized()
+	# 위를 덮은 블록이 끝나는 곳까지의 거리
+	var space := get_world_3d().direct_space_state
+	var edge := 0.0
+	while edge < 4.0:
+		var p := global_position + dir * edge
+		var q := PhysicsRayQueryParameters3D.create(p + Vector3.UP * 5.0, p + Vector3.UP * 0.5, 1)
+		var hit := space.intersect_ray(q)
+		if hit.is_empty() or not (hit.collider is Block):
+			break
+		edge += 0.25
+	# 머리는 잔해 밑, 납작해진 몸과 다리는 잔해 밖으로 삐져나온다
+	var local := global_transform.basis.inverse() * dir
+	var yaw := atan2(local.x, local.z)
+	visual.rotation = Vector3(-PI * 0.5, yaw, 0.25)
+	visual.scale = Vector3(1.3, 1.3, 0.4)
+	# 발끝이 가장자리 밖으로 나오게 (누운 몸은 머리 쪽으로 약 2.3m 뻗는다)
+	visual.position = local * (edge + 0.5 if edge > 0.0 else 0.0) + Vector3(0, 0.15, 0)
+
+
 func _physics_process(delta: float) -> void:
 	_anim_t += delta
 	if _flying:
@@ -178,6 +224,17 @@ func _check_surroundings() -> void:
 
 
 func _process(delta: float) -> void:
+	if _burn_panic and visual:
+		# 팔을 마구 휘두르며 제자리에서 펄쩍펄쩍
+		var t := _anim_t + _fly_time
+		_fly_time += delta
+		visual.position = Vector3(sin(t * 17.0) * 0.12, absf(sin(t * 11.0)) * 0.35, 0)
+		visual.rotation = Vector3(-0.15, sin(t * 7.0) * 0.6, sin(t * 13.0) * 0.12)
+		for arm_name in ["ArmL", "ArmR"]:
+			var arm: Node3D = visual.get_node_or_null(arm_name)
+			if arm:
+				arm.rotation = Vector3(sin(t * 21.0) * 0.8, 0, (2.4 + sin(t * 25.0 + (0.0 if arm_name == "ArmL" else 1.7)) * 0.7) * (-1.0 if arm_name == "ArmL" else 1.0))
+		return
 	if not _flying or visual == null:
 		return
 	# 연출: 느린 화면(Engine.time_scale)에 맞춰 함께 느려진다

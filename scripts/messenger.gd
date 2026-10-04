@@ -30,13 +30,9 @@ func start() -> void:
 		running = true
 
 
+## 쓰러진 모습(날아가기·불타기·깔리기)은 승리 연출이 원인에 맞게 정한다.
 func _on_defeated(_cause: String) -> void:
 	running = false
-	var fire := Fx.fire(Vector3(0.3, 0.6, 0.3), 24, 0.4)
-	fire.position = Vector3(0, 0.9, 0)
-	add_child(fire)
-	var tw := create_tween()
-	tw.tween_property(visual, "rotation:x", -PI * 0.5, 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 
 func _physics_process(delta: float) -> void:
