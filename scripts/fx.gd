@@ -108,86 +108,46 @@ static func free_after(node: Node, seconds: float) -> void:
 	node.get_tree().create_timer(seconds, false, true).timeout.connect(node.queue_free)
 
 
-## 검고 둥근 몸통 + 짧은 목 + 천 심지 + 심지 불꽃.
-static func molotov_model(model_scale := 1.0, with_flame := true) -> Node3D:
-	var root := Node3D.new()
-	var black := StandardMaterial3D.new()
-	black.albedo_color = Color(0.05, 0.05, 0.06)
-	black.roughness = 0.35
-	var cloth := StandardMaterial3D.new()
-	cloth.albedo_color = Color(0.86, 0.82, 0.72)
-
-	var body := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.11
-	sphere.height = 0.21
-	sphere.radial_segments = 10
-	sphere.rings = 6
-	body.mesh = sphere
-	body.material_override = black
-	root.add_child(body)
-
-	var neck := MeshInstance3D.new()
-	var cyl := CylinderMesh.new()
-	cyl.top_radius = 0.035
-	cyl.bottom_radius = 0.045
-	cyl.height = 0.1
-	cyl.radial_segments = 8
-	neck.mesh = cyl
-	neck.material_override = black
-	neck.position = Vector3(0, 0.13, 0)
-	root.add_child(neck)
-
-	var wick := MeshInstance3D.new()
-	var wcyl := CylinderMesh.new()
-	wcyl.top_radius = 0.045
-	wcyl.bottom_radius = 0.05
-	wcyl.height = 0.05
-	wcyl.radial_segments = 8
-	wick.mesh = wcyl
-	wick.material_override = cloth
-	wick.position = Vector3(0, 0.15, 0)
-	root.add_child(wick)
-
-	if with_flame:
-		var flame := fire(Vector3(0.015, 0.01, 0.015), 10, 0.07)
-		var pm: ParticleProcessMaterial = flame.process_material
-		pm.initial_velocity_min = 0.1
-		pm.initial_velocity_max = 0.3
-		flame.lifetime = 0.35
-		flame.position = Vector3(0, 0.19, 0)
-		flame.name = "Flame"
-		root.add_child(flame)
-
-	root.scale = Vector3.ONE * model_scale
-	return root
-
-
 ## 탄종별 고블린식 모델 (겉은 엉성하게 삐뚤빼뚤, 실제 위력은 겉모습과 무관).
-## 화염탄 = 검고 둥근 병 + 천 심지, 고폭탄 = 쇠테 두른 폭탄 항아리 + 짧은 도화선,
-## 기름탄 = 마개를 끈으로 묶은 기름 단지, 조명탄 = 가늘고 긴 종이 통 + 끝의 불꽃.
+## 고폭탄(기본 폭탄) = 검고 둥근 쇠공 + 쇠 꼭지 + 꼬인 심지, 화염 항아리 = 기름 먹인 천으로 막고 밧줄로 동인 큰 질항아리,
+## 기름 단지 = 마개를 끈으로 묶은 기름 단지, 조명탄 = 가늘고 긴 종이 통 + 끝의 불꽃.
 static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Node3D:
-	if kind == AmmoType.Kind.FIRE:
-		return molotov_model(model_scale, with_flame)
 	var root := Node3D.new()
 	var spark_at := Vector3.ZERO
 	match kind:
 		AmmoType.Kind.HE:
-			# 화염탄보다 한눈에 크고 묵직한 쇠 폭탄 항아리: 두꺼운 쇠테 셋, 리벳, 손잡이 고리
-			var iron := Models.mat(Color(0.12, 0.12, 0.13), 0.5, 0.6)
-			var band := Models.mat(Color(0.45, 0.42, 0.38), 0.5, 0.7)
-			var pot := Models.ball(root, 0.13, Vector3.ZERO, iron, 10)
-			pot.scale = Vector3(1.05, 0.9, 1.05)
-			Models.cyl(root, 0.14, 0.14, 0.04, Vector3(0, 0.02, 0), band, Vector3(0.12, 0, -0.08), 10)
-			Models.cyl(root, 0.12, 0.12, 0.035, Vector3(0, -0.07, 0), band, Vector3(-0.1, 0, 0.1), 10)
-			Models.cyl(root, 0.1, 0.1, 0.03, Vector3(0, 0.08, 0), band, Vector3(0.05, 0, 0.05), 10)
-			for k in 6:
-				var a := k * TAU / 6.0
-				Models.ball(root, 0.014, Vector3(cos(a) * 0.137, 0.02, sin(a) * 0.137), band, 4)
-			Models.cyl(root, 0.045, 0.05, 0.06, Vector3(0.01, 0.12, 0), iron)
-			Models.cyl(root, 0.035, 0.035, 0.012, Vector3(-0.05, 0.13, 0), band, Vector3(PI * 0.5, 0, 0), 8)
-			Models.cyl(root, 0.008, 0.008, 0.07, Vector3(0.02, 0.18, 0.01), Models.mat(Color(0.75, 0.7, 0.55)), Vector3(0, 0, -0.4))
-			spark_at = Vector3(0.035, 0.22, 0.01)
+			# 전형적인 폭탄: 까만 쇠공, 위에 쇠 꼭지, 꼬불꼬불한 심지 끝에 불똥
+			var iron := Models.mat(Color(0.09, 0.09, 0.1), 0.45, 0.5)
+			var cap := Models.mat(Color(0.5, 0.46, 0.4), 0.5, 0.7)
+			Models.ball(root, 0.11, Vector3.ZERO, iron, 12)
+			Models.cyl(root, 0.035, 0.042, 0.05, Vector3(0, 0.115, 0), cap, Vector3.ZERO, 8)
+			Models.cyl(root, 0.045, 0.045, 0.012, Vector3(0, 0.095, 0), cap, Vector3.ZERO, 8)
+			var cord := Models.mat(Color(0.78, 0.7, 0.5))
+			Models.cyl(root, 0.009, 0.009, 0.05, Vector3(0.008, 0.16, 0), cord, Vector3(0, 0, -0.35))
+			Models.cyl(root, 0.009, 0.009, 0.04, Vector3(0.022, 0.2, 0), cord, Vector3(0, 0, 0.4))
+			# 쇠공에 비친 하이라이트 (둥근 느낌)
+			Models.ball(root, 0.025, Vector3(-0.05, 0.05, 0.075), Models.mat(Color(0.45, 0.45, 0.5), 0.3, 0.6), 5)
+			spark_at = Vector3(0.012, 0.225, 0)
+		AmmoType.Kind.FIRE:
+			# 큼직한 질항아리: 불룩한 몸통, 좁은 목, 기름 먹인 천 마개에서 불길이 솟는다. 밧줄로 칭칭 동였다
+			var clay := Models.mat(Color(0.62, 0.32, 0.16), 0.9)
+			var clay_dark := Models.mat(Color(0.42, 0.2, 0.1), 0.9)
+			var rope := Models.mat(Color(0.8, 0.68, 0.42), 1.0)
+			var rag := Models.mat(Color(0.3, 0.24, 0.18), 1.0)
+			var body := Models.ball(root, 0.13, Vector3(0, -0.01, 0), clay, 10)
+			body.scale = Vector3(1.0, 0.95, 1.0)
+			Models.cyl(root, 0.09, 0.12, 0.05, Vector3(0, -0.12, 0), clay_dark, Vector3.ZERO, 10)
+			Models.cyl(root, 0.06, 0.08, 0.07, Vector3(0, 0.13, 0), clay, Vector3.ZERO, 10)
+			Models.cyl(root, 0.075, 0.075, 0.02, Vector3(0, 0.17, 0), clay_dark, Vector3.ZERO, 10)
+			# 밧줄: 허리에 두 바퀴, 목에서 내려오는 고리 둘
+			Models.cyl(root, 0.133, 0.133, 0.018, Vector3(0, 0.0, 0), rope, Vector3(0.05, 0, 0), 12)
+			Models.cyl(root, 0.125, 0.125, 0.018, Vector3(0, -0.05, 0), rope, Vector3(-0.06, 0, 0.03), 12)
+			for sx in [-1, 1]:
+				Models.box(root, Vector3(0.015, 0.14, 0.02), Vector3(sx * 0.1, 0.07, 0), rope, Vector3(0, 0, sx * 0.55))
+			# 천 마개 (불룩하게 비어져 나온 기름 천)
+			Models.ball(root, 0.06, Vector3(0.005, 0.2, 0), rag, 6)
+			Models.box(root, Vector3(0.04, 0.07, 0.012), Vector3(0.05, 0.17, 0.04), rag, Vector3(0.2, 0.3, -0.5))
+			spark_at = Vector3(0, 0.25, 0)
 		AmmoType.Kind.OIL:
 			var clay := Models.mat(Color(0.48, 0.3, 0.17), 0.9)
 			var oil := Models.mat(Color(0.06, 0.05, 0.03), 0.2)
@@ -217,12 +177,14 @@ static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Nod
 				Models.cyl(root, 0.042, 0.042, 0.02, Vector3(0.002 * y, y, 0), stripe, Vector3(0, 0, 0.06))
 			spark_at = Vector3(-0.013, 0.22, 0)
 	if with_flame and spark_at.y > -1.0:
-		var flame := fire(Vector3(0.01, 0.01, 0.01), 10, 0.06)
+		# 화염 항아리는 천 마개에서 큰 불길, 나머지는 심지 끝의 작은 불똥
+		var big := kind == AmmoType.Kind.FIRE
+		var flame := fire(Vector3(0.03, 0.02, 0.03) if big else Vector3(0.01, 0.01, 0.01), 16 if big else 10, 0.1 if big else 0.06)
 		var pm: ParticleProcessMaterial = flame.process_material
 		pm.initial_velocity_min = 0.2
 		pm.initial_velocity_max = 0.6
-		pm.spread = 60.0
-		flame.lifetime = 0.25
+		pm.spread = 25.0 if big else 60.0
+		flame.lifetime = 0.35 if big else 0.25
 		flame.position = spark_at
 		flame.name = "Flame"
 		root.add_child(flame)

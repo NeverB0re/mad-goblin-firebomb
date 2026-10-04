@@ -94,7 +94,7 @@ func _init() -> void:
 	_build_body()
 	# 4배 줌: 화면 절반 각도의 탄젠트를 1/4로
 	zoom_fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(BASE_FOV) * 0.5) / ZOOM))
-	set_held_model(Fx.molotov_model(1.0, false))
+	set_held_model(Fx.ammo_model(AmmoType.Kind.HE, 1.0, false))
 
 
 ## 손에 든 모델 교체 (탄종마다 생김새가 다르다).

@@ -5,13 +5,13 @@
 [resource]
 script = ExtResource("1")
 kind = 1
-display_name = "고폭탄"
-throw_speed = 20.5
-windup_time = 0.65
+display_name = "폭탄"
+throw_speed = 23.0
+windup_time = 0.5
 impact_radius = 5.2
 impact_strength = 320.0
 pool_radius = 0.0
 pool_duration = 0.0
 burn_multiplier = 1.0
 kill_radius = 2.9
-model_scale = 1.9
+model_scale = 1.25

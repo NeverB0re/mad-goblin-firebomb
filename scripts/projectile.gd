@@ -67,8 +67,8 @@ func step(dt: float) -> void:
 
 	global_position = to
 	if _model:
-		# 무거운 고폭탄은 느리게 굴러 묵직해 보인다
-		_model.rotate_x(-dt * (3.5 if ammo.kind == AmmoType.Kind.HE else 9.0))
+		# 무거운 화염 항아리는 느리게 굴러 묵직해 보인다
+		_model.rotate_x(-dt * (3.5 if ammo.kind == AmmoType.Kind.FIRE else 9.0))
 	if flight_time > MAX_TIME or to.y < -100.0:
 		done = true
 		impacted.emit(self, to, Vector3.UP, null)

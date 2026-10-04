@@ -50,8 +50,8 @@ func _run() -> void:
 	await physics_frame
 	await physics_frame
 
-	var basic: AmmoType = load("res://ammo/fire.tres")
-	var heavy: AmmoType = load("res://ammo/he.tres")
+	var basic: AmmoType = load("res://ammo/he.tres")
+	var heavy: AmmoType = load("res://ammo/fire.tres")
 	var origin := Vector3(0.3, 1.6, -0.6)
 
 	for ammo in [basic, heavy]:

@@ -4,7 +4,7 @@ extends Resource
 ## 던지는 힘은 탄종마다 고정이고, 궤적·폭발 반경·판정은 겉모습과 상관없이 항상 같다.
 
 ## FLARE: 착탄 지점에서 솟아 주변을 밝힌다. 로켓이 대기 중인 진지(4월드~)에서는 그 불빛을 보고 로켓이 날아온다
-## PAINT: 페인트탄. 화염탄과 무게·궤적이 같고 아무것도 부수지 않는다. 떨어진 자리에 밝은 물감 자국이 남는다 (영점용)
+## PAINT: 페인트탄. 기본 폭탄(고폭탄)과 무게·궤적이 같고 아무것도 부수지 않는다. 떨어진 자리에 밝은 물감 자국이 남는다 (영점용)
 enum Kind { FIRE, HE, OIL, FLARE, PAINT }
 
 @export var kind: Kind = Kind.FIRE
@@ -26,7 +26,7 @@ enum Kind { FIRE, HE, OIL, FLARE, PAINT }
 ## 조명탄: 착탄 지점에서 솟아오르는 높이와 밝히는 시간 (0이면 없음).
 @export var flare_height := 0.0
 @export var flare_duration := 0.0
-## 바람을 타는 정도 (가벼울수록 크다). 1 = 화염탄.
+## 바람을 타는 정도 (가벼울수록 크다). 1 = 기본 폭탄.
 @export var wind_factor := 1.0
 ## 지휘관을 쓰러뜨리는 폭발 반경 (착탄점 기준). 0이면 직격만.
 @export var kill_radius := 1.2
