@@ -49,18 +49,42 @@ func _run() -> void:
 	click.position = center
 	root.push_input(click)
 	await _frames(10)
-	_check(player.winding and stage.total_ammo() == ammo0, "좌클릭 누름 → 준비 자세, 아직 안 던짐")
+	_check(player.is_throwing() and stage.total_ammo() == ammo0, "좌클릭 누름 → 와인드업, 아직 안 던짐")
 	var release := click.duplicate()
 	release.pressed = false
 	root.push_input(release)
-	await _frames(2)
-	_check(not player.winding and stage.total_ammo() == ammo0 - 1, "좌클릭 뗌 → 투척 (탄약 %d → %d)" % [ammo0, stage.total_ammo()])
+	# 최소 와인드업(0.5초) + 릴리스 지연(0.15초) 뒤에 손을 떠난다
+	await _frames(60)
+	_check(not player.is_throwing() and stage.total_ammo() == ammo0 - 1, "좌클릭 뗌 → 와인드업이 끝나면 투척 (탄약 %d → %d)" % [ammo0, stage.total_ammo()])
 	# 20m 이상 날아가면 추적 화면이 켜진다
 	var shown := false
 	for i in 90:
 		await process_frame
 		shown = shown or main.hud.follow_cam.visible
 	_check(shown, "투척 후 추적 화면 표시")
+
+	# 우클릭 취소: 손을 떠나기 전이면 탄약이 그대로다
+	await _frames(40)
+	var ammo1 := stage.total_ammo()
+	root.push_input(click.duplicate())
+	await _frames(5)
+	var rmb := InputEventMouseButton.new()
+	rmb.button_index = MOUSE_BUTTON_RIGHT
+	rmb.pressed = true
+	rmb.position = center
+	root.push_input(rmb)
+	await _frames(2)
+	root.push_input(release.duplicate())
+	await _frames(60)
+	_check(not player.is_throwing() and stage.total_ammo() == ammo1, "우클릭 → 투척 취소, 탄약 그대로 (%d)" % stage.total_ammo())
+	_check(not player.zooming, "취소한 우클릭을 떼기 전에는 줌이 되지 않는다")
+	var rmb_up := rmb.duplicate()
+	rmb_up.pressed = false
+	root.push_input(rmb_up)
+	root.push_input(rmb.duplicate())
+	await _frames(2)
+	_check(player.zooming, "우클릭을 떼고 다시 누르면 관찰 줌")
+	root.push_input(rmb_up.duplicate())
 
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

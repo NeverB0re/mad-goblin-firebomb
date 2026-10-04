@@ -22,7 +22,7 @@ func _run() -> void:
 	var done := [false]
 	opening.finished.connect(func(): done[0] = true)
 	await _frames(40)
-	for i in range(1, Opening.PANEL_COUNT):
+	for i in range(1, opening.panel_count()):
 		opening.reveal_next()
 		await _frames(30)
 	await _frames(60)
@@ -32,5 +32,15 @@ func _run() -> void:
 	print("  ", "PASS" if done[0] else "FAIL", " 6컷 뒤 클릭하면 오프닝 종료")
 	if not done[0]:
 		_failures += 1
+	# 엔딩 컷만화
+	var ending := Opening.new(Opening.Mode.ENDING)
+	root.add_child(ending)
+	await _frames(40)
+	ending.reveal_next()
+	await _frames(70)
+	root.get_texture().get_image().save_png("res://tests/out/ending_page.png")
+	print("  ", "PASS" if ending.panel_count() == 2 else "FAIL", " 엔딩 2컷")
+	ending.finish()
+	await _frames(30)
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

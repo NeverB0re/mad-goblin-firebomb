@@ -17,9 +17,11 @@ foreach ($t in @("determinism_test", "stage_test")) {
 	if ($errs) { Write-Host "-- $t 오류 출력 --"; $errs | Select-Object -First 20 }
 	if ($p.ExitCode -ne 0 -or $errs) { $code = 1 }
 }
-# 입력 테스트는 실제 창이 필요하다 (헤드리스에서는 GUI 입력 경로가 다름)
-$p = Start-Process -FilePath $godot -ArgumentList "--path", "`"$root`"", "--script", "res://tests/input_test.gd" `
-	-NoNewWindow -Wait -PassThru -RedirectStandardOutput "$out\input_test.txt" -RedirectStandardError "$out\input_test_err.txt"
-Get-Content "$out\input_test.txt" -Encoding utf8 | Where-Object { $_ -match "PASS|FAIL|결과|==" }
-if ($p.ExitCode -ne 0) { $code = 1 }
+# 입력·오프닝 테스트는 실제 창이 필요하다 (헤드리스에서는 GUI 입력 경로와 렌더링이 다름)
+foreach ($t in @("input_test", "opening_shot")) {
+	$p = Start-Process -FilePath $godot -ArgumentList "--path", "`"$root`"", "--script", "res://tests/$t.gd" `
+		-NoNewWindow -Wait -PassThru -RedirectStandardOutput "$out\$t.txt" -RedirectStandardError "$out\${t}_err.txt"
+	Get-Content "$out\$t.txt" -Encoding utf8 | Where-Object { $_ -match "PASS|FAIL|결과|==" }
+	if ($p.ExitCode -ne 0) { $code = 1 }
+}
 exit $code

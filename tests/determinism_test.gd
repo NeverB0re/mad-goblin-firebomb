@@ -50,8 +50,8 @@ func _run() -> void:
 	await physics_frame
 	await physics_frame
 
-	var basic: AmmoType = load("res://ammo/basic.tres")
-	var heavy: AmmoType = load("res://ammo/heavy.tres")
+	var basic: AmmoType = load("res://ammo/fire.tres")
+	var heavy: AmmoType = load("res://ammo/he.tres")
 	var origin := Vector3(0.3, 1.6, -0.6)
 
 	for ammo in [basic, heavy]:
@@ -77,7 +77,7 @@ func _run() -> void:
 	var d2 := Vector3(0, 0.25, -1).normalized()
 	var a: Vector3 = await _throw(world, Vector3(-20, 1.6, 0), d2, basic)
 	var b: Vector3 = await _throw(world, Vector3(-20, 1.6, 0), d2, heavy)
-	_check(a.distance_to(b) > 10.0, "기본/중량 같은 겨냥 착탄 차이 %.1fm" % a.distance_to(b))
+	_check(a.distance_to(b) > 10.0, "화염탄/고폭탄 같은 겨냥 착탄 차이 %.1fm" % a.distance_to(b))
 
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

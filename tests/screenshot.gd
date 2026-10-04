@@ -1,16 +1,9 @@
 extends SceneTree
-## 렌더링 확인용: 각 스테이지를 띄우고 한 발 던진 뒤 화면을 저장한다 (창 모드로 실행).
+## 렌더링 확인용 (창 모드): 각 스테이지의 와인드업 화면과 투척 결과, 승리 연출, 실패 그림을 저장한다.
 ## 실행: Godot --path . --script res://tests/screenshot.gd
 
 const StageTest := preload("res://tests/stage_test.gd")
-const SHOTS := [
-	[0, Vector3(0, 2.7, -48.5), 3.2],
-	[1, Vector3(0, 1.4, -63.6), 8.0],
-	[2, Vector3(0, 12.6, -70.8), 5.2],
-	[3, Vector3(-8, 0.9, -45), 2.5],
-	[4, Vector3(0, 1.4, -63.6), 10.0],
-	[5, Vector3(0.4, 0.5, -72.65), 7.5],
-]
+const C := StageDefs.COMMANDER
 
 
 func _initialize() -> void:
@@ -22,31 +15,102 @@ func _frames(n: int) -> void:
 		await process_frame
 
 
+func _real_wait(main: Node, seconds: float) -> void:
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < seconds * 1000.0:
+		await process_frame
+
+
+func _aim(s: Stage, target: Vector3) -> void:
+	var v := s.current_ammo().throw_speed
+	for i in 4:
+		var dir := StageTest.aim(s.player.throw_origin(), target, v)
+		s.player.look_at_angles(atan2(-dir.x, -dir.z), asin(dir.y))
+
+
+func _select(s: Stage, kind: int) -> void:
+	for i in s.ammo_slots.size():
+		if s.ammo_slots[i].type.kind == kind:
+			s.select_slot(i)
+
+
+func _throw(s: Stage, kind: int, target: Vector3) -> void:
+	_select(s, kind)
+	_aim(s, target)
+	s.try_throw(s.player.throw_origin(), s.player.throw_direction())
+
+
+func _look(s: Stage, target: Vector3) -> void:
+	var to: Vector3 = target - s.player.head.global_position
+	s.player.look_at_angles(atan2(-to.x, -to.z), atan2(to.y, Vector2(to.x, to.z).length()))
+
+
+func _save(name: String) -> void:
+	root.get_texture().get_image().save_png("res://tests/out/%s.png" % name)
+
+
 func _run() -> void:
 	preload("res://scripts/main.gd").show_opening = false
 	change_scene_to_file("res://scenes/main.tscn")
 	await _frames(5)
 	var main := current_scene
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://tests/out"))
-	for shot in SHOTS:
+	var K := AmmoType.Kind
+	# [스테이지, 첫 투척 탄종, 목표, 결과까지 기다릴 시간]
+	var shots := [
+		[0, K.FIRE, C[0] + Vector3(0, 2.9, 0), 2.5],
+		[1, K.FIRE, Vector3(C[1].x, 1.5, C[1].z + 1.5), 5.0],
+		[2, K.FIRE, StageDefs.E3_RUN[1] + Vector3(2, 3.6, -0.9), 3.0],
+		[3, K.HE, C[3] + Vector3(0, 1.5, 2.8), 2.0],
+		[4, K.FIRE, C[4] + Vector3(0, 2.0, 4.7), 2.0],
+		[5, K.HE, C[5] + Vector3(-2.4, 1.4, 2.0), 2.0],
+		[6, K.OIL, C[6] + Vector3(0.3, 0.3, 5.0), 2.0],
+		[7, K.FLARE, C[7] + Vector3(0, 0, 2), 2.5],
+		[8, K.FIRE, C[8] + Vector3(0, 2.9, 0), 3.0],
+		[9, K.HE, C[9] + Vector3(0, 1.5, 4.7), 2.0],
+		[10, K.FIRE, StageDefs._along(StageDefs.E11_PATH, 12.0) + Vector3(0, 0.5, 0), 3.0],
+	]
+	for shot in shots:
 		main.load_stage(shot[0])
 		await _frames(10)
 		var s: Stage = main.stage
-		var v := s.current_ammo().throw_speed
-		for i in 4:
-			var dir := StageTest.aim(s.player.throw_origin(), shot[1], v)
-			s.player.look_at_angles(atan2(-dir.x, -dir.z), asin(dir.y))
-		s.player.winding = true
-		await _frames(20)
-		root.get_texture().get_image().save_png("res://tests/out/stage%d_a.png" % shot[0])
-		s.player.winding = false
-		s.try_throw(s.player.throw_origin(), s.player.throw_direction())
-		# 목표 쪽으로 시선을 낮춰 결과를 본다
-		var to_target: Vector3 = shot[1] - s.player.head.global_position
-		s.player.look_at_angles(s.player.rotation.y, atan2(to_target.y, Vector2(to_target.x, to_target.z).length()))
-		var t := 0.0
-		while t < shot[2]:
-			await process_frame
-			t += main.get_process_delta_time()
-		root.get_texture().get_image().save_png("res://tests/out/stage%d_b.png" % shot[0])
+		_select(s, shot[1])
+		_aim(s, shot[2])
+		s.player.begin_windup()
+		await _frames(25)
+		_save("E%d_a" % (shot[0] + 1))
+		s.player.cancel_throw()
+		await _frames(15)
+		_throw(s, shot[1], shot[2])
+		_look(s, shot[2])
+		await _real_wait(main, shot[3])
+		_save("E%d_b" % (shot[0] + 1))
+
+	# 승리 연출 (E1: 차양을 태우고 직격)
+	main.load_stage(0)
+	await _frames(10)
+	var s1: Stage = main.stage
+	_throw(s1, K.FIRE, C[0] + Vector3(0, 2.9, 0))
+	_look(s1, C[0])
+	await _real_wait(main, 6.0)
+	_throw(s1, K.FIRE, C[0] + Vector3(0, 1.8, 0))
+	while s1.state == Stage.State.PLAYING:
+		await process_frame
+	await _real_wait(main, 0.5)
+	_save("victory_slowmo")
+	await _real_wait(main, 1.2)
+	_save("victory_smash")
+
+	# 실패 그림 (E1: 전부 빗나감)
+	main.load_stage(0)
+	await _frames(10)
+	var s2: Stage = main.stage
+	for i in 5:
+		_throw(s2, K.FIRE, Vector3(0, 0, -15))
+		await _frames(2)
+	while s2.state == Stage.State.PLAYING:
+		await process_frame
+	await _real_wait(main, 1.6)
+	_save("failure")
+	Engine.time_scale = 1.0
 	quit()
