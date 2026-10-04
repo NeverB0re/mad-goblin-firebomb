@@ -12,6 +12,8 @@ var _help: Label
 var _toast_time := 0.0
 var _stage: Stage
 var follow_cam: FollowCam
+## 지금까지 되찾은 신상 부품 수 (Main이 갱신)
+var recovered_count := 0
 
 
 func _ready() -> void:
@@ -61,7 +63,7 @@ func _ready() -> void:
 	_place(_banner, Vector4(0, 0.5, 1, 0.5), Vector4(0, -220, 0, -130))
 	_sub = _label(root, 22)
 	_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_place(_sub, Vector4(0, 0.5, 1, 0.5), Vector4(0, -125, 0, -50))
+	_place(_sub, Vector4(0, 0.5, 1, 0.5), Vector4(0, -125, 0, -5))
 
 	follow_cam = FollowCam.new()
 	root.add_child(follow_cam)
@@ -128,9 +130,9 @@ func _refresh_ammo() -> void:
 
 func _on_state(state: int, message: String) -> void:
 	if state == Stage.State.CLEARED:
-		_banner.text = "클리어"
+		_banner.text = "되찾았다!"
 		_banner.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-		_sub.text = "%s · 투척 %d회\nEnter 다음 스테이지 · R 다시 하기" % [message, _stage.throws]
+		_sub.text = "%s · 투척 %d회\n기계장치의 신 부품 %d / %d\nEnter 다음 스테이지 · R 다시 하기" % [message, _stage.throws, recovered_count, Models.PART_COUNT]
 	else:
 		_banner.text = "실패"
 		_banner.add_theme_color_override("font_color", Color(1.0, 0.3, 0.25))

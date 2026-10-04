@@ -21,6 +21,8 @@ var stage_id := ""
 var title := ""
 var objective := ""
 var goal: int = Goal.CORE
+## 이 스테이지에서 되찾는 기계장치의 신 부품 (Models.Part)
+var part_kind := -1
 var state: int = State.PLAYING
 var player: Player
 var structures: Array[Structure] = []
@@ -37,7 +39,8 @@ var _last_collapse_sound := -10.0
 
 # ---------- 구성 ----------
 
-func begin(p_id: String, p_title: String, p_objective: String, p_goal: int) -> void:
+func begin(p_id: String, p_title: String, p_objective: String, p_goal: int, p_part := -1) -> void:
+	part_kind = p_part
 	stage_id = p_id
 	title = p_title
 	objective = p_objective
@@ -371,6 +374,15 @@ func _set_state(s: int, message: String) -> void:
 	state_changed.emit(state, message)
 
 
+const PART_OBJECTS := ["톱니 심장을", "왼쪽 태엽 팔을", "증기 머리를", "오른쪽 태엽 팔을", "황동 다리를", "보일러 몸통을"]
+
+
+func recovered_message() -> String:
+	if part_kind < 0:
+		return "목표를 무너뜨렸다"
+	return "%s 되찾았다" % PART_OBJECTS[part_kind]
+
+
 func core_down() -> bool:
 	var cores := get_tree().get_nodes_in_group("core")
 	if cores.is_empty():
@@ -398,14 +410,14 @@ func _physics_process(delta: float) -> void:
 	match goal:
 		Goal.CORE:
 			if core_down():
-				_set_state(State.CLEARED, "코어가 땅에 닿았다")
+				_set_state(State.CLEARED, recovered_message())
 				return
 		Goal.ENEMY:
 			var all_dead := not enemies.is_empty()
 			for e in enemies:
 				all_dead = all_dead and e.dead
 			if all_dead:
-				_set_state(State.CLEARED, "적을 쓰러뜨렸다")
+				_set_state(State.CLEARED, recovered_message())
 				return
 	if total_ammo() == 0:
 		if is_active():

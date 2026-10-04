@@ -1,9 +1,14 @@
 extends Node3D
 ## 진입점. 입력 등록, 환경, HUD, 스테이지 전환과 R 재시작.
 
+## 테스트에서 오프닝 컷만화를 건너뛸 때 false로 둔다
+static var show_opening := true
+
 var stage_index := 0
 var stage: Stage
 var hud: Hud
+## 되찾은 기계장치의 신 부품 (Models.Part → true)
+var recovered := {}
 
 
 func _ready() -> void:
@@ -11,6 +16,10 @@ func _ready() -> void:
 	_setup_environment()
 	hud = Hud.new()
 	add_child(hud)
+	if show_opening:
+		var opening := Opening.new()
+		add_child(opening)
+		await opening.finished
 	load_stage(0)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -72,10 +81,19 @@ func load_stage(index: int) -> void:
 	add_child(stage)
 	StageDefs.build(stage_index, stage)
 	stage.player.camera.make_current()
+	stage.state_changed.connect(_on_stage_state)
 	hud.bind(stage)
 
 
+func _on_stage_state(state: int, _message: String) -> void:
+	if state == Stage.State.CLEARED and stage.part_kind >= 0:
+		recovered[stage.part_kind] = true
+	hud.recovered_count = recovered.size()
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if stage == null:
+		return
 	if event.is_action_pressed("restart"):
 		load_stage(stage_index)
 	elif event.is_action_pressed("next_stage") and stage and stage.state == Stage.State.CLEARED:

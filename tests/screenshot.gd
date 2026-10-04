@@ -23,6 +23,7 @@ func _frames(n: int) -> void:
 
 
 func _run() -> void:
+	preload("res://scripts/main.gd").show_opening = false
 	change_scene_to_file("res://scenes/main.tscn")
 	await _frames(5)
 	var main := current_scene

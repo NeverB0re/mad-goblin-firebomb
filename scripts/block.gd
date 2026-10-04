@@ -18,7 +18,7 @@ const INFO := {
 	Mat.ROPE: {"color": Color(0.86, 0.78, 0.55), "density": 0.5, "joint": 15.0, "flammable": true, "ignite": 0.3, "burn": 2.0, "ratio": 0.0},
 	Mat.STRAW: {"color": Color(0.94, 0.83, 0.36), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.15, "burn": 2.0, "ratio": 1.0},
 	Mat.KEG: {"color": Color(0.06, 0.06, 0.06), "density": 0.9, "joint": 30.0, "flammable": true, "ignite": 0.3, "burn": 0.8, "ratio": 1.0},
-	Mat.CORE: {"color": Color(0.92, 0.07, 0.07), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 1.0},
+	Mat.CORE: {"color": Color(0.97, 0.74, 0.16), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 1.0},
 	Mat.WEIGHT: {"color": Color(0.16, 0.16, 0.18), "density": 7.8, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.0},
 }
 
@@ -50,6 +50,7 @@ var _last_velocity := Vector3.ZERO
 var _impact_cooldown := 0.0
 var _burn_clock := 0.0
 var _react := 0.0
+var _spin: Node3D
 var _react_dir := Vector3.ZERO
 
 
@@ -113,6 +114,21 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 	if mat == Mat.CORE:
 		add_to_group("core")
 	return self
+
+
+## 코어 블록의 겉모양을 기계장치의 신 부품으로 바꾼다 (충돌 상자는 그대로).
+## 부품 메시는 이 블록의 재질을 공유해서 타격 번쩍임도 그대로 적용된다.
+func set_idol_part(kind: int) -> void:
+	_mesh.mesh = null
+	_material.metallic = 0.5
+	_material.roughness = 0.35
+	_material.emission_enabled = true
+	_material.emission = _base_color
+	_material.emission_energy_multiplier = 0.25
+	var part := Models.idol_part(kind, _material, Models.mat(Color(0.2, 0.17, 0.12), 0.5, 0.4))
+	part.scale = size / 0.8
+	_mesh.add_child(part)
+	_spin = part.find_child("Spin", true, false)
 
 
 func is_flammable() -> bool:
@@ -239,6 +255,8 @@ func hit_react(amount: float, from: Vector3) -> void:
 
 
 func _process(delta: float) -> void:
+	if _spin:
+		_spin.rotate_y(delta * 1.5)
 	if _react <= 0.0:
 		return
 	_react = maxf(0.0, _react - delta * 3.0)

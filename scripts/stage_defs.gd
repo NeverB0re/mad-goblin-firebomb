@@ -35,13 +35,13 @@ static func _zone(s: Stage) -> void:
 
 ## T1. 얇은 목재 창고, 기본 5발. 충격만으로 무너진다.
 static func _t1(s: Stage) -> void:
-	s.begin("T1", "T1 · 얇은 목재 창고", "창고를 무너뜨려 빨간 코어를 땅에 떨어뜨려라", Stage.Goal.CORE)
+	s.begin("T1", "T1 · 남작의 목재 창고", "창고를 무너뜨려 지붕 위 톱니 심장을 땅에 떨어뜨려라", Stage.Goal.CORE, Models.Part.HEART)
 	_zone(s)
 	s.add_ammo(BASIC, 5)
-	build_shed(s.add_structure(), Vector3(0, 0, -DIST[0]))
+	build_shed(s.add_structure(), Vector3(0, 0, -DIST[0]), Models.Part.HEART)
 
 
-static func build_shed(st: Structure, c: Vector3) -> void:
+static func build_shed(st: Structure, c: Vector3, part: int) -> void:
 	var hx := 2.0
 	var hz := 1.5
 	var post_h := 2.6
@@ -58,8 +58,8 @@ static func build_shed(st: Structure, c: Vector3) -> void:
 	for i in n:
 		var x := -hx + plank_w * (i + 0.5)
 		st.add_block(M.WOOD_THIN, c + Vector3(x, post_h + 0.25 + 0.05, 0), Vector3(plank_w, 0.1, hz * 2.0))
-	# 코어
-	st.add_block(M.CORE, c + Vector3(0, post_h + 0.35 + 0.4, 0), Vector3(0.8, 0.8, 0.8))
+	# 신상 부품 (코어)
+	st.add_block(M.CORE, c + Vector3(0, post_h + 0.35 + 0.4, 0), Vector3(0.8, 0.8, 0.8)).set_idol_part(part)
 	# 벽 판자 (하중 없음)
 	var wall_h := 2.4
 	for sz in [-1, 1]:
@@ -78,13 +78,13 @@ static func build_shed(st: Structure, c: Vector3) -> void:
 
 ## T2. 목재 기둥이 받치는 석재 망루, 기본 5발.
 static func _t2(s: Stage) -> void:
-	s.begin("T2", "T2 · 석재 망루", "망루를 받치는 기둥을 태워 코어를 떨어뜨려라", Stage.Goal.CORE)
+	s.begin("T2", "T2 · 남작의 석재 망루", "망루를 받치는 기둥을 태워 태엽 팔을 떨어뜨려라", Stage.Goal.CORE, Models.Part.ARM_L)
 	_zone(s)
 	s.add_ammo(BASIC, 5)
-	build_tower(s.add_structure(), Vector3(0, 0, -DIST[1]))
+	build_tower(s.add_structure(), Vector3(0, 0, -DIST[1]), Models.Part.ARM_L)
 
 
-static func build_tower(st: Structure, c: Vector3) -> void:
+static func build_tower(st: Structure, c: Vector3, part: int) -> void:
 	var leg_h := 5.0
 	var off := 1.25
 	# 하중을 받는 짙은 갈색 목재 기둥 4개
@@ -102,12 +102,12 @@ static func build_tower(st: Structure, c: Vector3) -> void:
 			for sz in [-1, 1]:
 				st.add_block(M.STONE, c + Vector3(sx * 0.875, y + 0.5, sz * 0.875), Vector3(1.75, 1.0, 1.75))
 		y += 1.0
-	st.add_block(M.CORE, c + Vector3(0, y + 0.4, 0), Vector3(0.8, 0.8, 0.8))
+	st.add_block(M.CORE, c + Vector3(0, y + 0.4, 0), Vector3(0.8, 0.8, 0.8)).set_idol_part(part)
 
 
 ## T3. 밧줄에 매달린 추가 있는 석재 벽, 기본 4발.
 static func _t3(s: Stage) -> void:
-	s.begin("T3", "T3 · 석재 벽과 매달린 추", "석재 벽 위의 코어를 떨어뜨려라", Stage.Goal.CORE)
+	s.begin("T3", "T3 · 석재 성벽과 매달린 추", "성벽 위의 증기 머리를 떨어뜨려라", Stage.Goal.CORE, Models.Part.HEAD)
 	_zone(s)
 	s.add_ammo(BASIC, 4)
 	var st := s.add_structure()
@@ -116,7 +116,7 @@ static func _t3(s: Stage) -> void:
 	for layer in 6:
 		for col in [-2.0, 0.0, 2.0]:
 			st.add_block(M.STONE, c + Vector3(col, layer + 0.5, 0), Vector3(2.0, 1.0, 1.0))
-	st.add_block(M.CORE, c + Vector3(0, 6.4, 0), Vector3(0.8, 0.8, 0.8))
+	st.add_block(M.CORE, c + Vector3(0, 6.4, 0), Vector3(0.8, 0.8, 0.8)).set_idol_part(Models.Part.HEAD)
 	# 석재 기둥과 팔. 추는 코어 뒤쪽 모서리에 걸치게 매달아, 떨어지면 코어를 짓누르지 않고 벽 앞쪽으로 쳐낸다
 	var hang_z := -0.9
 	var post_h := 15.0
@@ -135,12 +135,12 @@ static func _t3(s: Stage) -> void:
 
 ## T4. 옆을 지나 멀어지는 적 1명 약 40~85m, 기본 6발.
 static func _t4(s: Stage) -> void:
-	s.begin("T4", "T4 · 도망치는 적", "달아나는 적에게 불을 붙여라 (첫 투척과 함께 달린다)", Stage.Goal.ENEMY)
+	s.begin("T4", "T4 · 달아나는 징세관", "태엽 팔을 들고 달아나는 징세관에게 불을 붙여라 (첫 투척과 함께 달린다)", Stage.Goal.ENEMY, Models.Part.ARM_R)
 	_zone(s)
 	s.add_ammo(BASIC, 6)
 	var from := T4_FROM
 	var to := T4_TO
-	s.add_enemy(from, to, 4.5)
+	s.add_enemy(from, to, 4.5).carry_part(Models.Part.ARM_R)
 	# 길을 따라 일정한 간격의 울타리 기둥
 	var dir := (to - from).normalized()
 	var side := dir.cross(Vector3.UP).normalized()
@@ -159,15 +159,15 @@ static func _t4(s: Stage) -> void:
 
 ## T5. T2와 같은 망루, 중량 화염병만 5발.
 static func _t5(s: Stage) -> void:
-	s.begin("T5", "T5 · 석재 망루 (중량 화염병)", "무게가 달라진 화염병으로 망루를 무너뜨려라", Stage.Goal.CORE)
+	s.begin("T5", "T5 · 남작의 석재 망루 (중량 화염병)", "무게가 달라진 화염병으로 망루 위의 황동 다리를 떨어뜨려라", Stage.Goal.CORE, Models.Part.LEGS)
 	_zone(s)
 	s.add_ammo(HEAVY, 5)
-	build_tower(s.add_structure(), Vector3(0, 0, -DIST[4]))
+	build_tower(s.add_structure(), Vector3(0, 0, -DIST[4]), Models.Part.LEGS)
 
 
 ## T6. 화약통이 있는 석재 건물, 기본 3발 + 중량 3발.
 static func _t6(s: Stage) -> void:
-	s.begin("T6", "T6 · 화약통과 석재 탑", "1/2 키나 휠로 탄종을 바꿀 수 있다", Stage.Goal.CORE)
+	s.begin("T6", "T6 · 남작의 화약 탑", "탑 꼭대기의 보일러 몸통을 떨어뜨려라 (1/2 키나 휠로 탄종 교체)", Stage.Goal.CORE, Models.Part.TORSO)
 	_zone(s)
 	s.add_ammo(BASIC, 3)
 	s.add_ammo(HEAVY, 3)
@@ -177,6 +177,6 @@ static func _t6(s: Stage) -> void:
 		for sx in [-1, 1]:
 			for sz in [-1, 1]:
 				st.add_block(M.STONE, c + Vector3(sx * 0.75, layer + 0.5, sz * 0.75), Vector3(1.5, 1.0, 1.5))
-	st.add_block(M.CORE, c + Vector3(0, 6.4, 0), Vector3(0.8, 0.8, 0.8))
+	st.add_block(M.CORE, c + Vector3(0, 6.4, 0), Vector3(0.8, 0.8, 0.8)).set_idol_part(Models.Part.TORSO)
 	# 탑 앞에 기대 둔 화약통
 	st.add_block(M.KEG, c + Vector3(0.4, 0.5, 1.5 + 0.4), Vector3(0.8, 1.0, 0.8))
