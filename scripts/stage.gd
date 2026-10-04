@@ -14,7 +14,7 @@ signal shake_requested(amount: float)
 signal target_down(target: Actor, cause: String, focus: Vector3)
 
 enum State { PLAYING, CLEARED, FAILED }
-## 승리 조건: 지휘관 쓰러뜨리기, 또는 전령 멈추기 (전령을 쓰러뜨리거나 봉화대를 먼저 태움)
+## 승리 조건: 지휘관 쓰러뜨리기, 또는 전령 멈추기 (전령을 쓰러뜨리거나 건너야 할 다리를 끊음)
 enum Goal { COMMANDER, MESSENGER }
 
 const TRACE_TIME := 30.0
@@ -34,10 +34,9 @@ var commander: Commander
 var structures: Array[Structure] = []
 var messengers: Array[Messenger] = []
 var allies: Array[Ally] = []
-## 전령의 목적지 (봉화대). 다 타거나 무너지면 전령이 도착해도 지원을 부르지 못한다
-var beacon: Structure
-## 봉화대 위치 (다 타 없어졌을 때 연출이 비출 곳)
-var beacon_center := Vector3.ZERO
+## 전령이 건너야 하는 다리: [{blocks: Array (상판), start, end: float (경로상 다리 앞·끝 거리)}]
+## 전령이 건너기 전에 상판이 하나라도 끊기면, 전령은 다리 앞까지 달려와 오도 가도 못한다 → 전령 멈추기 성공
+var bridges: Array = []
 ## 승리 연출 카메라 (스테이지마다 정해 둔 위치, 없으면 자동)
 var cine_cam_pos := Vector3.INF
 ## [{type: AmmoType, count: int}]
@@ -554,20 +553,20 @@ func _win(target: Actor, cause: String, focus: Vector3) -> void:
 	target_down.emit(target, cause, focus)
 
 
-## 봉화대가 남아 있는지 (가연 블록의 절반 이상이 타거나 무너지면 못 쓴다).
-func beacon_alive() -> bool:
-	if beacon == null:
-		return true
-	var ok := 0
-	for b in beacon.blocks:
-		if not b.fallen and not b.burnt and not b.burning:
-			ok += 1
-	return ok * 2 > beacon.initial_count
+## 다리를 놓는다 (상판 블록들과 경로상 다리 앞·끝 거리).
+func add_bridge(deck: Array, start_distance: float, end_distance: float) -> void:
+	bridges.append({"blocks": deck, "start": start_distance, "end": end_distance})
+
+
+func _bridge_broken(br: Dictionary) -> bool:
+	for b in br.blocks:
+		if not is_instance_valid(b) or b.fallen or b.burnt:
+			return true
+	return false
 
 
 func _on_messenger_arrived(_m: Messenger) -> void:
-	if beacon_alive():
-		_fail("fail_messenger")
+	_fail("fail_messenger")
 
 
 func _fail(key: String) -> void:
@@ -607,10 +606,17 @@ func _physics_process(delta: float) -> void:
 		cloth.rotation.x = sin(elapsed * 5.0) * 0.06
 	if state != State.PLAYING:
 		return
-	# 봉화대를 먼저 태우면 전령이 지원을 부를 수 없다 → 전령 멈추기 성공
-	if goal == Goal.MESSENGER and beacon and not beacon_alive():
-		_win(null, "beacon", beacon_center)
-		return
+	# 다리가 끊기면 전령은 다리 앞까지 와서 오도 가도 못한다 → 전령 멈추기 성공
+	# (다리 위에 있을 때 끊겨도 마찬가지)
+	if goal == Goal.MESSENGER:
+		for br in bridges:
+			if _bridge_broken(br):
+				for m in messengers:
+					var p: float = m.follow.progress
+					if not m.dead and not m.has_arrived and p >= br.start and p < br.end:
+						m.strand()
+						_win(m, "bridge", m.chest())
+						return
 	if total_ammo() == 0:
 		if is_active():
 			_quiet = 0.0

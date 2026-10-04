@@ -6,7 +6,7 @@ extends CanvasLayer
 ##  - 날아감 (직격·폭발): 과장되게 날아가는 모습을 옆에서 따라가며 잠시 감상 → 공중에서 확대샷
 ##  - 불탐: 날아가지 않고 불붙어 당황하는 모습을 정면에서
 ##  - 깔림·추락: 줌을 당겨 무너진 건물과 깔린 지휘관을 함께
-##  - 봉화대 (전령 스테이지): 타 버린 봉화대 앞에서 허둥대는 전령
+##  - 다리 (전령 스테이지): 끊긴 다리 앞에서 허둥대는 전령을 정면에서
 ## 아무 입력이나 누르면 바로 넘어간다 (R은 다시 하기).
 ## 실패: 고블린 그림 한 장(1.2초) + 원인 한 줄 → 다시 하기.
 
@@ -143,8 +143,8 @@ func play_victory(stage: Stage, target: Actor, cause: String, focus: Vector3, st
 	away.y = 0.0
 	away = away.normalized()
 	var side := away.cross(Vector3.UP).normalized()
-	if target == null:
-		await _shot_beacon(stage, focus, away, side)
+	if cause == "bridge":
+		await _shot_stranded(stage, target, focus, away, side)
 	elif cause == "fire":
 		await _shot_burn(stage, target)
 	elif cause == "crush" or cause == "fall":
@@ -206,18 +206,15 @@ func _shot_crush(stage: Stage, target: Actor, away: Vector3, side: Vector3) -> v
 	await _wait_real(CRUSH_WATCH)
 
 
-## 봉화대: 타 버린 봉화대 앞, 지원을 부르지 못하고 허둥대는 전령.
-func _shot_beacon(stage: Stage, focus: Vector3, away: Vector3, side: Vector3) -> void:
+## 다리: 끊긴 다리 앞에서 오도 가도 못하고 허둥대는 전령.
+func _shot_stranded(stage: Stage, target: Actor, focus: Vector3, away: Vector3, side: Vector3) -> void:
 	Engine.time_scale = 1.0
-	_look_point = focus + Vector3.UP * 1.5
-	for m in stage.messengers:
-		if not m.dead:
-			m.running = false
-			m.burn_panic()
-	var near := _find_view(stage, focus + Vector3.UP * 1.5, [-away + side * 0.6, -away - side * 0.6, side, -side], 9.0, 3.0)
-	_move_cam(focus + (near - focus) * 1.6 + Vector3.UP * 2.0, 0.0)
-	_move_cam(near, 1.2)
-	await _wait_real(1.6)
+	_look_node = target
+	var near := _find_view(stage, focus, [-away + side * 0.6, -away - side * 0.6, side, -side], 6.0, 2.0)
+	_move_cam(focus + (near - focus) * 1.8 + Vector3.UP * 2.0, 0.0)
+	_move_cam(near, 1.0)
+	Sfx.play(stage, "scream", focus, 0.0)
+	await _wait_real(1.8)
 
 
 ## 지형(바위, 절벽)에 가리지 않고 target을 볼 수 있는 자리. 블록(잔해)은 가려도 된다.

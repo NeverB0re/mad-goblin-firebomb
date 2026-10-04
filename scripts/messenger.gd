@@ -1,7 +1,8 @@
 class_name Messenger
 extends Actor
-## 지원을 부르러 목적지(봉화대·나팔탑)까지 정해진 직선 경로를 일정한 속도로 달리는 전령.
+## 지원을 부르러 목적지(나팔탑)까지 정해진 꺾은선 경로를 일정한 속도로 달리는 전령.
 ## 방향 전환이나 회피는 없어서 같은 판단에 같은 결과가 나온다. 밤에는 횃불을 들고 달린다.
+## 건너야 할 다리가 끊기면 그 자리에서 멈춰 양팔을 휘저으며 허둥댄다.
 
 signal arrived
 
@@ -9,6 +10,7 @@ var speed := 4.5
 var follow: PathFollow3D
 var running := false
 var has_arrived := false
+var stranded := false
 
 
 func _init() -> void:
@@ -30,6 +32,12 @@ func start() -> void:
 		running = true
 
 
+## 다리가 끊겨 오도 가도 못한다.
+func strand() -> void:
+	running = false
+	stranded = true
+
+
 ## 쓰러진 모습(날아가기·불타기·깔리기)은 승리 연출이 원인에 맞게 정한다.
 func _on_defeated(_cause: String) -> void:
 	running = false
@@ -37,6 +45,12 @@ func _on_defeated(_cause: String) -> void:
 
 func _physics_process(delta: float) -> void:
 	super(delta)
+	if stranded and not dead:
+		# 양팔을 번갈아 휘저으며 제자리에서 동동 구른다
+		visual.position.y = absf(sin(_anim_t * 14.0)) * 0.08
+		(visual.get_node("ArmL") as Node3D).rotation.z = -2.4 + sin(_anim_t * 16.0) * 0.5
+		(visual.get_node("ArmR") as Node3D).rotation.z = 2.4 + sin(_anim_t * 16.0 + 1.5) * 0.5
+		return
 	if not running or dead or follow == null:
 		return
 	follow.progress += speed * delta
