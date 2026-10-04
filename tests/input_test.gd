@@ -23,6 +23,7 @@ func _frames(n: int) -> void:
 func _run() -> void:
 	print("== 입력 테스트 ==")
 	preload("res://scripts/main.gd").show_opening = false
+	preload("res://scripts/main.gd").test_mode = true
 	change_scene_to_file("res://scenes/main.tscn")
 	await _frames(5)
 	var main := current_scene

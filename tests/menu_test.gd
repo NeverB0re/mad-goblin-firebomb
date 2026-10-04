@@ -1,0 +1,71 @@
+extends SceneTree
+## 게임 흐름 테스트 (창 모드): 타이틀 → 시작(오프닝 건너뜀) → 1-1, Esc 잠깐/계속, 클리어 기록 저장, 스테이지 선택.
+## 실제 저장 파일 대신 user://test_save.cfg를 쓴다.
+
+var _failures := 0
+
+
+func _initialize() -> void:
+	_run()
+
+
+func _check(cond: bool, msg: String) -> void:
+	if cond:
+		print("  PASS ", msg)
+	else:
+		_failures += 1
+		print("  FAIL ", msg)
+
+
+func _frames(n: int) -> void:
+	for i in n:
+		await process_frame
+
+
+func _key(code: int) -> void:
+	var ev := InputEventKey.new()
+	ev.physical_keycode = code
+	ev.keycode = code
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	await _frames(2)
+	ev = ev.duplicate()
+	ev.pressed = false
+	Input.parse_input_event(ev)
+	await _frames(2)
+
+
+func _run() -> void:
+	print("== 게임 흐름 테스트 ==")
+	SaveData.path = "user://test_save.cfg"
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveData.path))
+	SaveData.load_all()
+	SaveData.opening_seen = true
+	change_scene_to_file("res://scenes/main.tscn")
+	await _frames(10)
+	var main := current_scene
+	_check(main.menus.screen == Menus.Screen.TITLE and paused, "타이틀 화면, 뒤의 진지는 멈춤")
+	main.menus.start_requested.emit()
+	await _frames(10)
+	_check(not paused and main.stage.stage_id == "1-1" and main.menus.screen == Menus.Screen.NONE, "시작 → 1-1 (%s)" % main.stage.stage_id)
+	await _key(KEY_ESCAPE)
+	_check(paused and main.menus.screen == Menus.Screen.PAUSE, "Esc → 잠깐 메뉴")
+	await _key(KEY_ESCAPE)
+	_check(not paused and main.menus.screen == Menus.Screen.NONE, "Esc → 계속")
+	# 클리어 → 다음 스테이지가 열리고 기록이 저장된다
+	main.stage.commander.defeat("direct")
+	await _frames(5)
+	_check(SaveData.unlocked == 2 and SaveData.is_cleared(0), "1-1 클리어 → 1-2 열림, 기록 저장")
+	var cfg := ConfigFile.new()
+	_check(cfg.load(SaveData.path) == OK and int(cfg.get_value("progress", "unlocked", 0)) == 2, "저장 파일에 진행이 남음")
+	Engine.time_scale = 1.0
+	main.show_title()
+	await _frames(5)
+	main.menus.show_select(Menus.Screen.TITLE)
+	await _frames(5)
+	main.menus.stage_chosen.emit(1)
+	await _frames(10)
+	_check(main.stage.stage_id == "1-2" and not paused, "진지 고르기 → 1-2")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveData.path))
+	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
+	quit(0 if _failures == 0 else 1)

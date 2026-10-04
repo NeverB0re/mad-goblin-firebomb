@@ -21,6 +21,7 @@ static func _make(kind: String) -> AudioStreamWAV:
 		"scream": dur = 1.6
 		"win": dur = 1.2
 		"fizzle": dur = 0.9
+		"click": dur = 0.08
 	var n := int(dur * RATE)
 	var data := PackedByteArray()
 	data.resize(n * 2)
@@ -79,6 +80,9 @@ static func _make(kind: String) -> AudioStreamWAV:
 				var idx := mini(int(t / 0.12), 3)
 				var nt := t - idx * 0.12
 				s = sin(TAU * notes[idx] * t) * exp(-nt * 4.0) * 0.3 + noise * exp(-t * 20.0) * 0.5
+			"click":
+				# 메뉴 버튼: 짧은 나무 딱 소리
+				s = sin(TAU * 900.0 * t) * exp(-t * 60.0) * 0.5 + noise * exp(-t * 90.0) * 0.3
 			"fizzle":
 				# 강철에 닿은 불이 피식 꺼지는 소리
 				lp += (noise - lp) * 0.7
@@ -108,6 +112,19 @@ static func play(parent: Node, kind: String, pos: Vector3, volume_db := 0.0) -> 
 	p.max_distance = 400.0
 	parent.add_child(p)
 	p.global_position = pos
+	p.play()
+	p.finished.connect(p.queue_free)
+
+
+## 위치 없는 화면 소리 (메뉴). 게임이 멈춰 있어도 난다.
+static func play_ui(parent: Node, kind: String, volume_db := -6.0) -> void:
+	if parent == null or not parent.is_inside_tree():
+		return
+	var p := AudioStreamPlayer.new()
+	p.stream = stream(kind)
+	p.volume_db = volume_db
+	p.process_mode = Node.PROCESS_MODE_ALWAYS
+	parent.add_child(p)
 	p.play()
 	p.finished.connect(p.queue_free)
 

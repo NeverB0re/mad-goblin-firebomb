@@ -204,7 +204,7 @@ func _tick_throw() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens := MOUSE_SENS * (camera.fov / BASE_FOV)
+		var sens := MOUSE_SENS * SaveData.mouse_sens * (camera.fov / BASE_FOV)
 		if is_throwing():
 			sens *= WINDUP_SENS
 		rotate_y(-event.relative.x * sens)
