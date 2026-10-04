@@ -19,6 +19,9 @@ static func mat(color: Color, roughness := 0.85, metallic := 0.0, emission := 0.
 	m.albedo_color = color
 	m.roughness = roughness
 	m.metallic = metallic
+	# 로우폴리 메시의 면마다 다른 밝기(정점 색)를 곱한다
+	m.vertex_color_use_as_albedo = true
+	m.vertex_color_is_srgb = true
 	if emission > 0.0:
 		m.emission_enabled = true
 		m.emission = color
@@ -32,9 +35,10 @@ static func gold_material() -> StandardMaterial3D:
 
 static func box(parent: Node3D, size: Vector3, pos: Vector3, m: Material, rot := Vector3.ZERO) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	mi.mesh = bm
+	mi.mesh = LowPoly.cached("box:%s" % str(size.snapped(Vector3.ONE * 0.001)), func():
+		var b := LowPoly.Builder.new()
+		b.chamfer_box(Transform3D.IDENTITY, size, minf(0.05, minf(size.x, minf(size.y, size.z)) * 0.15))
+		return b.commit())
 	mi.material_override = m
 	mi.position = pos
 	mi.rotation = rot
@@ -44,13 +48,14 @@ static func box(parent: Node3D, size: Vector3, pos: Vector3, m: Material, rot :=
 
 static func cyl(parent: Node3D, r_top: float, r_bottom: float, h: float, pos: Vector3, m: Material, rot := Vector3.ZERO, segments := 8) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = r_top
-	cm.bottom_radius = r_bottom
-	cm.height = h
-	cm.radial_segments = segments
-	cm.rings = 1
-	mi.mesh = cm
+	mi.mesh = LowPoly.cached("cyl:%.3f:%.3f:%.3f:%d" % [r_top, r_bottom, h, segments], func():
+		var cm := CylinderMesh.new()
+		cm.top_radius = r_top
+		cm.bottom_radius = r_bottom
+		cm.height = h
+		cm.radial_segments = segments
+		cm.rings = 0
+		return LowPoly.flat(cm))
 	mi.material_override = m
 	mi.position = pos
 	mi.rotation = rot
@@ -60,12 +65,13 @@ static func cyl(parent: Node3D, r_top: float, r_bottom: float, h: float, pos: Ve
 
 static func ball(parent: Node3D, r: float, pos: Vector3, m: Material, segments := 8) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	var sm := SphereMesh.new()
-	sm.radius = r
-	sm.height = r * 2.0
-	sm.radial_segments = segments
-	sm.rings = maxi(segments / 2, 3)
-	mi.mesh = sm
+	mi.mesh = LowPoly.cached("ball:%.3f:%d" % [r, segments], func():
+		var sm := SphereMesh.new()
+		sm.radius = r
+		sm.height = r * 2.0
+		sm.radial_segments = segments
+		sm.rings = maxi(segments / 2, 3)
+		return LowPoly.flat(sm))
 	mi.material_override = m
 	mi.position = pos
 	parent.add_child(mi)
@@ -74,12 +80,13 @@ static func ball(parent: Node3D, r: float, pos: Vector3, m: Material, segments :
 
 static func capsule(parent: Node3D, r: float, h: float, pos: Vector3, m: Material, rot := Vector3.ZERO) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	var cm := CapsuleMesh.new()
-	cm.radius = r
-	cm.height = h
-	cm.radial_segments = 8
-	cm.rings = 2
-	mi.mesh = cm
+	mi.mesh = LowPoly.cached("cap:%.3f:%.3f" % [r, h], func():
+		var cm := CapsuleMesh.new()
+		cm.radius = r
+		cm.height = h
+		cm.radial_segments = 8
+		cm.rings = 1
+		return LowPoly.flat(cm))
 	mi.material_override = m
 	mi.position = pos
 	mi.rotation = rot
@@ -103,68 +110,210 @@ static func gear(parent: Node3D, radius: float, thick: float, pos: Vector3, m: M
 
 # ---------- 인물 ----------
 
-## 미친 발명가 고블린 (원점은 발바닥, -Z가 앞).
+## 늘린 공 (타원체).
+static func blob(parent: Node3D, r: float, pos: Vector3, m: Material, scl := Vector3.ONE, rot := Vector3.ZERO, segments := 8) -> MeshInstance3D:
+	var mi := ball(parent, r, pos, m, segments)
+	mi.scale = scl
+	mi.rotation = rot
+	return mi
+
+
+## 미친 발명가 고블린 (원점은 발바닥, -Z가 앞). 플레이어가 늘 등 뒤에서 보므로 등짐·고글 끈·귀를 자세히.
+## 노드: Head (머리, 목 위), ArmL/ArmR (어깨, 팔은 아래로 늘어짐)
 static func goblin(with_arms := true) -> Node3D:
 	var root := Node3D.new()
 	var skin := mat(GOBLIN_SKIN, 0.8)
-	var cloth := mat(Color(0.36, 0.24, 0.14), 1.0)
+	var skin_dark := mat(GOBLIN_SKIN.darkened(0.2), 0.8)
+	var ear_in := mat(Color(0.78, 0.5, 0.42), 0.8)
+	var cloth := mat(Color(0.42, 0.28, 0.16), 1.0)
+	var leather := mat(Color(0.55, 0.35, 0.18), 0.9)
+	var leather_dark := mat(Color(0.3, 0.19, 0.11), 0.9)
+	var patch := mat(Color(0.72, 0.6, 0.38), 1.0)
+	var brass := mat(Color(0.82, 0.62, 0.25), 0.35, 0.6)
+	var lens := mat(Color(0.45, 0.85, 0.9), 0.2, 0.0, 0.4)
 	var eye := mat(Color(1.0, 0.85, 0.1), 0.5, 0.0, 1.0)
-	capsule(root, 0.32, 1.1, Vector3(0, 0.75, 0.05), skin, Vector3(-0.3, 0, 0))
-	box(root, Vector3(0.62, 0.5, 0.5), Vector3(0, 0.82, 0.02), cloth, Vector3(-0.3, 0, 0))
+	var black := mat(Color(0.05, 0.04, 0.04), 0.6)
+	var tooth := mat(Color(0.95, 0.92, 0.78), 0.6)
+	var glass := mat(Color(0.3, 0.5, 0.25), 0.25)
+	var rag := mat(Color(0.86, 0.8, 0.62), 1.0)
+	# 다리: 휜 짧은 다리와 큰 맨발 (발가락 셋)
+	for sx in [-1.0, 1.0]:
+		capsule(root, 0.1, 0.48, Vector3(sx * 0.17, 0.3, 0.03), skin, Vector3(0, 0, sx * 0.12))
+		blob(root, 0.13, Vector3(sx * 0.19, 0.07, -0.08), skin_dark, Vector3(1.0, 0.55, 1.6))
+		for k in 3:
+			blob(root, 0.045, Vector3(sx * 0.19 + (k - 1) * 0.065, 0.05, -0.27), skin_dark, Vector3(1, 0.8, 1.3), Vector3.ZERO, 6)
+	# 누더기 반바지와 허리띠 (버클, 주머니)
+	cyl(root, 0.33, 0.36, 0.3, Vector3(0, 0.55, 0.04), cloth, Vector3(-0.1, 0, 0), 8)
+	box(root, Vector3(0.18, 0.14, 0.03), Vector3(0.15, 0.6, -0.31), patch, Vector3(0, 0, 0.2))
+	cyl(root, 0.37, 0.37, 0.08, Vector3(0, 0.7, 0.04), leather_dark, Vector3(-0.15, 0, 0), 8)
+	box(root, Vector3(0.12, 0.1, 0.04), Vector3(0, 0.71, -0.33), brass)
+	for sx in [-1.0, 1.0]:
+		box(root, Vector3(0.16, 0.16, 0.1), Vector3(sx * 0.3, 0.64, -0.2), leather, Vector3(0, sx * 0.6, 0))
+	# 구부정한 몸통 (불룩한 배) + 앞이 트인 가죽 조끼
+	blob(root, 0.36, Vector3(0, 0.95, 0.02), skin, Vector3(1.0, 1.05, 0.88), Vector3(-0.3, 0, 0))
+	var vest := Node3D.new()
+	vest.position = Vector3(0, 1.0, 0.08)
+	vest.rotation = Vector3(-0.32, 0, 0)
+	root.add_child(vest)
+	box(vest, Vector3(0.66, 0.5, 0.36), Vector3(0, 0, 0.12), leather)
+	for sx in [-1.0, 1.0]:
+		box(vest, Vector3(0.22, 0.48, 0.14), Vector3(sx * 0.24, 0, -0.2), leather, Vector3(0, sx * 0.25, 0))
+	box(vest, Vector3(0.2, 0.16, 0.03), Vector3(-0.15, 0.08, 0.31), patch, Vector3(0, 0, -0.15))
+	# 가슴의 탄띠 (작은 병들)
+	var band := Node3D.new()
+	band.position = Vector3(0, 1.0, -0.22)
+	band.rotation = Vector3(-0.25, 0, 0.75)
+	root.add_child(band)
+	box(band, Vector3(0.09, 0.8, 0.05), Vector3.ZERO, leather_dark)
+	for k in 3:
+		cyl(band, 0.035, 0.04, 0.12, Vector3(0, -0.2 + k * 0.2, -0.05), glass, Vector3.ZERO, 6)
+	# 등짐: 덮개 달린 가죽 배낭, 말아 올린 담요, 꽂힌 화염병들, 매달린 렌치
+	var pack := Node3D.new()
+	pack.name = "Pack"
+	pack.position = Vector3(0, 1.05, 0.42)
+	pack.rotation = Vector3(-0.3, 0, 0)
+	root.add_child(pack)
+	box(pack, Vector3(0.54, 0.56, 0.3), Vector3.ZERO, leather)
+	box(pack, Vector3(0.56, 0.24, 0.32), Vector3(0, 0.2, 0.01), leather_dark)
+	box(pack, Vector3(0.1, 0.1, 0.03), Vector3(0, 0.08, 0.17), brass)
+	for sx in [-1.0, 1.0]:
+		box(pack, Vector3(0.12, 0.28, 0.12), Vector3(sx * 0.33, -0.1, 0), leather_dark)
+	cyl(pack, 0.1, 0.1, 0.6, Vector3(0, -0.34, 0.02), mat(Color(0.52, 0.36, 0.28), 1.0), Vector3(0, 0, PI * 0.5), 7)
+	for k in 3:
+		var bot := Node3D.new()
+		bot.position = Vector3(-0.16 + k * 0.16, 0.36, -0.04)
+		bot.rotation = Vector3(0.1, 0, (k - 1) * 0.3)
+		pack.add_child(bot)
+		cyl(bot, 0.06, 0.07, 0.2, Vector3.ZERO, glass, Vector3.ZERO, 6)
+		cyl(bot, 0.025, 0.035, 0.1, Vector3(0, 0.14, 0), glass, Vector3.ZERO, 6)
+		cyl(bot, 0.01, 0.035, 0.1, Vector3(0, 0.23, 0), rag, Vector3(0.3, 0, 0.2), 4)
+	var wrench := Node3D.new()
+	wrench.position = Vector3(0.36, -0.05, 0.06)
+	wrench.rotation = Vector3(0, 0, 0.25)
+	pack.add_child(wrench)
+	var steel := mat(Color(0.55, 0.57, 0.6), 0.4, 0.6)
+	box(wrench, Vector3(0.05, 0.36, 0.03), Vector3.ZERO, steel)
+	box(wrench, Vector3(0.14, 0.06, 0.03), Vector3(0, 0.19, 0), steel)
+	# 머리
 	var head := Node3D.new()
 	head.name = "Head"
 	head.position = Vector3(0, 1.5, -0.12)
 	root.add_child(head)
-	ball(head, 0.27, Vector3.ZERO, skin)
+	blob(head, 0.28, Vector3.ZERO, skin, Vector3(1.0, 0.95, 1.05))
+	blob(head, 0.17, Vector3(0, -0.12, -0.12), skin, Vector3(1.25, 0.8, 1.0))
+	# 긴 귀 (안쪽 분홍), 오른쪽 귀에 놋쇠 귀걸이
 	for sx in [-1.0, 1.0]:
-		cyl(head, 0.0, 0.09, 0.45, Vector3(sx * 0.33, 0.08, 0.02), skin, Vector3(0, 0, -sx * 1.25), 4)
-		box(head, Vector3(0.08, 0.05, 0.03), Vector3(sx * 0.1, 0.05, -0.26), eye)
-	# 발명가 고글
-	box(head, Vector3(0.5, 0.06, 0.06), Vector3(0, 0.16, -0.2), cloth)
+		var ear := Node3D.new()
+		ear.position = Vector3(sx * 0.25, 0.06, 0.02)
+		ear.rotation = Vector3(0.15, sx * -0.2, -sx * 1.2)
+		head.add_child(ear)
+		cyl(ear, 0.0, 0.12, 0.55, Vector3(0, 0.25, 0), skin, Vector3.ZERO, 4)
+		cyl(ear, 0.0, 0.07, 0.4, Vector3(0, 0.22, -0.035), ear_in, Vector3.ZERO, 4)
+		if sx > 0.0:
+			cyl(ear, 0.045, 0.045, 0.02, Vector3(0, 0.1, 0.06), brass, Vector3(PI * 0.5, 0, 0), 6)
+	# 갈고리 코, 눈(검은 눈동자), 찌푸린 눈썹, 이빨 드러낸 웃음
+	cyl(head, 0.0, 0.075, 0.28, Vector3(0, -0.04, -0.33), skin_dark, Vector3(-1.75, 0, 0), 5)
+	for sx in [-1.0, 1.0]:
+		blob(head, 0.065, Vector3(sx * 0.11, 0.04, -0.24), eye, Vector3(1.1, 0.8, 0.6), Vector3.ZERO, 6)
+		box(head, Vector3(0.035, 0.05, 0.02), Vector3(sx * 0.11, 0.04, -0.29), black)
+		box(head, Vector3(0.14, 0.035, 0.04), Vector3(sx * 0.11, 0.12, -0.25), skin_dark, Vector3(0, 0, sx * 0.35))
+	box(head, Vector3(0.2, 0.04, 0.03), Vector3(0, -0.17, -0.25), black)
+	for k in 2:
+		cyl(head, 0.0, 0.025, 0.06, Vector3(-0.05 + k * 0.1, -0.15, -0.26), tooth, Vector3(PI, 0, 0), 4)
+	# 이마의 고글과 뒤통수까지 두른 끈, 정수리의 머리털 한 줌
+	cyl(head, 0.285, 0.285, 0.07, Vector3(0, 0.13, 0.0), leather_dark, Vector3(-0.15, 0, 0), 8)
+	for sx in [-1.0, 1.0]:
+		cyl(head, 0.075, 0.075, 0.06, Vector3(sx * 0.1, 0.18, -0.25), brass, Vector3(PI * 0.5 - 0.3, 0, 0), 8)
+		cyl(head, 0.055, 0.055, 0.065, Vector3(sx * 0.1, 0.18, -0.255), lens, Vector3(PI * 0.5 - 0.3, 0, 0), 8)
+	for k in 3:
+		cyl(head, 0.0, 0.035, 0.14, Vector3((k - 1) * 0.06, 0.27, 0.06 + k * 0.03), skin_dark, Vector3(0.5 + k * 0.25, 0, (k - 1) * 0.5), 4)
 	if with_arms:
 		for sx in [-1.0, 1.0]:
 			var arm := Node3D.new()
 			arm.name = "ArmL" if sx < 0 else "ArmR"
-			arm.position = Vector3(sx * 0.36, 1.05, -0.05)
+			arm.position = Vector3(sx * 0.36, 1.08, -0.05)
 			root.add_child(arm)
-			capsule(arm, 0.08, 0.6, Vector3(0, -0.25, 0), skin)
+			goblin_arm(arm, skin, skin_dark, leather_dark)
 	return root
 
 
-## 인간 (징세관, 병사, 남작). 원점은 발바닥, -Z가 앞.
+## 고블린 팔 (어깨가 원점, 아래로 늘어짐): 마른 팔, 가죽 손목 띠, 큰 손과 엄지.
+static func goblin_arm(arm: Node3D, skin: Material, skin_dark: Material, wrap: Material) -> void:
+	ball(arm, 0.1, Vector3.ZERO, skin, 6)
+	capsule(arm, 0.075, 0.55, Vector3(0, -0.27, 0), skin)
+	cyl(arm, 0.085, 0.085, 0.08, Vector3(0, -0.46, 0), wrap, Vector3.ZERO, 6)
+	blob(arm, 0.1, Vector3(0, -0.6, -0.01), skin_dark, Vector3(0.9, 1.1, 0.7), Vector3.ZERO, 6)
+	cyl(arm, 0.0, 0.035, 0.12, Vector3(0, -0.58, -0.08), skin_dark, Vector3(-1.2, 0, 0), 4)
+
+
+## 인간 (병사, 전령, 징세관, 남작). 원점은 발바닥, -Z가 앞.
+## 누비 웃옷 위에 청회색 흉갑, 허리띠, 장화, 장갑. 노드: ArmL/ArmR, HeadMesh, (투구면) Helmet
 static func human(body: Color, hat: int = Hat.NONE, size := 1.0, cape := Color(0, 0, 0, 0)) -> Node3D:
 	var root := Node3D.new()
 	var m := mat(body, 0.7)
-	capsule(root, 0.32, 1.35, Vector3(0, 0.68, 0), m)
-	var head := ball(root, 0.2, Vector3(0, 1.58, 0), m)
+	var steel := mat(body.lightened(0.25), 0.35, 0.6)
+	var quilt := mat(Color(0.78, 0.72, 0.6), 0.95)
+	var quilt_line := mat(Color(0.66, 0.6, 0.48), 0.95)
+	var trousers := mat(Color(0.3, 0.27, 0.25), 0.95)
+	var boot := mat(Color(0.25, 0.17, 0.11), 0.8)
+	var belt := mat(Color(0.32, 0.2, 0.12), 0.8)
+	var skin := mat(Color(0.94, 0.76, 0.62), 0.8)
+	var hair := mat(Color(0.4, 0.26, 0.15), 0.9)
+	var black := mat(Color(0.08, 0.07, 0.07), 0.6)
+	for sx in [-1.0, 1.0]:
+		capsule(root, 0.1, 0.6, Vector3(sx * 0.14, 0.5, 0), trousers)
+		cyl(root, 0.12, 0.13, 0.32, Vector3(sx * 0.14, 0.16, 0), boot, Vector3.ZERO, 6)
+		box(root, Vector3(0.18, 0.08, 0.3), Vector3(sx * 0.14, 0.04, -0.06), boot)
+	# 누비 웃옷 (줄무늬 누빔), 그 위에 흉갑과 앞자락
+	cyl(root, 0.3, 0.34, 0.5, Vector3(0, 0.95, 0), quilt, Vector3.ZERO, 8)
+	for k in 3:
+		cyl(root, 0.345, 0.345, 0.03, Vector3(0, 0.78 + k * 0.12, 0), quilt_line, Vector3.ZERO, 8)
+	cyl(root, 0.27, 0.3, 0.42, Vector3(0, 1.27, 0), steel, Vector3.ZERO, 8)
+	box(root, Vector3(0.36, 0.5, 0.05), Vector3(0, 0.9, -0.33), m)
+	box(root, Vector3(0.12, 0.12, 0.02), Vector3(0, 1.3, -0.3), mat(Color(0.9, 0.9, 0.85), 0.6))
+	cyl(root, 0.35, 0.35, 0.07, Vector3(0, 1.08, 0), belt, Vector3.ZERO, 8)
+	box(root, Vector3(0.09, 0.08, 0.04), Vector3(0, 1.08, -0.35), gold_material())
+	cyl(root, 0.08, 0.1, 0.12, Vector3(0, 1.52, 0), skin, Vector3.ZERO, 6)
+	var head := ball(root, 0.19, Vector3(0, 1.66, 0), skin)
 	head.name = "HeadMesh"
+	cyl(root, 0.0, 0.04, 0.09, Vector3(0, 1.64, -0.19), skin, Vector3(-PI * 0.5, 0, 0), 4)
+	for sx in [-1.0, 1.0]:
+		box(root, Vector3(0.04, 0.04, 0.02), Vector3(sx * 0.07, 1.69, -0.18), black)
+	if hat == Hat.NONE:
+		blob(root, 0.2, Vector3(0, 1.73, 0.03), hair, Vector3(1.0, 0.6, 1.0))
 	for sx in [-1.0, 1.0]:
 		var arm := Node3D.new()
 		arm.name = "ArmL" if sx < 0 else "ArmR"
-		arm.position = Vector3(sx * 0.4, 1.25, 0)
+		arm.position = Vector3(sx * 0.4, 1.38, 0)
 		root.add_child(arm)
-		capsule(arm, 0.08, 0.7, Vector3(0, -0.3, 0), m)
+		blob(arm, 0.15, Vector3.ZERO, steel, Vector3(1.0, 0.7, 1.0))
+		capsule(arm, 0.08, 0.6, Vector3(0, -0.28, 0), quilt)
+		cyl(arm, 0.09, 0.09, 0.12, Vector3(0, -0.5, 0), boot, Vector3.ZERO, 6)
+		ball(arm, 0.08, Vector3(0, -0.6, 0), boot, 6)
 	if cape.a > 0.0:
-		box(root, Vector3(0.75, 1.2, 0.06), Vector3(0, 0.75, 0.3), mat(cape, 0.9), Vector3(0.12, 0, 0))
+		box(root, Vector3(0.75, 1.25, 0.05), Vector3(0, 0.82, 0.32), mat(cape, 0.9), Vector3(0.12, 0, 0))
+		box(root, Vector3(0.78, 0.06, 0.07), Vector3(0, 1.45, 0.25), gold_material())
 	match hat:
 		Hat.HELMET:
-			var steel := mat(Color(0.62, 0.66, 0.72), 0.35, 0.7)
 			var helmet := Node3D.new()
 			helmet.name = "Helmet"
-			helmet.position = Vector3(0, 1.72, 0)
+			helmet.position = Vector3(0, 1.74, 0)
 			root.add_child(helmet)
-			cyl(helmet, 0.17, 0.23, 0.22, Vector3.ZERO, steel)
-			box(helmet, Vector3(0.05, 0.12, 0.05), Vector3(0, 0.18, 0), steel)
+			# 챙 넓은 철모 + 코 가리개
+			cyl(helmet, 0.16, 0.21, 0.2, Vector3(0, 0.02, 0), steel, Vector3.ZERO, 8)
+			cyl(helmet, 0.3, 0.3, 0.03, Vector3(0, -0.07, 0), steel, Vector3.ZERO, 8)
+			box(helmet, Vector3(0.04, 0.16, 0.03), Vector3(0, -0.12, -0.21), steel)
+			box(helmet, Vector3(0.05, 0.12, 0.05), Vector3(0, 0.17, 0), steel)
 		Hat.CROWN:
 			var g := gold_material()
-			cyl(root, 0.2, 0.2, 0.12, Vector3(0, 1.8, 0), g)
+			cyl(root, 0.2, 0.2, 0.12, Vector3(0, 1.82, 0), g)
 			for i in 5:
 				var a := TAU * i / 5.0
-				box(root, Vector3(0.06, 0.12, 0.06), Vector3(cos(a) * 0.18, 1.9, sin(a) * 0.18), g)
+				box(root, Vector3(0.06, 0.12, 0.06), Vector3(cos(a) * 0.18, 1.92, sin(a) * 0.18), g)
 		Hat.TOP_HAT:
-			var black := mat(Color(0.08, 0.08, 0.1), 0.6)
-			cyl(root, 0.26, 0.26, 0.03, Vector3(0, 1.74, 0), black)
-			cyl(root, 0.16, 0.16, 0.32, Vector3(0, 1.9, 0), black)
+			var hat_black := mat(Color(0.08, 0.08, 0.1), 0.6)
+			cyl(root, 0.26, 0.26, 0.03, Vector3(0, 1.76, 0), hat_black)
+			cyl(root, 0.16, 0.16, 0.32, Vector3(0, 1.92, 0), hat_black)
 	root.scale = Vector3.ONE * size
 	return root
 

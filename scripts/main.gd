@@ -163,11 +163,15 @@ func _setup_environment() -> void:
 	_env.fog_depth_begin = 70.0
 	_env.fog_depth_end = 400.0
 	_env.fog_density = 0.35
+	# 로우폴리 목업: 따뜻하고 조금 진한 색감
+	_env.adjustment_enabled = true
+	_env.adjustment_saturation = 1.12
+	_env.adjustment_contrast = 1.04
 	var we := WorldEnvironment.new()
 	we.environment = _env
 	add_child(we)
 	_sun = DirectionalLight3D.new()
-	_sun.rotation_degrees = Vector3(-52, 35, 0)
+	_sun.rotation_degrees = Vector3(-42, 35, 0)
 	_sun.shadow_enabled = true
 	_sun.directional_shadow_max_distance = 160.0
 	add_child(_sun)
@@ -190,14 +194,14 @@ func _apply_time_of_day(night: bool, rain := false) -> void:
 		_sun.light_color = Color(0.55, 0.65, 0.9)
 		_sun.light_energy = 0.012
 	else:
-		_sky_mat.sky_top_color = Color(0.52, 0.66, 0.86)
-		_sky_mat.sky_horizon_color = Color(0.86, 0.88, 0.9)
-		_sky_mat.ground_horizon_color = Color(0.86, 0.88, 0.9)
-		_sky_mat.ground_bottom_color = Color(0.6, 0.6, 0.55)
-		_env.ambient_light_energy = 0.9
-		_env.fog_light_color = Color(0.82, 0.86, 0.92)
-		_sun.light_color = Color(1.0, 0.97, 0.9)
-		_sun.light_energy = 1.1
+		_sky_mat.sky_top_color = Color(0.32, 0.52, 0.84)
+		_sky_mat.sky_horizon_color = Color(0.9, 0.87, 0.8)
+		_sky_mat.ground_horizon_color = Color(0.9, 0.87, 0.8)
+		_sky_mat.ground_bottom_color = Color(0.45, 0.5, 0.35)
+		_env.ambient_light_energy = 0.75
+		_env.fog_light_color = Color(0.86, 0.85, 0.82)
+		_sun.light_color = Color(1.0, 0.92, 0.78)
+		_sun.light_energy = 1.35
 	if rain and not night:
 		# 비: 낮은 회색 하늘, 약한 햇빛
 		_sky_mat.sky_top_color = Color(0.4, 0.43, 0.48)

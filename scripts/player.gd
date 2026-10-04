@@ -111,12 +111,31 @@ func set_held_model(model: Node3D) -> void:
 func _build_body() -> void:
 	_body = Models.goblin(false)
 	add_child(_body)
-	var mat := Models.mat(Models.GOBLIN_SKIN, 0.8)
-	# 오른팔: 어깨에서 손까지, 시점의 위아래 각도를 따라 움직인다
+	# 오른팔: 어깨에서 손까지, 시점의 위아래 각도를 따라 움직인다 (길이 0.45, -Z 끝이 손)
 	var arm := MeshInstance3D.new()
-	var arm_mesh := BoxMesh.new()
-	arm_mesh.size = Vector3(0.12, 0.12, 0.45)
-	arm.mesh = arm_mesh
+	var lp := LowPoly.Builder.new()
+	var cap := CapsuleMesh.new()
+	cap.radius = 0.07
+	cap.height = 0.45
+	cap.radial_segments = 6
+	cap.rings = 1
+	var along_z := Basis(Vector3.RIGHT, PI * 0.5)
+	lp.add_prim(cap, Transform3D(along_z, Vector3.ZERO), Models.GOBLIN_SKIN, 0.08)
+	var wrap := CylinderMesh.new()
+	wrap.top_radius = 0.08
+	wrap.bottom_radius = 0.08
+	wrap.height = 0.07
+	wrap.radial_segments = 6
+	wrap.rings = 0
+	lp.add_prim(wrap, Transform3D(along_z, Vector3(0, 0, -0.14)), Color(0.3, 0.19, 0.11), 0.05)
+	var hand := SphereMesh.new()
+	hand.radius = 0.09
+	hand.height = 0.16
+	hand.radial_segments = 6
+	hand.rings = 3
+	lp.add_prim(hand, Transform3D(Basis(), Vector3(0, 0, -0.24)), Models.GOBLIN_SKIN.darkened(0.2), 0.08)
+	var mat := Models.mat(Color.WHITE, 0.8)
+	arm.mesh = lp.commit()
 	arm.material_override = mat
 	arm.name = "Arm"
 	_arm = arm

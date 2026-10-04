@@ -15,12 +15,12 @@ const IMPACT_K := 2.2
 ## joint: 연결 강도, ignite: 점화에 필요한 누적 열(초), burn: 다 타는 시간(초, -1 = 굵기로 계산)
 ## ratio: 처음 받침 수 중 몇 비율이 남아야 버티는지 (0 = 받침 규칙 없음)
 const INFO := {
-	Mat.WOOD_THIN: {"color": Color(0.5, 0.33, 0.19), "density": 0.6, "joint": 10.0, "flammable": true, "ignite": 0.4, "burn": 3.5, "ratio": 1.0},
-	Mat.WOOD_BEAM: {"color": Color(0.32, 0.19, 0.1), "density": 0.7, "joint": 70.0, "flammable": true, "ignite": 0.8, "burn": -1.0, "ratio": 1.0},
+	Mat.WOOD_THIN: {"color": Color(0.6, 0.4, 0.22), "density": 0.6, "joint": 10.0, "flammable": true, "ignite": 0.4, "burn": 3.5, "ratio": 1.0},
+	Mat.WOOD_BEAM: {"color": Color(0.42, 0.26, 0.14), "density": 0.7, "joint": 70.0, "flammable": true, "ignite": 0.8, "burn": -1.0, "ratio": 1.0},
 	# 반듯한 흰 석재: 석재끼리, 석재와 땅 사이 연결은 무엇으로도 끊기지 않는다 (Structure.Joint.unbreakable)
-	Mat.STONE: {"color": Color(0.74, 0.74, 0.76), "density": 2.4, "joint": 400.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+	Mat.STONE: {"color": Color(0.84, 0.82, 0.78), "density": 2.4, "joint": 400.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
 	Mat.ROPE: {"color": Color(0.84, 0.7, 0.42), "density": 0.5, "joint": 15.0, "flammable": true, "ignite": 0.3, "burn": 2.0, "ratio": 0.0},
-	Mat.STRAW: {"color": Color(0.86, 0.7, 0.38), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.15, "burn": 2.0, "ratio": 1.0},
+	Mat.STRAW: {"color": Color(0.93, 0.76, 0.4), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.15, "burn": 2.0, "ratio": 1.0},
 	Mat.KEG: {"color": Color(0.06, 0.06, 0.06), "density": 0.9, "joint": 30.0, "flammable": true, "ignite": 0.3, "burn": 0.8, "ratio": 1.0},
 	Mat.CORE: {"color": Color(0.97, 0.74, 0.16), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 1.0},
 	Mat.WEIGHT: {"color": Color(0.16, 0.16, 0.18), "density": 7.8, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.0},
@@ -31,7 +31,12 @@ const INFO := {
 	# 내부 연료 배관: 검정에 흰 띠. 빨리 타고, 다 타면 그 자리에서 불길이 확 솟는다
 	Mat.FUEL: {"color": Color(0.08, 0.08, 0.08), "density": 1.0, "joint": 40.0, "flammable": true, "ignite": 0.25, "burn": 1.6, "ratio": 0.0},
 	# 금 간 석벽: 누렇게 바랜 석재에 검은 균열. 고폭탄으로 부서지고, 근처에 맞아도 조금씩 금이 커진다
-	Mat.CRACKED: {"color": Color(0.66, 0.62, 0.55), "density": 2.2, "joint": 110.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+	Mat.CRACKED: {"color": Color(0.72, 0.63, 0.5), "density": 2.2, "joint": 110.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+}
+## 재질별 로우폴리 겉모양 (LowPoly.block_mesh)
+const STYLE := {
+	Mat.WOOD_THIN: "plank", Mat.WOOD_BEAM: "plank", Mat.WOOD_WET: "plank", Mat.STONE: "stone", Mat.CRACKED: "cracked",
+	Mat.STRAW: "straw", Mat.KEG: "keg", Mat.STEEL: "steel",
 }
 ## 근처 충격에 조금씩 약해지는(금이 커지는) 재질. 반듯한 석재와 강철은 닳지 않는다
 const WEARS := [Mat.WOOD_THIN, Mat.WOOD_BEAM, Mat.ROPE, Mat.STRAW, Mat.WOOD_WET, Mat.CRACKED]
@@ -112,10 +117,11 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 	add_child(shape)
 
 	_mesh = MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	_mesh.mesh = bm
+	# 로우폴리 겉모양 (충돌 상자는 그대로): 나무는 판자·각목, 석재는 벽돌, 짚은 층층이, 통은 술통
+	_mesh.mesh = LowPoly.block_mesh(STYLE.get(mat, "plain"), size)
 	_material = StandardMaterial3D.new()
+	_material.vertex_color_use_as_albedo = true
+	_material.vertex_color_is_srgb = true
 	_material.albedo_color = _base_color
 	_material.roughness = 0.95
 	_mesh.material_override = _material
@@ -126,6 +132,10 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 		var band_mat := StandardMaterial3D.new()
 		band_mat.albedo_color = Color(0.95, 0.95, 0.95)
 		for y in [-0.22, 0.22]:
+			if mat == Mat.KEG:
+				var r := minf(size.x, size.z) * 0.5 * 0.99 + 0.02
+				Models.cyl(_mesh, r, r, size.y * 0.1, Vector3(0, size.y * y, 0), band_mat, Vector3.ZERO, 10)
+				continue
 			var band := MeshInstance3D.new()
 			var bb := BoxMesh.new()
 			bb.size = Vector3(size.x * 1.04, size.y * 0.1, size.z * 1.04)

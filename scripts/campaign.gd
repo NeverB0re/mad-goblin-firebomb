@@ -789,8 +789,8 @@ static func _part_hopper(s: Stage, c: Vector3, _o: Dictionary) -> void:
 
 ## 절벽 밑 감시굴 (E6): 석재 덮개가 금 간 돌기둥(왼쪽)과 나무 버팀목(오른쪽)에만 얹혀 있다.
 static func _part_cave(s: Stage, c: Vector3, _o: Dictionary) -> void:
-	s.add_prop(c + Vector3(0, 6, -4.5), Vector3(14, 12, 4), Color(0.33, 0.31, 0.3))
-	s.add_prop(c + Vector3(0, 13, -1.5), Vector3(14, 2, 4), Color(0.28, 0.27, 0.26))
+	s.add_rock(c + Vector3(0, 6, -4.5), Vector3(14, 12, 4), Color(0.55, 0.47, 0.43))
+	s.add_rock(c + Vector3(0, 13, -1.5), Vector3(14, 2, 4), Color(0.47, 0.4, 0.37))
 	var st := s.add_structure()
 	st.add_block(M.CRACKED, c + Vector3(-3.2, 1.4, 1.6), Vector3(0.9, 2.8, 0.9))
 	st.add_block(M.WOOD_BEAM, c + Vector3(3.2, 1.4, 1.6), Vector3(0.55, 2.8, 0.55))
@@ -798,7 +798,7 @@ static func _part_cave(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	cover.support_ratio = 0.5
 	st.add_block(M.STONE, c + Vector3(-0.8, 3.95, -0.8), Vector3(1.6, 0.7, 1.4))
 	st.add_block(M.STONE, c + Vector3(1.4, 3.85, 0.2), Vector3(1.1, 0.5, 1.0))
-	s.add_prop(c + Vector3(0, 0.8, 2.8), Vector3(7.0, 1.6, 0.8), Color(0.3, 0.28, 0.27))
+	s.add_rock(c + Vector3(0, 0.8, 2.8), Vector3(7.0, 1.6, 0.8), Color(0.5, 0.43, 0.4))
 	s.add_commander(c + Vector3(0, 0, -0.8), 180.0, Vector3(1.0, 0, -0.6))
 
 

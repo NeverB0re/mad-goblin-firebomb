@@ -133,32 +133,45 @@ func set_zone(center: Vector3, half_extents: Vector2, yaw_deg := 0.0) -> void:
 
 
 func _zone_outline(center: Vector3, half_extents: Vector2) -> void:
-	var mat := Models.mat(Color(0.15, 0.15, 0.15))
+	var mat := Models.mat(Color(0.28, 0.18, 0.1))
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var w := 0.08
 	var hx := half_extents.x + 0.4
 	var hz := half_extents.y + 0.4
 	for spec in [[Vector3(0, 0, -hz), Vector3(hx * 2, 0.02, w)], [Vector3(0, 0, hz), Vector3(hx * 2, 0.02, w)],
 			[Vector3(-hx, 0, 0), Vector3(w, 0.02, hz * 2)], [Vector3(hx, 0, 0), Vector3(w, 0.02, hz * 2)]]:
-		Models.box(self, spec[1], center + spec[0] + Vector3(0, 0.01, 0), mat)
+		Models.box(self, spec[1], center + spec[0] + Vector3(0, 0.08, 0), mat)
 
 
 ## 고블린이 올라선 높은 바위 턱. 앞쪽 끝이 투척 구역 바로 앞이라 아래를 내려다보며 던진다.
 func _make_perch(center: Vector3, half_extents: Vector2) -> void:
-	var rock := Color(0.33, 0.31, 0.3)
-	var rock_dark := Color(0.25, 0.24, 0.23)
+	var rock := Color(0.55, 0.47, 0.43)
+	var rock_dark := Color(0.47, 0.4, 0.37)
 	var h := center.y
 	var front := center.z - half_extents.y - 0.3
 	var back := center.z + half_extents.y + 7.0
 	var wide := half_extents.x + 4.0
-	add_prop(Vector3(center.x, h * 0.5, (front + back) * 0.5), Vector3(wide * 2.0, h, back - front), rock)
+	add_rock(Vector3(center.x, h * 0.5, (front + back) * 0.5), Vector3(wide * 2.0, h, back - front), rock)
 	# 아래로 갈수록 넓어지는 절벽 (로우폴리 층)
-	add_prop(Vector3(center.x, h * 0.3, (front + back) * 0.5 + 1.5), Vector3(wide * 2.0 + 4.0, h * 0.6, back - front + 6.0), rock_dark)
-	add_prop(Vector3(center.x - 2.0, h * 0.12, (front + back) * 0.5 + 2.5), Vector3(wide * 2.0 + 9.0, h * 0.24, back - front + 10.0), rock)
+	add_rock(Vector3(center.x, h * 0.3, (front + back) * 0.5 + 1.5), Vector3(wide * 2.0 + 4.0, h * 0.6, back - front + 6.0), rock_dark)
+	add_rock(Vector3(center.x - 2.0, h * 0.12, (front + back) * 0.5 + 2.5), Vector3(wide * 2.0 + 9.0, h * 0.24, back - front + 10.0), rock)
 	# 양옆과 뒤의 바위 턱 (앞은 비워 둔다)
 	for sx in [-1.0, 1.0]:
-		add_prop(Vector3(center.x + sx * (wide - 0.6), h + 0.6, center.z + 1.0), Vector3(1.2, 1.2, half_extents.y * 2.0 + 4.0), rock_dark)
-	add_prop(Vector3(center.x, h + 0.9, back - 0.8), Vector3(wide * 2.0, 1.8, 1.6), rock_dark)
+		add_rock(Vector3(center.x + sx * (wide - 0.6), h + 0.6, center.z + 1.0), Vector3(1.2, 1.2, half_extents.y * 2.0 + 4.0), rock_dark)
+	add_rock(Vector3(center.x, h + 0.9, back - 0.8), Vector3(wide * 2.0, 1.8, 1.6), rock_dark)
+	# 언덕 위 풀밭 (투척 구역 둘레만, 충돌 없음)
+	var turf := LowPoly.Builder.new()
+	turf.base = Color(0.42, 0.6, 0.24)
+	turf.chamfer_box(Transform3D(Basis(), Vector3(0, 0, 0)), Vector3(wide * 2.0 - 1.0, 0.12, back - front - 0.5), 0.05)
+	var tm := MeshInstance3D.new()
+	tm.name = "Turf"
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.vertex_color_is_srgb = true
+	mat.roughness = 1.0
+	tm.mesh = turf.commit(mat)
+	tm.position = Vector3(center.x, h + 0.0, (front + back) * 0.5)
+	add_child(tm)
 
 
 func add_structure() -> Structure:
@@ -334,6 +347,24 @@ func add_prop(center: Vector3, size: Vector3, color: Color, collide := true) -> 
 	return node
 
 
+## 각진 바위 (충돌은 상자 그대로, 겉모양만 울퉁불퉁한 로우폴리 바위).
+func add_rock(center: Vector3, size: Vector3, color: Color) -> Node3D:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	var mi := MeshInstance3D.new()
+	mi.mesh = LowPoly.cached("rock:%s:%s" % [str(size.snapped(Vector3.ONE * 0.01)), str(center.snapped(Vector3.ONE))], func(): return LowPoly.rock_mesh(size, center.x * 1.7 + center.z))
+	mi.material_override = Models.mat(color, 1.0)
+	body.add_child(mi)
+	body.position = center
+	add_child(body)
+	return body
+
+
 ## 밤의 횃불 (실제 광원 없이 발광 재질).
 func add_torch(pos: Vector3, height := 1.8) -> void:
 	var t := Models.torch(height)
@@ -344,6 +375,7 @@ func add_torch(pos: Vector3, height := 1.8) -> void:
 func finish_build() -> void:
 	for s in structures:
 		s.finalize()
+	Scenery.build(self)
 	if player and not ammo_slots.is_empty():
 		_update_held()
 	toast.emit.call_deferred(Texts.t("start"))
@@ -400,7 +432,7 @@ func _side_rock(depth: float) -> Vector3:
 	var h := zone.y
 	var base := Vector3(zone.x - 7.5, h, zone.z - 4.5)
 	if h > 0.1:
-		add_prop(Vector3(base.x, h * 0.5, base.z), Vector3(3.6, h, depth), Color(0.3, 0.29, 0.28))
+		add_rock(Vector3(base.x, h * 0.5, base.z), Vector3(3.6, h, depth), Color(0.5, 0.43, 0.4))
 	return base
 
 

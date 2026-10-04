@@ -1,0 +1,360 @@
+class_name LowPoly
+extends RefCounted
+## 로우폴리 그래픽 도구 (목업 단계): 면마다 평평한 법선, 면마다 조금씩 다른 밝기, 모서리를 깎은 상자.
+## 메시의 정점 색은 밝기(흰색 근처)만 담고, 실제 색은 재질 albedo가 곱해 준다
+## (그래서 불에 그을림·기름 묻음처럼 재질 색을 바꾸는 기존 코드가 그대로 동작한다).
+## 같은 모양은 캐시해서 다시 쓴다.
+
+static var _cache := {}
+
+
+static func h1(v: Vector3, s := 0.0) -> float:
+	return fposmod(sin(v.dot(Vector3(12.9898, 78.233, 37.719)) + s) * 43758.5453, 1.0)
+
+
+static func h3(v: Vector3, s := 0.0) -> Vector3:
+	return Vector3(h1(v, s), h1(v, s + 1.7), h1(v, s + 3.1)) * 2.0 - Vector3.ONE
+
+
+## 밝기 k(-1~1 정도)만큼 흰색을 밝히거나 어둡게 한 정점 색.
+static func shade(k: float) -> Color:
+	var v := clampf(1.0 + k, 0.0, 2.0)
+	return Color(v, v, v)
+
+
+## 캐시된 메시 (key가 같으면 make를 다시 부르지 않는다).
+static func cached(key: String, make: Callable) -> Mesh:
+	if not _cache.has(key):
+		_cache[key] = make.call()
+	return _cache[key]
+
+
+## 기본 도형 메시를 면마다 평평하게 바꾼다. jitter: 꼭짓점을 흔드는 정도 (같은 자리 꼭짓점은 같이 움직인다).
+static func flat(mesh: Mesh, tint := 0.06, jitter := 0.0, seed := 0.0) -> ArrayMesh:
+	var arr := mesh.surface_get_arrays(0)
+	var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var idx = arr[Mesh.ARRAY_INDEX]
+	if idx == null or idx.is_empty():
+		idx = PackedInt32Array(range(vs.size()))
+	var b := Builder.new()
+	var pv := PackedVector3Array()
+	pv.resize(vs.size())
+	for i in vs.size():
+		pv[i] = vs[i] + (h3(vs[i].snapped(Vector3.ONE * 0.001), seed) * jitter if jitter > 0.0 else Vector3.ZERO)
+	for t in range(0, idx.size(), 3):
+		var a := pv[idx[t]]
+		var c1 := pv[idx[t + 1]]
+		var c2 := pv[idx[t + 2]]
+		var hint := ns[idx[t]] + ns[idx[t + 1]] + ns[idx[t + 2]]
+		b.tri(a, c1, c2, shade((h1((a + c1 + c2) / 3.0, seed + 5.0) - 0.5) * 2.0 * tint), hint)
+	return b.commit()
+
+
+## 삼각형을 모아 면마다 평평한 메시를 만든다.
+class Builder:
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
+	## 정점 색의 바탕 (흰색이면 재질 색을 그대로 쓰고, 풍경처럼 재질 하나를 나눠 쓰면 실제 색)
+	var base := Color.WHITE
+
+	func col(k: float) -> Color:
+		var v := clampf(1.0 + k, 0.0, 2.0)
+		return Color(base.r * v, base.g * v, base.b * v)
+
+	## 기본 도형 메시(Primitive)를 xf로 옮겨 면마다 평평하게 붙인다.
+	func add_prim(mesh: Mesh, xf: Transform3D, color: Color, tint := 0.08, jitter := 0.0, seed := 0.0) -> void:
+		var arr := mesh.surface_get_arrays(0)
+		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var idx = arr[Mesh.ARRAY_INDEX]
+		if idx == null or idx.is_empty():
+			idx = PackedInt32Array(range(vs.size()))
+		var pv := PackedVector3Array()
+		pv.resize(vs.size())
+		for i in vs.size():
+			pv[i] = xf * (vs[i] + (LowPoly.h3(vs[i].snapped(Vector3.ONE * 0.001), seed) * jitter if jitter > 0.0 else Vector3.ZERO))
+		var center := xf.origin
+		var saved := base
+		base = color
+		for t in range(0, idx.size(), 3):
+			var a := pv[idx[t]]
+			var b := pv[idx[t + 1]]
+			var c := pv[idx[t + 2]]
+			var mid := (a + b + c) / 3.0
+			tri(a, b, c, col((LowPoly.h1(mid, seed + 5.0) - 0.5) * 2.0 * tint), mid - center)
+		base = saved
+
+	## hint: 바깥쪽 방향 (감기는 순서를 여기에 맞춘다)
+	func tri(a: Vector3, b: Vector3, c: Vector3, col: Color, hint: Vector3) -> void:
+		var n := (c - a).cross(b - a)
+		if n.length_squared() < 1e-14:
+			return
+		n = n.normalized()
+		if n.dot(hint) < 0.0:
+			n = -n
+			var t := b
+			b = c
+			c = t
+		verts.append_array([a, b, c])
+		normals.append_array([n, n, n])
+		colors.append_array([col, col, col])
+
+	func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, col: Color, hint: Vector3) -> void:
+		tri(a, b, c, col, hint)
+		tri(a, c, d, col, hint)
+
+	## 모서리를 깎은 상자. xf: 위치·회전, k: 밝기, bevel: 깎는 폭
+	func chamfer_box(xf: Transform3D, size: Vector3, bevel: float, k := 0.0, edge_k := 0.05, seed := 0.0) -> void:
+		var h := size * 0.5
+		var bv := minf(bevel, minf(h.x, minf(h.y, h.z)) * 0.9)
+		var g := func(axis: int, s: Vector3) -> Vector3:
+			# 모서리 s의 꼭짓점 중 axis 쪽 면에 놓인 것
+			var p := Vector3(s.x * (h.x - bv), s.y * (h.y - bv), s.z * (h.z - bv))
+			p[axis] = s[axis] * h[axis]
+			return xf * p
+		var center := xf.origin
+		var cyc := [Vector2(1, 1), Vector2(1, -1), Vector2(-1, -1), Vector2(-1, 1)]
+		for axis in 3:
+			var u := (axis + 1) % 3
+			var v := (axis + 2) % 3
+			for side in [-1.0, 1.0]:
+				var pts := []
+				for c in cyc:
+					var s := Vector3.ZERO
+					s[axis] = side
+					s[u] = c.x
+					s[v] = c.y
+					pts.append(g.call(axis, s))
+				var fc: Vector3 = (pts[0] + pts[2]) * 0.5
+				quad(pts[0], pts[1], pts[2], pts[3], col(k + (LowPoly.h1(fc, seed) - 0.5) * 0.08), fc - center)
+		if bv <= 0.001:
+			return
+		# 모서리 띠 12개
+		for axis in 3:
+			var u := (axis + 1) % 3
+			var v := (axis + 2) % 3
+			for su in [-1.0, 1.0]:
+				for sv in [-1.0, 1.0]:
+					var sp := Vector3.ZERO
+					sp[u] = su
+					sp[v] = sv
+					sp[axis] = 1.0
+					var sm := sp
+					sm[axis] = -1.0
+					var a: Vector3 = g.call(u, sp)
+					var b: Vector3 = g.call(v, sp)
+					var c: Vector3 = g.call(v, sm)
+					var d: Vector3 = g.call(u, sm)
+					var fc := (a + c) * 0.5
+					quad(a, b, c, d, col(k + edge_k), fc - center)
+		# 꼭짓점 삼각형 8개
+		for sx in [-1.0, 1.0]:
+			for sy in [-1.0, 1.0]:
+				for sz in [-1.0, 1.0]:
+					var s := Vector3(sx, sy, sz)
+					var a: Vector3 = g.call(0, s)
+					var b: Vector3 = g.call(1, s)
+					var c: Vector3 = g.call(2, s)
+					tri(a, b, c, col(k + edge_k), (a + b + c) / 3.0 - center)
+
+	## 각기둥 (로컬 Y축 방향). radii: 아래에서 위로 고리마다 반지름, 높이는 고르게 나눈다
+	func prism(xf: Transform3D, radii: Array, height: float, seg: int, k := 0.0, seed := 0.0, cap := true) -> void:
+		var rings := []
+		var n := radii.size()
+		for i in n:
+			var y := -height * 0.5 + height * i / float(n - 1)
+			var ring := []
+			for j in seg:
+				var a := TAU * j / seg + PI / seg
+				ring.append(xf * Vector3(cos(a) * radii[i], y, sin(a) * radii[i]))
+			rings.append(ring)
+		var axis := xf.basis.y.normalized()
+		for i in n - 1:
+			for j in seg:
+				var j2 := (j + 1) % seg
+				var a: Vector3 = rings[i][j]
+				var b: Vector3 = rings[i][j2]
+				var c: Vector3 = rings[i + 1][j2]
+				var d: Vector3 = rings[i + 1][j]
+				var mid := (a + c) * 0.5
+				var off := mid - xf.origin
+				var hint := off - axis * off.dot(axis)
+				quad(a, b, c, d, col(k + (LowPoly.h1(mid, seed) - 0.5) * 0.12), hint)
+		if cap:
+			for end in [0, n - 1]:
+				var ring: Array = rings[end]
+				var cc := Vector3.ZERO
+				for p in ring:
+					cc += p
+				cc /= ring.size()
+				var dir := -axis if end == 0 else axis
+				for j in seg:
+					tri(cc, ring[j], ring[(j + 1) % seg], col(k + 0.06), dir)
+
+	func commit(material: Material = null) -> ArrayMesh:
+		var arr := []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = verts
+		arr[Mesh.ARRAY_NORMAL] = normals
+		arr[Mesh.ARRAY_COLOR] = colors
+		var m := ArrayMesh.new()
+		if verts.is_empty():
+			return m
+		m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		if material:
+			m.surface_set_material(0, material)
+		return m
+
+
+# ---------- 블록 모양 (충돌 상자 크기는 그대로, 겉모양만) ----------
+
+## style: "plank" 나무(판자·각목), "stone" 흰 석재, "cracked" 금 간 석재, "straw" 짚, "steel", "keg" 통, "plain"
+static func block_mesh(style: String, size: Vector3) -> Mesh:
+	var key := "blk:%s:%s" % [style, str(size.snapped(Vector3.ONE * 0.01))]
+	return cached(key, func(): return _make_block(style, size))
+
+
+static func _make_block(style: String, size: Vector3) -> ArrayMesh:
+	var b := Builder.new()
+	var seed := size.x * 3.7 + size.y * 1.3 + size.z * 2.1
+	match style:
+		"plank":
+			_wood(b, size, seed)
+		"stone", "cracked":
+			_masonry(b, size, seed, 0.1 if style == "stone" else 0.14)
+		"straw":
+			_straw(b, size, seed)
+		"keg":
+			var r := minf(size.x, size.z) * 0.5
+			b.prism(Transform3D.IDENTITY, [r * 0.86, r * 0.97, r, r * 0.97, r * 0.86], size.y, 10, 0.0, seed)
+		"steel":
+			b.chamfer_box(Transform3D.IDENTITY, size, 0.035, 0.0, 0.08, seed)
+		_:
+			b.chamfer_box(Transform3D.IDENTITY, size, minf(size.x, minf(size.y, size.z)) * 0.12, 0.0, 0.05, seed)
+	return b.commit()
+
+
+static func _axes(size: Vector3) -> Array:
+	var ax := [0, 1, 2]
+	ax.sort_custom(func(a, c): return size[a] < size[c])
+	return ax  # [가장 얇은, 중간, 가장 긴]
+
+
+## 나무: 얇고 넓으면 판자 여러 장, 아니면 모서리를 굵게 깎은 각목 (멀리서 통나무처럼).
+static func _wood(b: Builder, size: Vector3, seed: float) -> void:
+	var ax := _axes(size)
+	var t: int = ax[0]
+	var m: int = ax[1]
+	var l: int = ax[2]
+	if size[m] > 0.5 and size[t] < size[m] * 0.5:
+		var n := clampi(roundi(size[m] / 0.32), 2, 24)
+		for i in n:
+			var s := size
+			s[m] = size[m] / n
+			var p := Vector3.ZERO
+			p[m] = -size[m] * 0.5 + s[m] * (i + 0.5)
+			# 판자마다 두께·길이가 아주 조금씩 다르다
+			s[t] *= 0.9 + h1(Vector3(i, 0, seed)) * 0.1
+			s[l] -= h1(Vector3(i, 1, seed)) * minf(0.08, size[l] * 0.05)
+			var k := (h1(Vector3(i, 2, seed)) - 0.5) * 0.24
+			b.chamfer_box(Transform3D(Basis(), p), s, minf(0.04, s[m] * 0.18), k, 0.08, seed + i)
+	else:
+		var bev := minf(size[t], size[m]) * 0.2
+		b.chamfer_box(Transform3D.IDENTITY, size, bev, 0.0, 0.07, seed)
+
+
+## 석재: 줄마다 엇갈린 벽돌. 넓고 얇은 판은 바닥돌 격자.
+static func _masonry(b: Builder, size: Vector3, seed: float, var_k: float) -> void:
+	var ax := _axes(size)
+	if ax[0] == 1 and size.y < 0.6 and minf(size.x, size.z) > 1.2:
+		var nx := clampi(roundi(size.x / 0.9), 1, 8)
+		var nz := clampi(roundi(size.z / 0.9), 1, 8)
+		for i in nx:
+			for j in nz:
+				var s := Vector3(size.x / nx, size.y, size.z / nz)
+				var p := Vector3(-size.x * 0.5 + s.x * (i + 0.5), 0, -size.z * 0.5 + s.z * (j + 0.5))
+				var k := (h1(Vector3(i, j, seed)) - 0.5) * 2.0 * var_k
+				b.chamfer_box(Transform3D(Basis(), p), s, 0.05, k, 0.06, seed + i * 7 + j)
+		return
+	var l := 0 if size.x >= size.z else 2
+	var rows := clampi(roundi(size.y / 0.42), 1, 14)
+	var brick := clampf(size[l] / maxf(1.0, roundf(size[l] / 0.8)), 0.4, 1.2)
+	# 너무 많으면 벽돌을 키운다
+	while rows * ceili(size[l] / brick + 1.0) > 90:
+		brick *= 1.4
+	var rh := size.y / rows
+	for r in rows:
+		var off := brick * 0.5 if r % 2 == 1 else 0.0
+		var x0 := -size[l] * 0.5
+		var cur := x0
+		var first := true
+		var i := 0
+		while cur < size[l] * 0.5 - 0.01:
+			var ln := brick - off if first and off > 0.0 else brick
+			first = false
+			ln = minf(ln, size[l] * 0.5 - cur)
+			var s := size
+			s.y = rh
+			s[l] = ln
+			var p := Vector3.ZERO
+			p.y = -size.y * 0.5 + rh * (r + 0.5)
+			p[l] = cur + ln * 0.5
+			var k := (h1(Vector3(r, i, seed)) - 0.5) * 2.0 * var_k
+			b.chamfer_box(Transform3D(Basis(), p), s, minf(0.06, minf(rh, ln) * 0.2), k, 0.06, seed + r * 13 + i)
+			cur += ln
+			i += 1
+
+
+## 짚: 층층이 겹친 다발 (층마다 조금씩 튀어나온다).
+static func _straw(b: Builder, size: Vector3, seed: float) -> void:
+	var rows := clampi(roundi(size.y / 0.22), 1, 12)
+	var rh := size.y / rows
+	for r in rows:
+		var s := Vector3(size.x, rh, size.z)
+		var grow := 0.04 if r % 2 == 0 else 0.0
+		s.x += grow
+		s.z += grow
+		var p := Vector3(0, -size.y * 0.5 + rh * (r + 0.5), 0)
+		b.chamfer_box(Transform3D(Basis(), p), s, minf(0.07, rh * 0.35), (h1(Vector3(r, 3, seed)) - 0.5) * 0.2 + (0.04 if grow > 0.0 else -0.04), 0.1, seed + r)
+
+
+# ---------- 바위 ----------
+
+## 각진 바위 덩어리 (윗면이 평평해서 올라설 수 있다). 크기는 충돌 상자와 거의 같다.
+static func rock_mesh(size: Vector3, seed: float, flat_top := true) -> ArrayMesh:
+	var sm := BoxMesh.new()
+	sm.size = size
+	sm.subdivide_width = clampi(int(size.x / 1.6), 1, 8)
+	sm.subdivide_depth = clampi(int(size.z / 1.6), 1, 8)
+	sm.subdivide_height = clampi(int(size.y / 1.6), 1, 8)
+	var arr := sm.surface_get_arrays(0)
+	var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+	var h := size * 0.5
+	var pv := PackedVector3Array()
+	pv.resize(vs.size())
+	for i in vs.size():
+		var v := vs[i]
+		var key := v.snapped(Vector3.ONE * 0.001)
+		var j := h3(key, seed) * minf(0.35 + maxf(size.x, size.z) * 0.03, 0.9)
+		# 윗면은 높이를 그대로 두고, 옆면은 바깥으로 울퉁불퉁
+		if flat_top and absf(v.y - h.y) < 0.001:
+			j.y = 0.0
+			j.x *= 0.4
+			j.z *= 0.4
+		# 바닥은 조금 넓게 퍼진다
+		var spread := 1.0 + (h.y - v.y) / maxf(size.y, 0.01) * 0.12
+		pv[i] = Vector3(v.x * spread, v.y, v.z * spread) + j
+	var b := Builder.new()
+	for t in range(0, idx.size(), 3):
+		var a := pv[idx[t]]
+		var c1 := pv[idx[t + 1]]
+		var c2 := pv[idx[t + 2]]
+		var hint := ns[idx[t]] + ns[idx[t + 1]] + ns[idx[t + 2]]
+		var mid := (a + c1 + c2) / 3.0
+		# 윗면은 밝게, 아래로 갈수록 어둡게
+		var k := (h1(mid, seed) - 0.5) * 0.16 + (0.08 if hint.y > 2.0 else (mid.y / maxf(size.y, 0.01)) * 0.12)
+		b.tri(a, c1, c2, shade(k), hint)
+	return b.commit()
