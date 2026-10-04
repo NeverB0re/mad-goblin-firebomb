@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 kind = 1
-display_name = "폭탄"
+display_name = "쾅쾅알"
 throw_speed = 23.0
 windup_time = 0.5
 impact_radius = 5.2

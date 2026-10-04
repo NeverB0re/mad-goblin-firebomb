@@ -57,27 +57,37 @@ func _draw() -> void:
 			draw_colored_polygon(PackedVector2Array([Vector2(16, 15), Vector2(20, 4), Vector2(24, 10), Vector2(27, 1), Vector2(32, 15)]), Color(1.0, 0.45, 0.08))
 			draw_colored_polygon(PackedVector2Array([Vector2(20, 15), Vector2(23, 8), Vector2(26, 12), Vector2(28, 15)]), Color(1.0, 0.85, 0.3))
 		"oil":
-			# 갈색 단지 + 끈 마개 + 흘러내린 검은 기름 방울
-			draw_colored_polygon(PackedVector2Array([Vector2(14, 18), Vector2(34, 18), Vector2(38, 40), Vector2(10, 40)]), Color(0.5, 0.31, 0.17))
-			draw_rect(Rect2(18, 10, 12, 8), Color(0.5, 0.31, 0.17))
-			draw_rect(Rect2(19, 6, 10, 5), Color(0.75, 0.62, 0.4))
-			draw_colored_polygon(PackedVector2Array([Vector2(28, 20), Vector2(32, 20), Vector2(34, 30), Vector2(30, 34), Vector2(27, 29)]), Color(0.08, 0.06, 0.04))
-			draw_circle(Vector2(30, 44), 3, Color(0.08, 0.06, 0.04))
+			# 반질반질한 검은 기름방울 (무지갯빛 번들거림과 흰 반짝임) + 아래 고인 웅덩이
+			draw_colored_polygon(PackedVector2Array([Vector2(8, 42), Vector2(40, 42), Vector2(44, 46), Vector2(4, 46)]), Color(0.06, 0.05, 0.04))
+			var body := PackedVector2Array([Vector2(24, 3), Vector2(13, 22)])
+			for i in 13:
+				var a := PI * i / 12.0
+				body.append(Vector2(24 - cos(a) * 12, 28 + sin(a) * 12))
+			body.append(Vector2(35, 22))
+			draw_colored_polygon(body, Color(0.07, 0.06, 0.05))
+			draw_polyline(body + PackedVector2Array([body[0]]), Color(0.0, 0.0, 0.0), 2.0)
+			draw_line(Vector2(15, 30), Vector2(20, 38), Color(0.45, 0.3, 0.7, 0.8), 3.0)
+			draw_line(Vector2(18, 32), Vector2(22, 38), Color(0.25, 0.6, 0.55, 0.8), 2.0)
+			draw_circle(Vector2(19, 22), 3.2, Color(1, 1, 1, 0.9))
+			draw_circle(Vector2(30, 34), 1.6, Color(1, 1, 1, 0.6))
 		"flare":
-			# 비스듬한 종이 통 + 끝에서 터지는 밝은 별
+			# 비스듬한 종이 통(빨간 띠) + 끝에서 터지는 밝은 별 (검은 테두리로 밝은 배경에서도 보이게)
 			draw_set_transform(Vector2(24 * k, 28 * k), -0.6, Vector2(k, k))
+			draw_rect(Rect2(-5.5, -3.5, 11, 25), ink)
 			draw_rect(Rect2(-4, -2, 8, 22), Color(0.93, 0.86, 0.6))
-			draw_rect(Rect2(-4, 6, 8, 3), Color(0.3, 0.24, 0.18))
+			draw_rect(Rect2(-4, 6, 8, 3), Color(0.75, 0.2, 0.1))
 			draw_set_transform(Vector2.ZERO, 0.0, Vector2(k, k))
-			_spark(Vector2(19, 13), 12.0, Color(1.0, 0.97, 0.8))
+			_spark(Vector2(19, 13), 14.0, ink)
+			_spark(Vector2(19, 13), 12.0, Color(1.0, 0.85, 0.2))
 		"paint":
-			# 물감 철퍽
+			# 연기알: 분홍 유리 구슬에서 가는 연기가 꼬불꼬불 솟는다
 			var c := Fx.PAINT_COLOR
-			draw_circle(Vector2(24, 26), 12, c)
-			for i in 7:
-				var a := TAU * i / 7.0 + 0.3
-				draw_circle(Vector2(24, 26) + Vector2(cos(a), sin(a)) * (14 + (i % 3) * 3), 3.5 - (i % 2), c)
-			draw_circle(Vector2(20, 22), 3, Color(1, 1, 1, 0.5))
+			draw_polyline(PackedVector2Array([Vector2(26, 26), Vector2(30, 18), Vector2(26, 11), Vector2(31, 4)]), Color(c, 0.55), 4.0)
+			draw_polyline(PackedVector2Array([Vector2(22, 24), Vector2(18, 15), Vector2(22, 8)]), Color(c, 0.4), 3.0)
+			draw_circle(Vector2(24, 33), 12, Color(0.05, 0.04, 0.03))
+			draw_circle(Vector2(24, 33), 10.5, c)
+			draw_circle(Vector2(24, 33), 6, c.lightened(0.3))
+			draw_circle(Vector2(20, 29), 3, Color(1, 1, 1, 0.85))
 		"bomber":
 			# 삼각 글라이더 날개 아래 매달린 고블린과 폭탄
 			draw_colored_polygon(PackedVector2Array([Vector2(4, 22), Vector2(24, 8), Vector2(44, 22), Vector2(24, 17)]), Color(0.86, 0.8, 0.66))

@@ -41,6 +41,7 @@ const T := {
 	"empty_slot": "그건 다 던졌어!",
 	"rocket_shot_down": "으악! 글라이더가 꼬챙이에 맞았다!!",
 	"press_button": "E  빨간 단추 꾸욱!",
+	"rocket_name": "왕큰펑",
 	"skip_intro": "아무거나 누르면 건너뛰기",
 	"any_key": "아무거나 눌러!",
 	"help": "WASD 걷기 · 마우스 두리번 · 왼쪽 꾹 = 힘 모으기, 떼면 휙! · 오른쪽 = 눈 크게 / 그만 · 1~5·휠 폭탄 바꾸기 · R 다시 · Esc 잠깐",

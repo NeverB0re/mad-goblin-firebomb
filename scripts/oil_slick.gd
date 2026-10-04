@@ -15,28 +15,15 @@ var radius := 3.5
 var ignited := false
 var _age := 0.0
 var _chain_timer := -1.0
-var _disc: MeshInstance3D
+## 기름 자국 데칼들 (타고 나면 지운다)
+var _marks: Array = []
 
 
-func setup(p_radius: float) -> OilSlick:
+func setup(p_radius: float, normal := Vector3.UP) -> OilSlick:
 	radius = p_radius
 	add_to_group("oil")
-	_disc = MeshInstance3D.new()
-	var cm := CylinderMesh.new()
-	cm.top_radius = radius
-	cm.bottom_radius = radius
-	cm.height = 0.04
-	cm.radial_segments = 14
-	cm.rings = 1
-	_disc.mesh = cm
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.05, 0.04, 0.03, 0.85)
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.roughness = 0.1
-	m.metallic = 0.3
-	_disc.material_override = m
-	_disc.position = Vector3(0, 0.03, 0)
-	add_child(_disc)
+	# 맞은 면에 번들거리는 기름 자국 (벽·지붕이면 흘러내려 아래에도 고인다)
+	_marks = Fx.oil_mark(get_parent(), global_position, normal, radius)
 	var splat := Fx.burst(14, 3.0, 0.18, [Color(0.08, 0.06, 0.04, 1), Color(0.08, 0.06, 0.04, 0)], false)
 	add_child(splat)
 	splat.emitting = true
@@ -62,6 +49,9 @@ func ignite_now() -> void:
 	stage.add_child(pool)
 	pool.global_position = global_position
 	pool.setup(radius, BURN_DURATION, BURN_MULTIPLIER, true)
+	for d in _marks:
+		if is_instance_valid(d):
+			Fx.free_after(d, BURN_DURATION)
 	# 이웃 기름으로 번진다
 	for o in get_tree().get_nodes_in_group("oil"):
 		var other := o as OilSlick

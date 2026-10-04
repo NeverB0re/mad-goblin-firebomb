@@ -770,17 +770,12 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			var slick := OilSlick.new()
 			add_child(slick)
 			slick.global_position = pos + normal * 0.02
-			slick.setup(ammo.oil_radius)
+			slick.setup(ammo.oil_radius, normal)
 			slick.coat_blocks()
 		AmmoType.Kind.PAINT:
 			# 페인트탄: 터지지 않고 철퍽, 맞은 면에 밝은 물감 자국만 남는다
 			Sfx.play_delayed(self, "splat", pos, -2.0, _listener())
-			Fx.paint_mark(self, pos, normal)
-			var drops := Fx.burst(16, 3.0, 0.14, [Fx.PAINT_COLOR, Color(Fx.PAINT_COLOR, 0.0)], false)
-			add_child(drops)
-			drops.global_position = pos + normal * 0.1
-			drops.emitting = true
-			Fx.free_after(drops, 2.0)
+			Fx.signal_smoke(self, pos + normal * 0.1)
 			return
 		AmmoType.Kind.FLARE:
 			var flare := Flare.new()
@@ -843,7 +838,12 @@ func _term_ok(t: Dictionary) -> bool:
 		"gone":
 			var all_gone := true
 			for b in blocks:
-				if is_instance_valid(b) and not b.fallen and not b.burnt:
+				if not is_instance_valid(b):
+					continue
+				# 궁병이 쓰러진 발리스타는 탑이 서 있어도 치운 것으로 본다
+				if b.has_meta("operator") and not ballista_alive(b):
+					continue
+				if not b.fallen and not b.burnt:
 					all_gone = false
 					break
 			if all_gone:
@@ -955,9 +955,17 @@ func _impact_juice(pos: Vector3, power: float, ring: float) -> void:
 ## 대공 발리스타가 하나라도 남아 있는지.
 func aa_alive() -> bool:
 	for b in ballistas:
-		if is_instance_valid(b) and not b.fallen and not b.burnt:
+		if ballista_alive(b):
 			return true
 	return false
+
+
+## 발리스타 하나가 아직 쏠 수 있는지: 탑이 서 있고 조종하는 궁병이 살아 있어야 한다.
+func ballista_alive(b: Block) -> bool:
+	if not is_instance_valid(b) or b.fallen or b.burnt:
+		return false
+	var op: Guard = b.get_meta("operator", null)
+	return op == null or (is_instance_valid(op) and not op.dead)
 
 
 ## 대공 발리스타 탑의 발리스타를 등록한다.
@@ -965,10 +973,23 @@ func add_ballista(b: Block) -> void:
 	ballistas.append(b)
 	var wood := Models.mat(Color(0.32, 0.22, 0.14))
 	var iron := Models.mat(Models.HUMAN_STEEL, 0.4, 0.6)
-	# 받침 위 거대한 석궁 (반듯한 인간 규격품)
-	Models.box(b, Vector3(0.25, 0.25, 2.2), Vector3(0, b.size.y * 0.5 + 0.2, 0), wood, Vector3(-0.5, 0, 0))
-	Models.box(b, Vector3(2.4, 0.15, 0.15), Vector3(0, b.size.y * 0.5 + 0.55, -0.5), iron, Vector3(-0.5, 0, 0))
-	Models.box(b, Vector3(0.06, 0.06, 2.0), Vector3(0, b.size.y * 0.5 + 0.45, -0.1), iron, Vector3(-0.5, 0, 0))
+	# 받침 위 거대한 석궁 (반듯한 인간 규격품). 돌아가는 받침(Bow): -Z가 쏘는 쪽, 처음엔 하늘 쪽 고블린 언덕을 겨눈다
+	var bow := Node3D.new()
+	bow.name = "Bow"
+	bow.position = Vector3(0, b.size.y * 0.5 + 0.35, 0)
+	bow.rotation = Vector3(0.45, PI, 0)
+	b.add_child(bow)
+	Models.box(bow, Vector3(0.25, 0.25, 2.2), Vector3(0, 0, 0.2), wood)
+	Models.box(bow, Vector3(2.4, 0.15, 0.15), Vector3(0, 0.05, -0.75), iron, Vector3(0, 0.25, 0))
+	Models.box(bow, Vector3(0.06, 0.06, 2.0), Vector3(0, 0.17, -0.1), iron)
+	Models.cyl(bow, 0.05, 0.12, 0.25, Vector3(0, 0.17, -1.15), iron, Vector3(PI * 0.5, 0, 0), 6)
+	b.set_meta("bow", bow)
+	# 조종하는 궁병: 석궁 뒤에 선다. 직격하거나 쓰러뜨리면 발리스타는 아무도 못 쏜다
+	var op := Guard.new().setup(false, true)
+	op.position = b.position + Vector3(0, -b.size.y * 0.5, -1.05)
+	op.rotation.y = PI
+	add_child(op)
+	b.set_meta("operator", op)
 
 
 ## 바람 한 단계의 세기 (m/s²). 바람자루 마디 하나가 펴질 때마다 한 단계.

@@ -37,6 +37,13 @@ var _drop_from := Vector3.ZERO
 var _crash_from := Vector3.ZERO
 var _crash_to := Vector3.ZERO
 var _fly_vel := Vector3.ZERO
+## 글라이더를 노리는 발리스타 (석궁 받침이 따라 돌고, 화살을 쏜다)
+var _shooter: Block
+var _bolt: Node3D
+var _bolt_from := Vector3.ZERO
+## 이 비행 비율에서 화살을 쏘고, SHOT_HIT에서 맞는다
+const SHOT_FIRE := 0.32
+const SHOT_HIT := 0.5
 
 
 func setup(stage: Stage, target: Vector3, from: Vector3, model: Node3D) -> void:
@@ -45,6 +52,14 @@ func setup(stage: Stage, target: Vector3, from: Vector3, model: Node3D) -> void:
 	_from = from
 	_release = target + Vector3.UP * RELEASE_HEIGHT
 	_intercept = stage.aa_alive()
+	if _intercept:
+		# 글라이더 길 한가운데에서 가장 가까운, 아직 쏠 수 있는 발리스타가 노린다
+		var mid := _pos(SHOT_HIT)
+		var best := INF
+		for b in stage.ballistas:
+			if stage.ballista_alive(b) and b.global_position.distance_to(mid) < best:
+				best = b.global_position.distance_to(mid)
+				_shooter = b
 	model.get_parent().remove_child(model)
 	_model = model
 	_model.transform = Transform3D.IDENTITY
@@ -98,13 +113,17 @@ func _glide() -> void:
 	var ahead := _pos(minf(k + 0.02, 1.0)) - p
 	global_position = p
 	_face(ahead, sin(_tick * 0.09) * 0.15)
-	if _intercept and k >= 0.5:
+	if _intercept:
+		_aim_and_shoot(k, p)
+	if _intercept and k >= SHOT_HIT:
 		# 발리스타 화살에 맞았다: 빙글빙글 돌며 불시착 (폭탄은 불발)
 		_phase = 3
 		_phase_tick = 0
 		_crash_from = p
 		var flat := Vector3(ahead.x, 0, ahead.z).normalized()
 		_crash_to = Vector3(p.x, 0.0, p.z) + flat * 10.0
+		if is_instance_valid(_bolt):
+			_bolt.queue_free()
 		Sfx.play(_stage, "break", p, 2.0)
 		Fx.smoke_puff(_stage, p, 1.5)
 		_stage.toast.emit(Texts.t("rocket_shot_down"))
@@ -122,6 +141,30 @@ func _glide() -> void:
 		for arm_name in ["ArmL", "ArmR"]:
 			var arm: Node3D = _pilot.get_node(arm_name)
 			arm.rotation = Vector3(-2.6, 0, 0.3 if arm_name == "ArmL" else -0.3)
+
+
+## 발리스타 석궁 받침이 글라이더를 따라 돌고, SHOT_FIRE에서 큰 화살을 쏜다 (SHOT_HIT에 글라이더에 꽂힌다).
+func _aim_and_shoot(k: float, p: Vector3) -> void:
+	if not is_instance_valid(_shooter):
+		return
+	var bow: Node3D = _shooter.get_meta("bow", null)
+	if bow and bow.is_inside_tree() and bow.global_position.distance_to(p) > 0.5:
+		bow.look_at(p, Vector3.UP)
+	if k >= SHOT_FIRE and _bolt == null and bow:
+		_bolt = Node3D.new()
+		_stage.add_child(_bolt)
+		Models.box(_bolt, Vector3(0.12, 0.12, 2.2), Vector3.ZERO, Models.mat(Color(0.35, 0.24, 0.14)))
+		Models.cyl(_bolt, 0.0, 0.16, 0.35, Vector3(0, 0, -1.2), Models.mat(Models.HUMAN_STEEL, 0.4, 0.6), Vector3(-PI * 0.5, 0, 0), 6)
+		_bolt_from = bow.global_position
+		_bolt.global_position = _bolt_from
+		Sfx.play(_stage, "flight", _bolt_from, 2.0)
+		Fx.smoke_puff(_stage, _bolt_from, 0.4)
+	if is_instance_valid(_bolt):
+		var hit := _pos(SHOT_HIT)
+		var t := clampf((k - SHOT_FIRE) / (SHOT_HIT - SHOT_FIRE), 0.0, 1.0)
+		var at := _bolt_from.lerp(hit, t)
+		if at.distance_to(hit) > 0.05:
+			_bolt.look_at_from_position(at, hit, Vector3.UP)
 
 
 func _drop() -> void:

@@ -18,9 +18,21 @@ func _init() -> void:
 	add_to_group("soldiers")
 
 
-func setup(with_shield: bool) -> Guard:
+## archer: 발리스타를 조종하는 궁병 (초록 두건과 망토, 등에 화살통).
+func setup(with_shield: bool, archer := false) -> Guard:
 	shield = with_shield
 	_home_yaw = rotation.y
+	if archer:
+		set_visual(Models.human(Color(0.3, 0.42, 0.22), Models.Hat.NONE, 1.0, Color(0.22, 0.36, 0.18)))
+		var green := Models.mat(Color(0.26, 0.4, 0.2), 0.95)
+		var hood := Models.cyl(visual, 0.05, 0.27, 0.45, Vector3(0, 1.78, 0.03), green, Vector3.ZERO, 8)
+		hood.name = "Hood"
+		var leather := Models.mat(Color(0.42, 0.27, 0.15), 0.9)
+		Models.cyl(visual, 0.1, 0.1, 0.6, Vector3(0.12, 1.25, 0.22), leather, Vector3(0, 0, 0.3), 8)
+		for k in 3:
+			Models.box(visual, Vector3(0.02, 0.25, 0.02), Vector3(0.18 + k * 0.04, 1.62, 0.22), Models.mat(Color(0.85, 0.8, 0.7)), Vector3(0, 0, 0.3))
+		_helmet = null
+		return self
 	set_visual(Models.human(Models.HUMAN_STEEL, Models.Hat.HELMET))
 	_helmet = visual.get_node_or_null("Helmet")
 	if shield:

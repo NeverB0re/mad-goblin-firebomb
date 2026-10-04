@@ -21,6 +21,9 @@ var exclude: Array[RID] = []
 var flight_time := 0.0
 var done := false
 var _model: Node3D
+## 연기알: 지나간 자리에 연기 덩이를 떨어뜨린다
+var _smoke_trail := false
+var _last_puff := Vector3.INF
 
 
 func launch(origin: Vector3, direction: Vector3, ammo_type: AmmoType, excluded: Array[RID] = []) -> void:
@@ -31,7 +34,11 @@ func launch(origin: Vector3, direction: Vector3, ammo_type: AmmoType, excluded: 
 	velocity = direction.normalized() * ammo.throw_speed
 	_model = Fx.ammo_model(ammo.kind, ammo.model_scale)
 	add_child(_model)
-	if ammo.kind == AmmoType.Kind.OIL or ammo.kind == AmmoType.Kind.PAINT:
+	if ammo.kind == AmmoType.Kind.PAINT:
+		# 연기알: 날아가는 동안 가는 분홍 연기 줄을 남긴다 (step에서 떨어뜨린다)
+		_smoke_trail = true
+		return
+	if ammo.kind == AmmoType.Kind.OIL:
 		return
 	var trail := Fx.fire(Vector3(0.02, 0.02, 0.02), 24, 0.12)
 	trail.local_coords = false
@@ -66,6 +73,13 @@ func step(dt: float) -> void:
 		return
 
 	global_position = to
+	if _smoke_trail and get_parent():
+		# 0.3m마다 한 덩이 (빠르게 날아도 끊기지 않는 가는 줄)
+		if _last_puff == Vector3.INF:
+			_last_puff = from
+		while _last_puff.distance_to(to) >= 0.3:
+			_last_puff = _last_puff.move_toward(to, 0.3)
+			Fx.trail_puff(get_parent(), _last_puff)
 	if _model:
 		# 무거운 화염 항아리는 느리게 굴러 묵직해 보인다
 		_model.rotate_x(-dt * (3.5 if ammo.kind == AmmoType.Kind.FIRE else 9.0))

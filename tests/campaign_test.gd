@@ -198,6 +198,15 @@ func _run() -> void:
 		await _throw_plan(s, AmmoType.Kind.FLARE, Campaign.STAGES[32].parts[0][1] + Vector3(0, 2.7, 0), false)
 		await _wait(s, 7.0)
 		_check(s.state == Stage.State.PLAYING and s.commanders_left() == 2 and s.bombers_left() == bombers - 1, "4-3 발리스타가 서 있으면 글라이더가 격추된다 (폭격대 %d → %d)" % [bombers, s.bombers_left()])
+	# 발리스타를 조종하는 궁병을 쓰러뜨리면 탑이 서 있어도 그 발리스타는 못 쏜다 (4-1)
+	if _only <= 0 or _only == 4:
+		var s := _campaign(30)
+		await physics_frame
+		var b: Block = s.ballistas[0]
+		var op: Guard = b.get_meta("operator")
+		var before := s.aa_alive()
+		op.defeat("direct")
+		_check(before and not s.aa_alive() and not b.fallen, "4-1 발리스타 궁병을 맞히면 탑이 서 있어도 발리스타가 멈춘다")
 	# 폭격은 조명탄이 조금 빗나가도(무리 한가운데에서 5m) 무리 전체를 끝낸다 (4-6, 발리스타를 다 치운 뒤)
 	if _only <= 0 or _only == 4:
 		var s := _campaign(35)
@@ -226,9 +235,9 @@ func _run() -> void:
 			await _throw_plan(s, AmmoType.Kind.FIRE, Vector3(-30, 0, -20), false)
 		await _throw_plan(s, AmmoType.Kind.PAINT, s.commanders[0].global_position + Vector3(0, 1.2, 0), false)
 		await _wait(s, 2.0)
-		var marks := s.find_children("*", "Decal", false, false).filter(func(d): return d.texture_emission != null).size()
-		_check(not s.commanders[0].dead and marks > 0, "3-6 페인트탄을 맞아도 지휘관은 멀쩡하고 물감 자국만 남는다 (자국 %d)" % marks)
-		await _expect(s, Stage.State.FAILED, "3-6 폭탄을 다 쓰고 페인트탄·조명탄만 남으면 실패", 20.0, "fail_ammo")
+		var marks := s.get_tree().get_nodes_in_group("signal_smoke").size()
+		_check(not s.commanders[0].dead and marks > 0, "3-6 연기알을 맞아도 지휘관은 멀쩡하고 신호 연기만 솟는다 (연기 %d)" % marks)
+		await _expect(s, Stage.State.FAILED, "3-6 폭탄을 다 쓰고 연기알·조명탄만 남으면 실패", 20.0, "fail_ammo")
 	# 남은 탄으로 더는 깰 수 없으면 실패: 2-1 연료 창고에서 기름병을 다 버리면 화염탄이 남아도 실패
 	if _only <= 0 or _only == 2:
 		var s := _campaign(10)

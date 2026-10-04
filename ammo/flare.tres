@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 kind = 3
-display_name = "조명탄"
+display_name = "번쩍봉"
 throw_speed = 32.0
 windup_time = 0.25
 impact_radius = 0.0

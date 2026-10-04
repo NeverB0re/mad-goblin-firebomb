@@ -68,7 +68,7 @@ func _ready() -> void:
 	_ammo.add_theme_constant_override("separation", 6)
 	_ammo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_ammo)
-	_place(_ammo, Vector4(1, 1, 1, 1), Vector4(-700, -112, -24, -20))
+	_place(_ammo, Vector4(1, 1, 1, 1), Vector4(-760, -170, -24, -16))
 
 	_help = _label(root, 15)
 	_help.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
@@ -156,15 +156,17 @@ func _refresh_ammo() -> void:
 		c.queue_free()
 	for i in _stage.ammo_slots.size():
 		var slot: Dictionary = _stage.ammo_slots[i]
-		_ammo.add_child(_ammo_cell(UiIcon.of_ammo(slot.type.kind), slot.count, str(i + 1), i == _stage.current_slot))
-	if _stage.bombers_total > 0:
-		_ammo.add_child(_ammo_cell("bomber", _stage.bombers_left(), "", false))
+		var cell := _ammo_cell(UiIcon.of_ammo(slot.type.kind), slot.count, str(i + 1), i == _stage.current_slot, slot.type.display_name)
+		# 폭격 진지: 조명탄 칸에 글라이더도 함께 (조명탄 하나에 글라이더 하나가 같이 나간다)
+		if slot.type.kind == AmmoType.Kind.FLARE and _stage.bombers_total > 0:
+			_add_glider(cell, _stage.bombers_left())
+		_ammo.add_child(cell)
 	if _stage.button_ready():
-		_ammo.add_child(_ammo_cell("rocket", 1, "E", false))
+		_ammo.add_child(_ammo_cell("rocket", 1, "E", false, Texts.t("rocket_name")))
 
 
-## 탄약 한 칸: 위에 숫자 키, 가운데 그림, 아래 ×개수. 고른 칸은 밝은 판 위에 크게, 다 쓴 칸은 흐리게.
-func _ammo_cell(icon_kind: String, count: int, key: String, selected: bool) -> Control:
+## 탄약 한 칸: 위에 숫자 키, 가운데 그림, 그 아래 고블린식 이름과 ×개수. 고른 칸은 밝은 판 위에 크게, 다 쓴 칸은 흐리게.
+func _ammo_cell(icon_kind: String, count: int, key: String, selected: bool, title := "") -> Control:
 	var cell := PanelContainer.new()
 	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bg := StyleBoxFlat.new()
@@ -175,6 +177,7 @@ func _ammo_cell(icon_kind: String, count: int, key: String, selected: bool) -> C
 	bg.set_content_margin_all(4)
 	cell.add_theme_stylebox_override("panel", bg)
 	var col := VBoxContainer.new()
+	col.name = "Col"
 	col.add_theme_constant_override("separation", -4)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cell.add_child(col)
@@ -182,16 +185,35 @@ func _ammo_cell(icon_kind: String, count: int, key: String, selected: bool) -> C
 	top.text = key
 	top.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	top.modulate = Color(1, 1, 1, 0.7)
+	var row := HBoxContainer.new()
+	row.name = "Icons"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(row)
 	var icon := UiIcon.make(icon_kind, 56.0 if selected else 44.0)
-	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(icon)
+	row.add_child(icon)
+	if title != "":
+		var name_l := _label(col, 15 if selected else 13)
+		name_l.text = title
+		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var n := _label(col, 22 if selected else 18)
+	n.name = "Count"
 	n.text = "×%d" % count
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	if count <= 0:
 		cell.modulate = Color(1, 1, 1, 0.35)
 	cell.size_flags_vertical = Control.SIZE_SHRINK_END
 	return cell
+
+
+## 조명탄 칸에 "+ 글라이더 그림 ×대기 수"를 붙인다 (조명탄 하나에 글라이더 하나가 같이 나간다).
+func _add_glider(cell: Control, left: int) -> void:
+	var row: HBoxContainer = cell.get_node("Col/Icons")
+	var plus := _label(row, 18)
+	plus.text = "+"
+	row.add_child(UiIcon.make("bomber", 40.0))
+	var n := _label(row, 18)
+	n.text = "×%d" % left
 
 
 func _refresh_targets() -> void:

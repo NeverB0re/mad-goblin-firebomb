@@ -4,7 +4,7 @@ extends RefCounted
 
 const FLAME_COLORS := [Color(1.0, 0.95, 0.6, 1.0), Color(1.0, 0.55, 0.1, 0.95), Color(0.85, 0.15, 0.05, 0.7), Color(0.1, 0.05, 0.03, 0.0)]
 const SMOKE_COLORS := [Color(0.25, 0.25, 0.25, 0.0), Color(0.3, 0.3, 0.3, 0.55), Color(0.55, 0.55, 0.55, 0.35), Color(0.7, 0.7, 0.7, 0.0)]
-## 페인트탄 물감 (어느 배경에서도 튀는 분홍, 밤에도 보이게 스스로 빛난다)
+## 연기알 신호 연기 색 (어느 배경에서도 튀는 분홍)
 const PAINT_COLOR := Color(1.0, 0.18, 0.72)
 
 
@@ -149,25 +149,43 @@ static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Nod
 			Models.box(root, Vector3(0.04, 0.07, 0.012), Vector3(0.05, 0.17, 0.04), rag, Vector3(0.2, 0.3, -0.5))
 			spark_at = Vector3(0, 0.25, 0)
 		AmmoType.Kind.OIL:
-			var clay := Models.mat(Color(0.48, 0.3, 0.17), 0.9)
-			var oil := Models.mat(Color(0.06, 0.05, 0.03), 0.2)
-			Models.cyl(root, 0.08, 0.12, 0.2, Vector3(0, -0.02, 0), clay, Vector3(0, 0, 0.08), 9)
-			Models.cyl(root, 0.05, 0.08, 0.06, Vector3(0.008, 0.11, 0), clay, Vector3(0, 0, 0.08))
-			Models.cyl(root, 0.045, 0.04, 0.05, Vector3(0.012, 0.16, 0), Models.mat(Color(0.6, 0.48, 0.3)))
-			Models.box(root, Vector3(0.11, 0.012, 0.02), Vector3(0.012, 0.15, 0.03), Models.mat(Color(0.85, 0.8, 0.65)), Vector3(0, 0.6, 0.2))
-			Models.box(root, Vector3(0.03, 0.08, 0.005), Vector3(0.06, 0.02, 0.105), oil, Vector3(0, 0, 0.15))
+			# 미끈기름: 목이 긴 유리병 속에 검게 출렁이는 기름, 넘쳐 병을 타고 흘러내린 기름 줄기, 기름 먹은 천 마개
+			var glass := StandardMaterial3D.new()
+			glass.albedo_color = Color(0.85, 0.7, 0.35, 0.35)
+			glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			glass.roughness = 0.05
+			glass.metallic = 0.2
+			var oil := Models.mat(Color(0.05, 0.04, 0.02), 0.08, 0.35)
+			var rag := Models.mat(Color(0.35, 0.28, 0.18), 1.0)
+			Models.ball(root, 0.1, Vector3(0, -0.04, 0), oil, 10)
+			var shell := Models.ball(root, 0.12, Vector3(0, -0.03, 0), glass, 10)
+			shell.scale = Vector3(1.0, 1.05, 1.0)
+			Models.cyl(root, 0.035, 0.045, 0.12, Vector3(0, 0.12, 0), glass, Vector3.ZERO, 8)
+			Models.cyl(root, 0.025, 0.03, 0.1, Vector3(0, 0.1, 0), oil, Vector3.ZERO, 6)
+			Models.cyl(root, 0.045, 0.04, 0.05, Vector3(0, 0.2, 0), rag, Vector3.ZERO, 6)
+			# 흘러내린 기름 줄기 셋과 바닥에 맺힌 방울
+			for k in 3:
+				var ang := k * 2.1 + 0.4
+				Models.box(root, Vector3(0.025, 0.14, 0.012), Vector3(cos(ang) * 0.115, 0.02, sin(ang) * 0.115), oil, Vector3(0, -ang, 0.1))
+			Models.ball(root, 0.025, Vector3(0.02, -0.15, 0.06), oil, 5)
 			spark_at = Vector3(-1, -1, -1)
 		AmmoType.Kind.PAINT:
-			# 물감을 채워 천으로 싸맨 공 (불 없음). 겉에 물감이 흘러내렸다
-			var cloth := Models.mat(Color(0.86, 0.82, 0.72), 0.95)
-			var paint := Models.mat(PAINT_COLOR, 0.6, 0.0, 0.4)
-			var ball := Models.ball(root, 0.11, Vector3.ZERO, cloth, 8)
-			ball.scale = Vector3(1.0, 0.9, 1.0)
-			Models.cyl(root, 0.03, 0.05, 0.07, Vector3(0, 0.11, 0), cloth)
-			for k in 3:
-				var a := k * 2.1
-				Models.box(root, Vector3(0.04, 0.12, 0.02), Vector3(cos(a) * 0.1, -0.01, sin(a) * 0.1), paint, Vector3(0, -a, 0))
-			Models.ball(root, 0.05, Vector3(0.0, 0.06, 0.07), paint, 6)
+			# 연기알: 분홍 유리 구슬. 속이 은은히 빛나고 가는 분홍 연기가 새어 나온다
+			var marble := Models.mat(PAINT_COLOR, 0.15, 0.1, 0.8)
+			var core := Models.mat(PAINT_COLOR.lightened(0.5), 0.3, 0.0, 1.5)
+			Models.ball(root, 0.09, Vector3.ZERO, marble, 10)
+			Models.ball(root, 0.05, Vector3.ZERO, core, 6)
+			Models.ball(root, 0.02, Vector3(-0.04, 0.045, 0.05), Models.mat(Color(1, 1, 1), 0.1, 0.0, 1.0), 4)
+			if with_flame:
+				var wisp := _particles(10, 0.8, 0.08, false, [Color(PAINT_COLOR, 0.0), Color(PAINT_COLOR, 0.6), Color(PAINT_COLOR.lightened(0.4), 0.0)])
+				var wpm: ParticleProcessMaterial = wisp.process_material
+				wpm.direction = Vector3.UP
+				wpm.spread = 25.0
+				wpm.initial_velocity_min = 0.15
+				wpm.initial_velocity_max = 0.35
+				wpm.gravity = Vector3(0, 0.3, 0)
+				wisp.position = Vector3(0, 0.08, 0)
+				root.add_child(wisp)
 			spark_at = Vector3(-1, -1, -1)
 		AmmoType.Kind.FLARE:
 			var paper := Models.mat(Color(0.93, 0.86, 0.6), 0.95)
@@ -231,39 +249,107 @@ static func blast_rings(parent: Node, pos: Vector3, break_radius: float, kill_ra
 		shockwave(parent, pos, kill_radius, Color(1.0, 0.45, 0.1, 0.9), 0.35)
 
 
-static var _paint_tex: GradientTexture2D
+static var _puff_mesh: QuadMesh
 
-## 페인트탄 물감 자국: 맞은 면(땅, 벽, 지붕)에 그 면을 따라 붙는다. 스스로 빛나 밤에도 보이고, 진지가 끝날 때까지 남는다.
-static func paint_mark(parent: Node, pos: Vector3, normal: Vector3, radius := 1.2) -> void:
-	if _paint_tex == null:
+## 연기알이 날아가며 남기는 가는 분홍 연기 한 덩이. 날아가는 동안 짧은 간격으로 떨어뜨리면
+## 지나간 길을 따라 가는 연기 줄이 되어 몇 초 동안 공중에 남았다가 흩어진다 (다음 투척의 길잡이).
+static func trail_puff(parent: Node, pos: Vector3, life := 6.0) -> void:
+	if _puff_mesh == null:
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		m.albedo_color = Color(PAINT_COLOR.lightened(0.15), 0.6)
+		_puff_mesh = QuadMesh.new()
+		_puff_mesh.size = Vector2(0.16, 0.16)
+		_puff_mesh.material = m
+	var mi := MeshInstance3D.new()
+	mi.mesh = _puff_mesh
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(mi)
+	mi.global_position = pos
+	var tw := mi.create_tween().set_parallel(true)
+	tw.tween_property(mi, "scale", Vector3.ONE * 1.8, life)
+	tw.tween_property(mi, "global_position", pos + Vector3(0, 0.6, 0), life)
+	tw.tween_property(mi, "transparency", 1.0, life).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(mi.queue_free)
+
+
+## 연기알이 떨어진 자리: 분홍 연기가 퍽 터지고 가는 분홍 연기 기둥이 한동안 솟는다 (밤에도 보인다).
+static func signal_smoke(parent: Node, pos: Vector3) -> void:
+	var puff := burst(24, 2.5, 0.6, [Color(PAINT_COLOR, 0.8), Color(PAINT_COLOR.lightened(0.4), 0.0)], false)
+	puff.lifetime = 1.6
+	parent.add_child(puff)
+	puff.global_position = pos
+	puff.emitting = true
+	free_after(puff, 2.0)
+	var col := _particles(30, 6.0, 0.5, false, [Color(PAINT_COLOR, 0.0), Color(PAINT_COLOR, 0.6), Color(PAINT_COLOR.lightened(0.5), 0.0)])
+	col.add_to_group("signal_smoke")
+	col.local_coords = false
+	var pm: ParticleProcessMaterial = col.process_material
+	pm.direction = Vector3.UP
+	pm.spread = 5.0
+	pm.initial_velocity_min = 1.2
+	pm.initial_velocity_max = 1.6
+	pm.gravity = Vector3(0, 0.1, 0)
+	parent.add_child(col)
+	col.global_position = pos + Vector3(0, 0.2, 0)
+	parent.get_tree().create_timer(12.0, false, true).timeout.connect(Callable(col, "set").bind("emitting", false))
+	free_after(col, 18.0)
+
+
+static var _oil_tex: GradientTexture2D
+
+## 기름 자국: 맞은 면을 따라 번들거리는 검은 기름이 묻고, 벽·지붕이면 아래로 흘러 바닥에도 고인다 (공중에 뜬 원판 대신).
+static func oil_mark(parent: Node, pos: Vector3, normal: Vector3, radius: float) -> Array:
+	if _oil_tex == null:
 		var g := Gradient.new()
-		g.set_color(0, Color(PAINT_COLOR, 1.0))
-		g.set_color(1, Color(PAINT_COLOR, 0.0))
-		g.add_point(0.7, Color(PAINT_COLOR, 0.95))
-		g.add_point(0.78, Color(PAINT_COLOR, 0.0))
-		_paint_tex = GradientTexture2D.new()
-		_paint_tex.gradient = g
-		_paint_tex.fill = GradientTexture2D.FILL_RADIAL
-		_paint_tex.fill_from = Vector2(0.5, 0.5)
-		_paint_tex.fill_to = Vector2(1.0, 0.5)
-		_paint_tex.width = 64
-		_paint_tex.height = 64
-	# 데칼은 아래(-Y)로 비춘다: 맞은 면의 법선을 위로 세운다
+		g.set_color(0, Color(0.03, 0.025, 0.015, 0.95))
+		g.set_color(1, Color(0.03, 0.025, 0.015, 0.0))
+		g.add_point(0.62, Color(0.05, 0.04, 0.03, 0.85))
+		g.add_point(0.72, Color(0.05, 0.04, 0.03, 0.0))
+		_oil_tex = GradientTexture2D.new()
+		_oil_tex.gradient = g
+		_oil_tex.fill = GradientTexture2D.FILL_RADIAL
+		_oil_tex.fill_from = Vector2(0.5, 0.5)
+		_oil_tex.fill_to = Vector2(1.0, 0.5)
+		_oil_tex.width = 64
+		_oil_tex.height = 64
+	var out := []
 	var up := normal.normalized() if normal.length() > 0.01 else Vector3.UP
 	var side := up.cross(Vector3.FORWARD if absf(up.dot(Vector3.FORWARD)) < 0.9 else Vector3.RIGHT).normalized()
 	var basis := Basis(side, up, side.cross(up))
-	# 가운데 큰 자국 + 한쪽으로 튄 작은 물방울 둘
-	var spots := [[Vector3.ZERO, 1.0], [(side + side.cross(up) * 0.5) * 1.1, 0.28], [(-side * 0.6 + side.cross(up) * 0.9) * 1.1, 0.22]]
-	for spot in spots:
+	# 맞은 면에 큰 자국 (가장자리를 감싸도록 깊게 비춘다) + 튄 방울 둘
+	for spot in [[Vector3.ZERO, 1.0, 2.0], [side * 0.9, 0.35, 1.0], [-side.cross(up) * 0.8, 0.3, 1.0]]:
 		var d := Decal.new()
-		d.texture_albedo = _paint_tex
-		d.texture_emission = _paint_tex
-		d.emission_energy = 1.2
+		d.texture_albedo = _oil_tex
 		var r: float = radius * spot[1]
-		d.size = Vector3(r * 2.0, 0.8, r * 2.0)
+		d.size = Vector3(r * 2.0, spot[2], r * 2.0)
 		d.cull_mask = 1
 		parent.add_child(d)
-		d.global_transform = Transform3D(basis, pos + spot[0] * radius)
+		d.global_transform = Transform3D(basis, pos + spot[0] * radius * 0.6)
+		out.append(d)
+	# 벽이나 지붕 옆면에 맞으면 흘러내려 그 아래에도 고인다
+	if up.y < 0.8:
+		var d := Decal.new()
+		d.texture_albedo = _oil_tex
+		var h := pos.y + 1.0
+		d.size = Vector3(radius * 1.4, h, radius * 1.4)
+		d.cull_mask = 1
+		parent.add_child(d)
+		d.global_position = Vector3(pos.x, pos.y - h * 0.5 + 0.5, pos.z) + up * radius * 0.4
+		out.append(d)
+	# 흘러내리는 기름 방울
+	var drip := burst(12, 1.2, 0.08, [Color(0.04, 0.03, 0.02, 1.0), Color(0.04, 0.03, 0.02, 0.0)], false)
+	drip.one_shot = false
+	drip.explosiveness = 0.0
+	drip.lifetime = 0.8
+	parent.add_child(drip)
+	drip.global_position = pos
+	drip.emitting = true
+	parent.get_tree().create_timer(2.0, false, true).timeout.connect(Callable(drip, "set").bind("emitting", false))
+	free_after(drip, 3.0)
+	return out
 
 
 ## 연기 구름 (착탄 연출, 짧게).
