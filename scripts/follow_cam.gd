@@ -1,9 +1,9 @@
 class_name FollowCam
 extends Control
-## 화면 우상단의 작은 추적 화면. 화염병이 일정 거리 이상 날아가면 따라가며 보여 주고,
+## 화면 우상단의 작은 추적 화면. 폭탄이 손을 떠나는 순간부터 따라가며 궤적을 보여 주고,
 ## 착탄 뒤에는 착탄점 주변을 잠시 비춰 결과(불, 붕괴)를 가까이서 보여 준다.
 
-const START_DISTANCE := 20.0
+const START_DISTANCE := 0.0
 const HOLD_TIME := 6.0
 const VIEW_SIZE := Vector2i(512, 288)
 const MARGIN := 20.0

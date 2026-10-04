@@ -11,7 +11,7 @@ const HIT_MASK := 1 | 2
 const MAX_TIME := 25.0
 ## 비행 시계 배율. 궤적(착탄점)은 그대로 두고 날아가는 시간만 늘려 무게감을 준다.
 ## 투척 속도 × k, 중력 × k² 로 바꾼 것과 같아서 사거리 표는 변하지 않는다.
-const FLIGHT_TIME_SCALE := 0.8
+const FLIGHT_TIME_SCALE := 0.64
 
 var ammo: AmmoType
 var velocity := Vector3.ZERO

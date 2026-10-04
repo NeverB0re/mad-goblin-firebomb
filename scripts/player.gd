@@ -8,7 +8,7 @@ extends CharacterBody3D
 ## - 놓은 뒤 고정 지연(RELEASE_TICKS)이 지나 병이 손을 떠나는 순간의 위치·시선으로 궤적이 정해진다.
 ## - 손을 떠나기 전에 우클릭하면 취소, 탄약은 소모되지 않는다. 취소한 뒤 우클릭을 한 번 떼야 다시 줌이 된다.
 ## - 대기 중에는 이동 60%, 마우스 감도 40%, 탄종 교체 불가.
-## - 우클릭(평소) = 2배 관찰 줌. 줌 중에는 이동하지 않는다. 줌 중 좌클릭하면 줌이 풀리고 대기에 들어간다.
+## - 우클릭(평소) = 4배 관찰 줌. 줌 중에는 이동하지 않는다. 줌 중 좌클릭하면 줌이 풀리고 대기에 들어간다.
 
 signal throw_requested(origin: Vector3, direction: Vector3)
 signal slot_requested(index: int)
@@ -33,6 +33,8 @@ const FIRST_PERSON_Z := 0.1
 ## 놓은 뒤 병이 손을 떠나기까지의 고정 지연 (0.15초)
 const RELEASE_TICKS := 9
 const DEFAULT_WINDUP := 0.5
+## 우클릭 관찰 줌 배율
+const ZOOM := 4.0
 
 var zone_min := Vector2(-3, -3)
 var zone_max := Vector2(3, 3)
@@ -88,8 +90,8 @@ func _init() -> void:
 	camera.position = CAMERA_OFFSET
 	head.add_child(camera)
 	_build_body()
-	# 2배 줌: 화면 절반 각도의 탄젠트를 절반으로
-	zoom_fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(BASE_FOV) * 0.5) * 0.5))
+	# 4배 줌: 화면 절반 각도의 탄젠트를 1/4로
+	zoom_fov = rad_to_deg(2.0 * atan(tan(deg_to_rad(BASE_FOV) * 0.5) / ZOOM))
 	set_held_model(Fx.molotov_model(1.0, false))
 
 
