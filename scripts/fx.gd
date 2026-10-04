@@ -196,6 +196,13 @@ static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Nod
 			Models.cyl(root, 0.05, 0.055, 0.36, Vector3.ZERO, tube, Vector3(0, 0, 0.1))
 			Models.cyl(root, 0.058, 0.058, 0.05, Vector3(0, 0.08, 0), red, Vector3(0, 0, 0.1))
 			spark_at = Vector3(-0.02, 0.2, 0)
+		AmmoType.Kind.STONE:
+			# 울퉁불퉁한 주먹만 한 돌 (불 없음)
+			var rock := Models.mat(Color(0.5, 0.48, 0.45), 1.0)
+			var lump := Models.ball(root, 0.12, Vector3.ZERO, rock, 6)
+			lump.scale = Vector3(1.1, 0.8, 0.95)
+			Models.ball(root, 0.07, Vector3(0.06, 0.05, 0.02), rock, 5)
+			spark_at = Vector3(-1, -1, -1)
 		AmmoType.Kind.FLARE:
 			var paper := Models.mat(Color(0.93, 0.86, 0.6), 0.95)
 			var stripe := Models.mat(Color(0.25, 0.2, 0.15), 0.9)

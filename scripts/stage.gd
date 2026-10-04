@@ -1,7 +1,8 @@
 class_name Stage
 extends Node3D
 ## 한 테스트 스테이지의 상태: 지형, 플레이어(고블린), 인간 시설, 인물, 탄약, 승리/실패 판정.
-## 승리 조건은 지휘관을 쓰러뜨리는 것 하나로 통일한다 (확장 기획서 6장). 깃발은 위치 표식이다.
+## 승리 조건은 지휘관을 쓰러뜨리는 것 하나로 통일한다 (확장 기획서 6장). 지휘관이 여럿이면 모두 쓰러뜨려야 한다.
+## 깃발은 위치 표식이다 (지휘관이 쓰러지면 그 깃발도 쓰러진다).
 ## 원칙은 "과장은 판정 뒤에": 궤적·폭발 반경·점화·지휘관 판정은 정직하고 고정, 연출만 부풀린다.
 
 signal state_changed(state: int, message: String)
@@ -12,6 +13,8 @@ signal projectile_thrown(projectile: Projectile)
 signal shake_requested(amount: float)
 ## 승리 판정 확정 (승리 연출 시작). target: 쓰러진 인물 (봉화대를 태운 경우 null), focus: 연출이 비출 곳
 signal target_down(target: Actor, cause: String, focus: Vector3)
+## 지휘관 하나가 쓰러짐 (남은 표적 표시용)
+signal targets_changed
 
 enum State { PLAYING, CLEARED, FAILED }
 ## 승리 조건: 지휘관 쓰러뜨리기, 또는 전령 멈추기 (전령을 쓰러뜨리거나 건너야 할 다리를 끊음)
@@ -39,6 +42,8 @@ var state: int = State.PLAYING
 var fail_cause := ""
 var player: Player
 var commander: Commander
+## 이 진지의 지휘관 모두 (commander는 첫 번째)
+var commanders: Array[Commander] = []
 var structures: Array[Structure] = []
 var messengers: Array[Messenger] = []
 var allies: Array[Ally] = []
@@ -153,16 +158,20 @@ func add_ammo(type: AmmoType, count: int) -> void:
 
 ## 지휘관과 곁에 꽂힌 빨간 깃발.
 func add_commander(pos: Vector3, yaw_deg := 180.0, flag_offset := Vector3(1.2, 0, 0.3)) -> Commander:
-	commander = Commander.new()
-	commander.position = pos
-	commander.rotation.y = deg_to_rad(yaw_deg)
-	add_child(commander)
-	commander.defeated.connect(_on_commander_defeated)
+	var c := Commander.new()
+	c.position = pos
+	c.rotation.y = deg_to_rad(yaw_deg)
+	add_child(c)
+	if commander == null:
+		commander = c
+	commanders.append(c)
+	c.defeated.connect(_on_commander_defeated)
 	var flag := Models.flag()
 	flag.position = pos + flag_offset
 	add_child(flag)
 	_flags.append(flag)
-	return commander
+	c.set_meta("flag", flag)
+	return c
 
 
 func add_guard(pos: Vector3, yaw_deg := 180.0, shield := false) -> Guard:
@@ -337,10 +346,12 @@ func _ammo_for_throw() -> AmmoType:
 	return current_ammo()
 
 
+## 남은 폭탄 수 (영점 돌과 조명탄은 치지 않는다: 그것만 남으면 더 할 수 있는 게 없다).
 func total_ammo() -> int:
 	var n := 0
 	for s in ammo_slots:
-		n += s.count
+		if not (s.type.kind in [AmmoType.Kind.STONE, AmmoType.Kind.FLARE]):
+			n += s.count
 	return n
 
 
@@ -393,7 +404,7 @@ func try_throw(origin: Vector3, direction: Vector3) -> bool:
 			m.start()
 		for a in allies:
 			a.start()
-	if total_ammo() == 1 and not _last_shot_warned:
+	if total_ammo() == 1 and not (slot.type.kind in [AmmoType.Kind.STONE, AmmoType.Kind.FLARE]) and not _last_shot_warned:
 		_last_shot_warned = true
 		toast.emit(Texts.t("last_shot"))
 	ammo_changed.emit()
@@ -463,6 +474,11 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			var missile := Missile.new()
 			add_child(missile)
 			missile.setup(self, pos)
+		AmmoType.Kind.STONE:
+			# 영점 돌: 흙먼지만 튄다
+			Sfx.play_delayed(self, "collapse", pos, -14.0, _listener())
+			_shards(pos, Color(0.45, 0.4, 0.32))
+			Fx.smoke_puff(self, pos, 0.5)
 		AmmoType.Kind.FLARE:
 			var flare := Flare.new()
 			add_child(flare)
@@ -504,6 +520,8 @@ func _detonate_kegs(pos: Vector3, radius: float) -> void:
 ## 화약통·폭발통 폭발: 석재 벽에도 통하는 큰 충격, 주변 점화, 기름 점화, 인물 판정.
 ## forced: 플레이어 투척으로는 안 부서지는 구조(성문)에도 통하는 폭발 (동료의 폭발통).
 func explode(pos: Vector3, radius: float, strength: float, forced := false) -> void:
+	if not is_inside_tree():
+		return
 	Sfx.play_delayed(self, "boom", pos, 8.0, _listener())
 	var fireball := Fx.burst(60, 9.0, 0.9, Fx.FLAME_COLORS)
 	add_child(fireball)
@@ -581,7 +599,8 @@ func add_windsock(pos: Vector3) -> void:
 		var c := Models.cyl(sock, 0.28 - i * 0.05, 0.3 - i * 0.05, 0.4, Vector3(0, 0, -0.2 - i * 0.4), cloth if i % 2 == 0 else stripe, Vector3(PI * 0.5, 0, 0))
 		c.position.y = -(1.0 - strength) * i * 0.3
 	if wind.length() > 0.01:
-		sock.look_at(sock.global_position - Vector3(wind.x, 0, wind.z).normalized(), Vector3.UP)
+		# 자루 입구가 바람을 받고 꼬리가 바람 가는 쪽(+Z 방향이 바람 방향)으로 날린다
+		sock.rotation.y = atan2(wind.x, wind.z)
 
 
 ## 히트스톱: 짧게 시간을 거의 멈춘다. 물리 틱 수로 세는 판정은 영향받지 않는다.
@@ -660,9 +679,36 @@ func _on_barrel_exploded(pos: Vector3, ally: Ally) -> void:
 # ---------- 판정 ----------
 
 func _on_commander_defeated(c: Commander, cause: String) -> void:
+	_drop_flag(c)
 	if state != State.PLAYING or goal != Goal.COMMANDER:
 		return
+	for other in commanders:
+		if not other.dead:
+			targets_changed.emit()
+			return
+	targets_changed.emit()
 	_win(c, cause, c.chest())
+
+
+## 쓰러진 지휘관의 깃발이 넘어간다 (남은 표적을 글씨 없이 알려 준다).
+func _drop_flag(c: Commander) -> void:
+	if not c.has_meta("flag"):
+		return
+	var flag: Node3D = c.get_meta("flag")
+	_flags.erase(flag)
+	if not flag.is_inside_tree():
+		return
+	var tw := flag.create_tween()
+	tw.tween_property(flag, "rotation:z", 1.45, 0.7).set_trans(Tween.TRANS_BOUNCE).set_ease(Tween.EASE_OUT)
+
+
+## 남은 지휘관 수.
+func commanders_left() -> int:
+	var n := 0
+	for c in commanders:
+		if not c.dead:
+			n += 1
+	return n
 
 
 func _on_messenger_defeated(m: Actor, cause: String) -> void:

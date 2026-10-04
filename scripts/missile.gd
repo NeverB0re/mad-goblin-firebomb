@@ -55,8 +55,9 @@ func _physics_process(_delta: float) -> void:
 	var k := float(_tick - DELAY_TICKS) / FLIGHT_TICKS
 	var p := _from.lerp(_target, k)
 	global_position = p
-	_model.look_at(_target, Vector3.UP)
-	_model.rotate_object_local(Vector3.RIGHT, -PI * 0.5)
+	if p.distance_to(_target) > 0.05:
+		_model.look_at(_target, Vector3.UP)
+		_model.rotate_object_local(Vector3.RIGHT, -PI * 0.5)
 	if _intercept and k >= 0.5:
 		_done = true
 		# 발리스타 화살에 맞아 공중에서 터진다 (땅에는 피해 없음)

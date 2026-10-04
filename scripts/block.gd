@@ -146,8 +146,9 @@ func is_flammable() -> bool:
 
 
 ## 비에 젖은 목재로 바꾼다 (기름을 묻혀야 탄다).
+## 비에 젖는다 (나무와 짚). 그대로는 타지 않고 기름을 묻혀야 탄다.
 func make_wet() -> void:
-	if not (mat in [Mat.WOOD_THIN, Mat.WOOD_BEAM]):
+	if not (mat in [Mat.WOOD_THIN, Mat.WOOD_BEAM, Mat.STRAW]):
 		return
 	mat = Mat.WOOD_WET
 	_base_color = INFO[mat].color

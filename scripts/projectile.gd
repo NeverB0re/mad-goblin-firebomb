@@ -30,7 +30,7 @@ func launch(origin: Vector3, direction: Vector3, ammo_type: AmmoType, excluded: 
 	velocity = direction.normalized() * ammo.throw_speed
 	_model = Fx.ammo_model(ammo.kind, ammo.model_scale)
 	add_child(_model)
-	if ammo.kind == AmmoType.Kind.OIL:
+	if ammo.kind == AmmoType.Kind.OIL or ammo.kind == AmmoType.Kind.STONE:
 		return
 	var trail := Fx.fire(Vector3(0.02, 0.02, 0.02), 24, 0.12)
 	trail.local_coords = false

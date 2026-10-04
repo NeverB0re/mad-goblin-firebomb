@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="AmmoType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ammo_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+kind = 5
+display_name = "영점 돌"
+throw_speed = 23.0
+windup_time = 0.5
+impact_radius = 0.0
+impact_strength = 0.0
+pool_radius = 0.0
+pool_duration = 0.0
+burn_multiplier = 1.0
+kill_radius = 0.0
+model_scale = 1.0

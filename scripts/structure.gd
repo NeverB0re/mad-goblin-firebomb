@@ -124,6 +124,9 @@ func _count_below(b: Block) -> int:
 ## 반경의 WEAR_REACH배 거리까지 금이 커져 다음 충격에 쉽게 부서진다. 살짝 빗나가도 조금은 부서진다.
 ## (이번 충격의 끊김 판정이 끝난 뒤에 닳게 해서, 한 발로 끊기는 범위는 반경 그대로 예측 가능하다)
 func apply_impact(pos: Vector3, radius: float, strength: float, forced := false) -> int:
+	# 진지를 치운 뒤에 예약돼 있던 폭발이 터지는 경우
+	if not is_inside_tree():
+		return 0
 	if player_proof and not forced:
 		return 0
 	var reach := radius * WEAR_REACH
