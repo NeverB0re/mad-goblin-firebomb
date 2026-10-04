@@ -28,9 +28,13 @@ class Joint:
 			h = minf(h, minf(b.health, b.integrity))
 		return strength * maxf(h, 0.05)
 
-	## 강철이 낀 연결은 끊기지 않는다.
-	func unbreakable() -> bool:
-		return a.mat == Block.Mat.STEEL or (b != null and b.mat == Block.Mat.STEEL)
+	## 흰 석재끼리(또는 석재와 땅)의 연결은 무엇으로도 끊기지 않는다.
+	## 강철이 낀 연결은 큰 폭발(explosive)에만 끊긴다.
+	func unbreakable(explosive := false) -> bool:
+		if a.mat == Block.Mat.STONE and (b == null or b.mat == Block.Mat.STONE):
+			return true
+		var steel := a.mat == Block.Mat.STEEL or (b != null and b.mat == Block.Mat.STEEL)
+		return steel and not explosive
 
 
 var blocks: Array[Block] = []
@@ -123,7 +127,8 @@ func _count_below(b: Block) -> int:
 ## 충격파는 거리에 따라 약해진다: 반경 안에서 연결 강도를 넘는 곳은 끊고, 끊기지 않은 닳는 재질(나무·금 간 석벽)은
 ## 반경의 WEAR_REACH배 거리까지 금이 커져 다음 충격에 쉽게 부서진다. 살짝 빗나가도 조금은 부서진다.
 ## (이번 충격의 끊김 판정이 끝난 뒤에 닳게 해서, 한 발로 끊기는 범위는 반경 그대로 예측 가능하다)
-func apply_impact(pos: Vector3, radius: float, strength: float, forced := false) -> int:
+## explosive: 화약통·폭발통·미사일 같은 큰 폭발 (강철판도 날린다).
+func apply_impact(pos: Vector3, radius: float, strength: float, forced := false, explosive := false) -> int:
 	# 진지를 치운 뒤에 예약돼 있던 폭발이 터지는 경우
 	if not is_inside_tree():
 		return 0
@@ -143,7 +148,7 @@ func apply_impact(pos: Vector3, radius: float, strength: float, forced := false)
 	var broken := 0
 	var hit_blocks := {}
 	for j in joints:
-		if j.broken or j.unbreakable():
+		if j.broken or j.unbreakable(explosive):
 			continue
 		var d := j.pos.distance_to(pos)
 		if d >= radius:
@@ -172,7 +177,7 @@ func apply_impact(pos: Vector3, radius: float, strength: float, forced := false)
 	return broken
 
 
-const SHATTER_MATS := [Block.Mat.STONE, Block.Mat.CRACKED]
+const SHATTER_MATS := [Block.Mat.CRACKED]
 ## 닳게 하는 충격이 닿는 거리 (충격 반경의 배수)와 닳는 정도
 const WEAR_REACH := 1.6
 const WEAR_K := 0.3

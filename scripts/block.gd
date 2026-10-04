@@ -1,8 +1,9 @@
 class_name Block
 extends RigidBody3D
 ## 건물 블록. 평소에는 freeze 상태로 서 있다가, 연결이 끊기거나 받침을 잃으면 떨어진다.
-## 재질은 눈으로 보고 바로 알 수 있게 나눈다: 짚·나무 = 탄다, 금 간 석벽 = 고폭탄으로 부서진다,
-## 반듯한 석재 = 고폭탄으로도 거의 안 부서진다 (화약통 정도만 통함), 강철 = 절대 부서지지 않는다.
+## 재질은 눈으로 보고 바로 알 수 있게 나눈다: 짚·나무 = 탄다, 금 간 석재 = 고폭탄으로 부서진다,
+## 강철 = 고폭탄으로는 안 되고 폭발통·화약통·미사일 같은 큰 폭발에만 날아간다, 금 하나 없는 흰 석재 = 무엇으로도 안 부서진다.
+## (흰 석재도 받치던 것이 없어지면 떨어진다.)
 ## 가연물은 불이 붙으면 서서히 약해지다가(검게 변함) 다 타면 끊어져 사라진다.
 
 enum Mat { WOOD_THIN, WOOD_BEAM, STONE, ROPE, STRAW, KEG, CORE, WEIGHT, STEEL, WOOD_WET, FUEL, CRACKED }
@@ -16,15 +17,15 @@ const IMPACT_K := 2.2
 const INFO := {
 	Mat.WOOD_THIN: {"color": Color(0.5, 0.33, 0.19), "density": 0.6, "joint": 10.0, "flammable": true, "ignite": 0.4, "burn": 3.5, "ratio": 1.0},
 	Mat.WOOD_BEAM: {"color": Color(0.32, 0.19, 0.1), "density": 0.7, "joint": 70.0, "flammable": true, "ignite": 0.8, "burn": -1.0, "ratio": 1.0},
-	# 반듯한 석재: 고폭탄(최대 320)으로는 끊기지 않는다. 화약통·폭발통(450~500)만 통한다
+	# 반듯한 흰 석재: 석재끼리, 석재와 땅 사이 연결은 무엇으로도 끊기지 않는다 (Structure.Joint.unbreakable)
 	Mat.STONE: {"color": Color(0.74, 0.74, 0.76), "density": 2.4, "joint": 400.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
 	Mat.ROPE: {"color": Color(0.84, 0.7, 0.42), "density": 0.5, "joint": 15.0, "flammable": true, "ignite": 0.3, "burn": 2.0, "ratio": 0.0},
 	Mat.STRAW: {"color": Color(0.86, 0.7, 0.38), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.15, "burn": 2.0, "ratio": 1.0},
 	Mat.KEG: {"color": Color(0.06, 0.06, 0.06), "density": 0.9, "joint": 30.0, "flammable": true, "ignite": 0.3, "burn": 0.8, "ratio": 1.0},
 	Mat.CORE: {"color": Color(0.97, 0.74, 0.16), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 1.0},
 	Mat.WEIGHT: {"color": Color(0.16, 0.16, 0.18), "density": 7.8, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.0},
-	# 인간의 강철벽: 청회색, 반듯한 리벳. 무엇으로도 부서지지 않는다 (가림막)
-	Mat.STEEL: {"color": Color(0.42, 0.5, 0.58), "density": 3.0, "joint": 99999.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+	# 인간의 강철판: 청회색, 반듯한 리벳. 고폭탄으로는 안 부서지고 큰 폭발(폭발통·화약통·미사일)에만 날아간다
+	Mat.STEEL: {"color": Color(0.42, 0.5, 0.58), "density": 3.0, "joint": 150.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
 	# 젖은 목재: 그대로는 타지 않는다. 기름을 묻히면 탄다
 	Mat.WOOD_WET: {"color": Color(0.26, 0.2, 0.17), "density": 0.8, "joint": 60.0, "flammable": true, "ignite": 0.6, "burn": 5.0, "ratio": 1.0},
 	# 내부 연료 배관: 검정에 흰 띠. 빨리 타고, 다 타면 그 자리에서 불길이 확 솟는다

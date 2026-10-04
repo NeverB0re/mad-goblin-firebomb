@@ -425,6 +425,8 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			Sfx.play_delayed(self, "break", pos, 0.0, _listener())
 			_impact_juice(pos, 1.0)
 			_shards(pos, Color(0.1, 0.1, 0.1))
+			Fx.scorch(self, pos, 1.6)
+			Fx.flash(self, pos, 3.0, 9.0, 0.35)
 			for s in structures:
 				s.apply_impact(pos, ammo.impact_radius, ammo.impact_strength)
 			_blast_actors(pos, ammo.kill_radius)
@@ -444,6 +446,9 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			_impact_juice(pos, 3.0)
 			_shards(pos, Color(0.25, 0.25, 0.27))
 			Fx.smoke_puff(self, pos, 2.0)
+			Fx.scorch(self, pos, 2.6)
+			Fx.flash(self, pos, 6.0, 14.0, 0.3)
+			Fx.chunks(self, pos, _chunk_colors(collider), 8, 7.0)
 			var fireball := Fx.burst(40, 8.0, 0.7, Fx.FLAME_COLORS)
 			add_child(fireball)
 			fireball.global_position = pos
@@ -519,9 +524,13 @@ func _detonate_kegs(pos: Vector3, radius: float) -> void:
 
 ## 화약통·폭발통 폭발: 석재 벽에도 통하는 큰 충격, 주변 점화, 기름 점화, 인물 판정.
 ## forced: 플레이어 투척으로는 안 부서지는 구조(성문)에도 통하는 폭발 (동료의 폭발통).
+## 큰 폭발은 강철판도 날린다 (explosive). 흰 석재는 그대로.
 func explode(pos: Vector3, radius: float, strength: float, forced := false) -> void:
 	if not is_inside_tree():
 		return
+	Fx.scorch(self, Vector3(pos.x, 0.05, pos.z), radius * 0.6, 40.0)
+	Fx.flash(self, pos, 9.0, radius * 3.0, 0.45)
+	Fx.chunks(self, pos, [Color(0.25, 0.2, 0.15), Color(0.4, 0.3, 0.2), Color(0.12, 0.1, 0.08)], 12, 10.0)
 	Sfx.play_delayed(self, "boom", pos, 8.0, _listener())
 	var fireball := Fx.burst(60, 9.0, 0.9, Fx.FLAME_COLORS)
 	add_child(fireball)
@@ -534,7 +543,7 @@ func explode(pos: Vector3, radius: float, strength: float, forced := false) -> v
 	Fx.free_after(smoke, 20.0)
 	_impact_juice(pos, 4.0)
 	for s in structures:
-		s.apply_impact(pos, radius, strength, forced)
+		s.apply_impact(pos, radius, strength, forced, true)
 	for b in get_tree().get_nodes_in_group("flammable"):
 		if b.distance_to_point(pos) <= radius * 0.6:
 			b.ignite()
@@ -670,7 +679,7 @@ func _on_collapsed(pos: Vector3, count: int) -> void:
 
 
 func _on_barrel_exploded(pos: Vector3, ally: Ally) -> void:
-	# 반듯한 석재 성문(연결 강도 400)을 무너뜨릴 만큼 크다. 강철 문짝은 그대로 남는다
+	# 강철 문짝과 문 위 강철 초소를 통째로 날린다 (흰 석재 기둥은 남는다)
 	explode(pos, 8.0, 1200.0, true)
 	# 그을린 동료가 웃으며 날아간다 (연출)
 	ally.launch(Vector3(0.3, 0, 1.0), 3, 0.9)
@@ -685,9 +694,30 @@ func _on_commander_defeated(c: Commander, cause: String) -> void:
 	for other in commanders:
 		if not other.dead:
 			targets_changed.emit()
+			_kill_beat(c)
 			return
 	targets_changed.emit()
 	_win(c, cause, c.chest())
+
+
+## 지휘관 하나를 쓰러뜨렸을 때 (아직 남은 지휘관이 있을 때): 잠깐 느린 화면과 묵직한 소리로 손맛을 준다.
+func _kill_beat(c: Commander) -> void:
+	Sfx.play(self, "collapse", c.global_position, 4.0)
+	shake_requested.emit(0.6)
+	if Engine.time_scale != 1.0 and Engine.time_scale != 0.05:
+		return
+	Engine.time_scale = 0.3
+	get_tree().create_timer(0.45, true, false, true).timeout.connect(func():
+		if Engine.time_scale == 0.3:
+			Engine.time_scale = 1.0)
+
+
+## 맞은 블록 재질 색의 파편 (땅이면 흙색).
+func _chunk_colors(collider: Object) -> Array:
+	if collider is Block:
+		var col: Color = Block.INFO[collider.mat].color
+		return [col, col.darkened(0.25), col.lightened(0.1)]
+	return [Color(0.42, 0.36, 0.27), Color(0.3, 0.26, 0.2), Color(0.5, 0.45, 0.35)]
 
 
 ## 쓰러진 지휘관의 깃발이 넘어간다 (남은 표적을 글씨 없이 알려 준다).

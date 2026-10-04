@@ -105,13 +105,13 @@ const STAGES := [
 		"story": "성벽 돌을 올리던 나무 기중기 아래, 강철 방패 뒤에 지휘관이 섰다. 기중기 팔에는 쇠 상자가 밧줄 하나에 매달려 있다."},
 	{"name": "금 간 석재 망대 둘", "ammo": {"he": 3, "flare": 2},
 		"parts": [["pillars", Vector3(-8, 0, -40)], ["pillars", Vector3(9, 0, -47)]],
-		"story": "관문 양쪽의 낡은 석재 망대. 기둥마다 금이 갔다."},
+		"story": "관문 양쪽의 석재 망대. 망대마다 기둥 하나가 낡아 금이 갔다. 그 기둥을 찾는다."},
 	{"name": "관문 성벽 보행로", "ammo": {"he": 2, "flare": 2},
 		"parts": [["rampart", Vector3(0, 0, -44)]],
-		"story": "금 간 성벽 위 돌 보행로에 지휘관이 섰다. 성벽 밑동이 무너지면 보행로째 떨어진다."},
-	{"name": "강철 방벽 뒤 화약더미", "ammo": {"fire": 2, "flare": 2},
+		"story": "성벽 위 돌 보행로에 지휘관이 섰다. 바로 아래 밑동 한 칸이 낡아 금이 갔다. 그 칸이 무너지면 보행로째 떨어진다."},
+	{"name": "강철 방벽과 화약 수레", "ammo": {"fire": 4, "flare": 2},
 		"parts": [["kegyard", Vector3(0, 0, -46)]],
-		"story": "강철 방벽 뒤에 화약통을 쌓아 두고 지휘관 둘이 그 곁에서 지도를 본다. 방벽 너머로 정확히 떨어뜨려야 한다."},
+		"story": "지휘관 둘이 강철 방벽 뒤에서 작은 창으로 밖을 내다본다. 방벽 앞에는 화약 수레가 서 있다. 수레를 터뜨려 방벽을 날리고 하나씩 맞힌다."},
 	{"name": "병영 천막", "ammo": {"fire": 4, "flare": 2, "stone": 2},
 		"parts": [["tent", Vector3(-10, 0, -42)], ["tent", Vector3(1, 0, -49)], ["tent", Vector3(12, 0, -44)]],
 		"story": "관문 안 병영에 짚 천막 셋, 천막마다 지휘관이 하나씩 잔다. 어둠 속 거리가 다 다르다."},
@@ -121,9 +121,9 @@ const STAGES := [
 	{"name": "성벽과 망대", "ammo": {"he": 3, "fire": 2, "flare": 2, "stone": 2},
 		"parts": [["rampart", Vector3(-10, 0, -48)], ["pillars", Vector3(10, 0, -52)], ["tent", Vector3(0, 0, -40)]],
 		"story": "성벽 보행로, 석재 망대, 그 앞 천막. 지휘관 셋."},
-	{"name": "보급 마당", "ammo": {"fire": 4, "flare": 2, "stone": 2},
+	{"name": "보급 마당", "ammo": {"fire": 6, "flare": 2, "stone": 2},
 		"parts": [["kegyard", Vector3(-9, 0, -50)], ["steelhut", Vector3(11, 0, -44)]],
-		"story": "관문 보급 마당. 강철 방벽 뒤 화약더미 곁의 지휘관 둘과 강철 성벽 뒤 막사의 보급관."},
+		"story": "관문 보급 마당. 화약 수레 앞 강철 방벽 뒤의 지휘관 둘과 강철 성벽 뒤 막사의 보급관."},
 	{"name": "철벽 관문 본루", "ammo": {"fire": 3, "he": 3, "flare": 3, "stone": 3}, "perch": 10.0,
 		"parts": [["fortress", Vector3(0, 0, -62)], ["windowpost", Vector3(-14, 0, -50)], ["crane", Vector3(14, 0, -52)]],
 		"story": "클라이맥스: 밤의 관문 본루. 안뜰 공성탑의 지휘관, 석벽 초소의 부관, 기중기 밑의 공병대장."},
@@ -176,9 +176,9 @@ const STAGES := [
 	{"name": "왕실 마구간 마당", "ammo": {"he": 2, "fire": 4, "stone": 2}, "wind": Vector3(-1.5, 0, 0),
 		"parts": [["courtyard", Vector3(0, 0, -48)], ["powder", Vector3(-17, 0, -42)], ["hut", Vector3(14, 0, -44)]],
 		"story": "바람 부는 왕실 마구간 마당. 석벽 마당 막사, 화약 창고 옆 망대, 마부 오두막."},
-	{"name": "빗속 밤의 채석장", "ammo": {"he": 2, "oil": 2, "fire": 4, "flare": 2, "stone": 2}, "night": true, "rain": true,
+	{"name": "빗속 밤의 채석장", "ammo": {"he": 2, "oil": 2, "fire": 6, "flare": 2, "stone": 2}, "night": true, "rain": true,
 		"parts": [["cave", Vector3(0, 0, -50)], ["kegyard", Vector3(-15, 0, -44)], ["tower", Vector3(15, 0, -52), {"parapet": true}]],
-		"story": "비 오는 밤의 성채 채석장. 감시굴, 화약더미 곁의 둘, 젖은 감시탑. 지휘관 넷."},
+		"story": "비 오는 밤의 성채 채석장. 감시굴, 화약 수레 앞 강철 방벽 뒤의 둘, 젖은 감시탑. 지휘관 넷."},
 	{"name": "성채 포대", "ammo": {"he": 5, "flaregun": 3}, "perch": 20.0,
 		"ballistas": [[Vector3(-12, 0, -56), "stone"], [Vector3(12, 0, -56), "stone"]],
 		"parts": [["bunker", Vector3(-10, 0, -96)], ["bunker", Vector3(10, 0, -100)], ["pillars", Vector3(0, 0, -62)]],
@@ -283,7 +283,7 @@ static func plan(i: int) -> Array:
 		if b[1] == "wood":
 			out.append([K.FIRE, bp + Vector3(0, 1.5, 1.4), false, 0.0])
 		else:
-			out.append([K.HE, bp + Vector3(0, 1.0, 1.7), false, 0.0])
+			out.append([K.HE, bp + Vector3(-1.2, 1.0, 1.7), false, 0.0])
 	var ci := 0
 	for part in d.parts:
 		var opts: Dictionary = part[2] if part.size() > 2 else {}
@@ -331,7 +331,7 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 				out.append([K.OIL, c + Vector3(0, 2.9, 0), true, 0.3])
 			out.append([K.FIRE, ci, true, 0.0])
 		"pillars":
-			out.append([K.HE, c + Vector3(0, 1.0, 1.9), false, 0.0])
+			out.append([K.HE, c + Vector3(-1.4, 1.0, 1.9), false, 0.0])
 		"fortress":
 			if o.get("wet", false):
 				out.append([K.OIL, c + Vector3(0, 1.5, 1.5), true, 0.3])
@@ -362,7 +362,9 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 		"rampart":
 			out.append([K.HE, c + Vector3(0, 1.0, 1.7), false, 0.0])
 		"kegyard":
-			out.append([K.FIRE, c + Vector3(0, 0.8, 1.4), true, 0.0])
+			out.append([K.FIRE, c + Vector3(0, 0.6, 4.0), false, 2.0])
+			out.append([K.FIRE, ci, true, 0.0])
+			out.append([K.FIRE, ci + 1, true, 0.0])
 		"tent":
 			out.append([K.FIRE, c + Vector3(0, 1.9, 0), false, 0.0])
 		"bunker":
@@ -465,14 +467,16 @@ static func _bell_look(b: Block) -> void:
 	Models.ball(m, 0.15, Vector3(0, -0.7, 0), Models.mat(Color(0.3, 0.25, 0.2)))
 
 
-## 화약고: 금 간 석재 망대 + 발치의 나무 창고 안 화약통. 창고가 타면 화약통이 터져 망대가 무너진다.
+## 화약고: 석재 망대(창고 쪽 앞 기둥 하나만 금이 갔다) + 발치의 나무 창고 안 화약통.
+## 창고가 타면 화약통이 터져 금 간 기둥이 부러지고, 기둥 하나만 잃어도 망대가 기운다.
 static func _part_powder(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var st := s.add_structure()
 	var h := 4.0
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			st.add_block(M.CRACKED, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
-	st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
+			st.add_block(M.CRACKED if sx == 1 and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
+	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
+	deck.support_ratio = 1.0
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
 			st.add_block(M.STONE, c + Vector3(sx * 1.6, h + 1.5, sz * 1.6), Vector3(0.3, 2.2, 0.3))
@@ -527,14 +531,16 @@ static func _part_courtyard(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	s.add_commander(c, 180.0, Vector3(3.0, 0, -0.5))
 
 
-## 금 간 석재 망대 (기둥 넷 위 석재 바닥과 난간). 기둥이 부러지면 꼭대기 지휘관이 떨어진다.
+## 석재 망대 (기둥 넷 위 석재 바닥과 난간). 앞 왼쪽 기둥 하나만 금이 갔다.
+## 그 기둥 하나만 부러져도 바닥이 기울어 꼭대기 지휘관이 떨어진다.
 static func _part_pillars(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var st := s.add_structure()
 	var h := 4.5
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			st.add_block(M.CRACKED, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
-	st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
+			st.add_block(M.CRACKED if sx == -1 and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
+	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
+	deck.support_ratio = 1.0
 	for sz in [-1, 1]:
 		st.add_block(M.STONE, c + Vector3(0, h + 0.8, sz * 1.65), Vector3(3.6, 0.8, 0.3))
 	s.add_commander(c + Vector3(0, h + 0.4, 0), 180.0, Vector3(1.0, 0, 0.9))
@@ -679,7 +685,8 @@ static func _part_crane(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	s.add_guard(c + Vector3(3.5, 0, 2.0), 180.0)
 
 
-## 성벽 보행로: 금 간 성벽(2단) 위 돌 보행로와 여장. 밑동이 무너지면 보행로째 떨어진다.
+## 성벽 보행로: 흰 석재 성벽(2단)에 가운데 밑동 한 칸만 금이 갔다. 지휘관은 그 위 돌 보행로에 선다.
+## 금 간 밑동이 부서지면 그 위 칸과 가운데 보행로가 통째로 떨어진다.
 static func _part_rampart(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var st := s.add_structure()
 	var cols := 5
@@ -687,25 +694,31 @@ static func _part_rampart(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	for r in 2:
 		for k in cols:
 			var x := -w * cols * 0.5 + (k + 0.5) * w
-			st.add_block(M.CRACKED, c + Vector3(x, 1.0 + r * 2.0, 0.6), Vector3(w, 2.0, 1.2))
-	st.add_block(M.STONE, c + Vector3(0, 4.15, 0.6), Vector3(w * cols, 0.3, 1.6))
-	for x in [-3.2, -1.0, 1.0, 3.2]:
-		st.add_block(M.STONE, c + Vector3(x, 4.8, 1.25), Vector3(1.0, 1.0, 0.3))
+			st.add_block(M.CRACKED if r == 0 and k == 2 else M.STONE, c + Vector3(x, 1.0 + r * 2.0, 0.6), Vector3(w, 2.0, 1.2))
+	# 보행로는 세 토막 (가운데 토막은 가운데 칸 위에만 얹힌다)
+	st.add_block(M.STONE, c + Vector3(0, 4.15, 0.6), Vector3(w, 0.3, 1.6))
+	for sx in [-1, 1]:
+		st.add_block(M.STONE, c + Vector3(sx * w * 1.5, 4.15, 0.6), Vector3(w * 2.0, 0.3, 1.6))
+		for x in [1.8, 3.0]:
+			st.add_block(M.STONE, c + Vector3(sx * x, 4.8, 1.25), Vector3(0.8, 1.0, 0.3))
 	s.add_commander(c + Vector3(0, 4.3, 0.3), 180.0, Vector3(1.8, 0, -0.1))
 	s.add_guard(c + Vector3(-5.5, 0, 3), 180.0)
 
 
-## 강철 방벽 뒤 화약더미: 방벽 너머 화약통 곁에 지휘관 둘. 화약통에 불이 들어가면 둘 다 날아간다.
+## 강철 방벽과 화약 수레: 강철 방벽(눈높이의 작은 창 둘로 안의 지휘관 둘이 보인다) 앞에 화약통을 실은 수레가 서 있다.
+## 화약통을 터뜨리면 강철 방벽이 날아가고, 드러난 지휘관을 하나씩 맞힌다.
 static func _part_kegyard(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var wall := s.add_structure()
-	StageDefs.steel_wall(wall, c + Vector3(0, 0, 4.0), 9.0, 3.0)
-	var st := s.add_structure()
+	StageDefs.window_wall(wall, M.STEEL, c + Vector3(0, 0, 3.0), 9.0, [1.3, 0.5, 1.2], 6, [1, 4], 0.4)
+	var cart := s.add_structure()
+	# 큰 화약통 하나 (한 번에 터진다: 방벽만 날리고, 방벽 뒤 지휘관은 그 순간 방벽에 가려 산다)
+	cart.add_block(M.KEG, c + Vector3(0, 0.6, 3.75), Vector3(1.4, 1.2, 1.0))
+	# 수레 바퀴 (장식)
+	var wheel := Models.mat(Color(0.3, 0.2, 0.12))
 	for sx in [-1, 1]:
-		for sz in [0, 1]:
-			st.add_block(M.KEG, c + Vector3(sx * 0.4, 0.375, 1.0 + sz * 0.75), Vector3(0.75, 0.75, 0.75))
-	st.add_block(M.KEG, c + Vector3(0, 1.125, 1.4), Vector3(0.75, 0.75, 0.75))
-	s.add_commander(c + Vector3(-2.4, 0, 0.6), 160.0, Vector3(-1.0, 0, -0.8))
-	s.add_commander(c + Vector3(2.4, 0, 0.4), 200.0, Vector3(1.0, 0, -0.8))
+		Models.cyl(s, 0.45, 0.45, 0.12, c + Vector3(sx * 1.0, 0.45, 3.6), wheel, Vector3(0, 0, PI * 0.5), 10)
+	s.add_commander(c + Vector3(-2.25, 0, 0.8), 180.0, Vector3(-1.0, 0, -0.8))
+	s.add_commander(c + Vector3(2.25, 0, 0.8), 180.0, Vector3(1.0, 0, -0.8))
 
 
 ## 짚 천막: 짚 벽 셋과 문 난 앞벽, 짚 지붕. 지휘관이 안에서 잔다.
@@ -761,17 +774,20 @@ static func _torches(s: Stage) -> void:
 		s.add_torch(center + o)
 
 
-## 대공 발리스타 탑. wood: 나무 다리 (불), stone: 금 간 석재 기둥 (고폭탄).
+## 대공 발리스타 탑. wood: 나무 다리 (불), stone: 석재 기둥 넷 중 앞 왼쪽 하나만 금이 갔다 (그 하나만 부러뜨리면 기운다).
 static func _ballista(s: Stage, pos: Vector3, kind: String) -> void:
 	var st := s.add_structure()
 	var legs := 5.0
 	var wood := kind == "wood"
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			st.add_block(M.WOOD_BEAM if wood else M.CRACKED, pos + Vector3(sx * 1.2, legs * 0.5, sz * 1.2), Vector3(0.5, legs, 0.5) if wood else Vector3(0.7, legs, 0.7))
+			var leg_mat := M.WOOD_BEAM if wood else (M.CRACKED if sx == -1 and sz == 1 else M.STONE)
+			st.add_block(leg_mat, pos + Vector3(sx * 1.2, legs * 0.5, sz * 1.2), Vector3(0.5, legs, 0.5) if wood else Vector3(0.7, legs, 0.7))
 	if wood:
 		for sz in [-1, 1]:
 			st.add_block(M.WOOD_BEAM, pos + Vector3(0, 1.5, sz * 1.2), Vector3(1.9, 0.25, 0.25))
-	st.add_block(M.WOOD_THIN if wood else M.STONE, pos + Vector3(0, legs + 0.15, 0), Vector3(3.0, 0.3, 3.0))
+	var deck := st.add_block(M.WOOD_THIN if wood else M.STONE, pos + Vector3(0, legs + 0.15, 0), Vector3(3.0, 0.3, 3.0))
+	if not wood:
+		deck.support_ratio = 1.0
 	var b := st.add_block(M.WOOD_BEAM, pos + Vector3(0, legs + 0.55, 0), Vector3(0.6, 0.5, 0.6))
 	s.add_ballista(b)

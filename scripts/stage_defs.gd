@@ -400,18 +400,22 @@ static func _e11(s: Stage) -> void:
 	var st := s.add_structure()
 	# 성문은 동료의 폭발통으로만 부서진다 (플레이어의 투척과 떨어지는 잔해는 통하지 않는다)
 	st.player_proof = true
-	# 성문: 석재 기둥 둘 + 강철 문짝 + 위의 석재 보행로 (지휘관이 그 위에 선다)
+	# 성문: 흰 석재 기둥과 성벽(무엇으로도 안 부서짐) + 강철 문짝 + 문짝 위 강철 보행로와 초소 (지휘관이 그 안에 선다).
+	# 폭발통이 터지면 강철 문짝과 보행로·초소가 통째로 날아가고 흰 석재 기둥만 남는다
 	for sx in [-1, 1]:
 		st.add_block(M.STONE, gate + Vector3(sx * 2.5, 2.0, 0), Vector3(1.4, 4.0, 1.6))
 		for k in 2:
 			st.add_block(M.STONE, gate + Vector3(sx * (4.0 + k * 1.6), 2.0, 0), Vector3(1.6, 4.0, 1.6))
-	st.add_block(M.STEEL, gate + Vector3(0, 1.75, 0.3), Vector3(3.6, 3.5, 0.3))
-	st.add_block(M.STONE, gate + Vector3(0, 4.15, 0), Vector3(6.4, 0.3, 1.6))
-	# 보행로 위 석재 초소: 앞벽 + 양옆 벽 + 지붕 (뒤는 트임). 지휘관을 직접 맞힐 수 없다
-	st.add_block(M.STONE, gate + Vector3(0, 5.4, 0.65), Vector3(2.7, 2.2, 0.3))
+		# 기둥 위 석재 보행로 (양쪽)
+		st.add_block(M.STONE, gate + Vector3(sx * 4.4, 4.15, 0), Vector3(4.8, 0.3, 1.6))
+	st.add_block(M.STEEL, gate + Vector3(0, 2.0, 0.3), Vector3(3.6, 4.0, 0.3))
+	# 가운데 강철 보행로 (문짝 위에만 얹힌다)
+	st.add_block(M.STEEL, gate + Vector3(0, 4.15, 0), Vector3(3.6, 0.3, 1.6))
+	# 보행로 위 강철 초소: 앞벽 + 양옆 벽 + 지붕 (뒤는 트임). 지휘관을 직접 맞힐 수 없다
+	st.add_block(M.STEEL, gate + Vector3(0, 5.4, 0.65), Vector3(2.7, 2.2, 0.3))
 	for sx in [-1, 1]:
-		st.add_block(M.STONE, gate + Vector3(sx * 1.5, 5.4, 0), Vector3(0.3, 2.2, 1.6))
-	st.add_block(M.STONE, gate + Vector3(0, 6.65, 0), Vector3(3.3, 0.3, 1.6))
+		st.add_block(M.STEEL, gate + Vector3(sx * 1.5, 5.4, 0), Vector3(0.3, 2.2, 1.6))
+	st.add_block(M.STEEL, gate + Vector3(0, 6.65, 0), Vector3(3.3, 0.3, 1.6))
 	var pts: Array = E11_PATH
 	# 길 위의 장애물: 방패병 둘 → 목재 바리케이드 → 금 간 석재 울타리
 	var g1 := s.add_guard(_along(pts, 12.0) + Vector3(-0.5, 0, 0), 20.0, true)

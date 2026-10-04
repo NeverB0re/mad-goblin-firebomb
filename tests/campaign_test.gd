@@ -146,6 +146,31 @@ func _run() -> void:
 					await _throw_plan(s, step[0], target, step[2])
 			await _wait(s, 12.0)
 			_check(s.state == Stage.State.PLAYING, "%s 기름 없이 화염탄만으로는 안 풀린다 (남은 지휘관 %d)" % [Campaign.label(i), s.commanders_left()])
+	# 3-5: 화약 수레를 터뜨리면 강철 방벽이 날아가고, 방벽 뒤 지휘관은 아직 살아 있다
+	if _only <= 0 or _only == 3:
+		var s := _campaign(24)
+		await physics_frame
+		await _throw_plan(s, AmmoType.Kind.FIRE, Campaign.STAGES[24].parts[0][1] + Vector3(0, 0.6, 4.0), false)
+		await _wait(s, 2.0)
+		var blown := 0
+		for blk in s.structures[0].blocks:
+			if blk.fallen:
+				blown += 1
+		_check(blown >= 4 and s.commanders_left() == 2, "3-5 화약 수레 폭발 → 강철 방벽 %d조각 날아감, 지휘관 %d명 남음" % [blown, s.commanders_left()])
+	# 흰 석재는 화약통 폭발에도 안 부서진다 (1-10 공성탑 화약통 옆 성벽)
+	if _only <= 0 or _only == 1:
+		var s := _campaign(9)
+		await physics_frame
+		for step in Campaign.plan(9):
+			var target: Vector3 = s.commanders[step[1]].global_position + Vector3(0, 1.2, 0) if step[1] is int else step[1]
+			await _throw_plan(s, step[0], target, step[2])
+		await _wait(s, 6.0)
+		var stone_fell := 0
+		for st in s.structures:
+			for blk in st.blocks:
+				if blk.mat == Block.Mat.STONE and blk.fallen and blk.start_low < 0.1:
+					stone_fell += 1
+		_check(stone_fell == 0, "1-10 화약통이 터져도 땅에 선 흰 석재는 그대로 (%d개 넘어짐)" % stone_fell)
 	# 발리스타가 남아 있으면 미사일이 요격당한다 (4-3)
 	if _only <= 0 or _only == 4:
 		var s := _campaign(32)

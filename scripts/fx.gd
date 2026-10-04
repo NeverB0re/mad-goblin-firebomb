@@ -258,3 +258,69 @@ static func smoke_puff(parent: Node, pos: Vector3, size: float) -> void:
 	p.global_position = pos
 	p.emitting = true
 	free_after(p, 2.5)
+
+static var _scorch_tex: GradientTexture2D
+
+## 그을음 자국: 착탄 자리 땅과 벽에 남는 검은 얼룩 (잠시 뒤 옅어진다). 판정과 무관.
+static func scorch(parent: Node, pos: Vector3, radius: float, life := 25.0) -> void:
+	if _scorch_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(0.04, 0.03, 0.02, 0.85))
+		g.set_color(1, Color(0.06, 0.05, 0.04, 0.0))
+		g.add_point(0.55, Color(0.08, 0.06, 0.05, 0.6))
+		_scorch_tex = GradientTexture2D.new()
+		_scorch_tex.gradient = g
+		_scorch_tex.fill = GradientTexture2D.FILL_RADIAL
+		_scorch_tex.fill_from = Vector2(0.5, 0.5)
+		_scorch_tex.fill_to = Vector2(1.0, 0.5)
+		_scorch_tex.width = 64
+		_scorch_tex.height = 64
+	var d := Decal.new()
+	d.texture_albedo = _scorch_tex
+	d.size = Vector3(radius * 2.0, 2.0, radius * 2.0)
+	d.cull_mask = 1
+	parent.add_child(d)
+	d.global_position = pos
+	d.rotation.y = fmod(pos.x * 7.0 + pos.z * 3.0, TAU)
+	var tw := d.create_tween()
+	tw.tween_interval(life - 5.0)
+	tw.tween_property(d, "modulate:a", 0.0, 5.0)
+	free_after(d, life)
+
+
+## 폭발 섬광: 아주 짧게 주변을 밝히는 불빛 (밤에 특히 잘 보인다).
+static func flash(parent: Node, pos: Vector3, energy: float, reach: float, seconds := 0.3) -> void:
+	var l := OmniLight3D.new()
+	l.light_color = Color(1.0, 0.7, 0.35)
+	l.light_energy = energy
+	l.omni_range = reach
+	l.shadow_enabled = false
+	parent.add_child(l)
+	l.global_position = pos + Vector3(0, 1.0, 0)
+	var tw := l.create_tween()
+	tw.tween_property(l, "light_energy", 0.0, seconds).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	free_after(l, seconds + 0.05)
+
+
+## 튀는 파편 덩어리: 굴러다니다 사라지는 작은 돌·나무 조각 (충돌층 16, 땅과 서 있는 블록에만 부딪힌다.
+## 인물·투척체·무너진 잔해와는 부딪히지 않아 판정에 영향 없음). 방향은 고정 무늬라 무작위 값을 쓰지 않는다.
+static func chunks(parent: Node, pos: Vector3, colors: Array, count: int, speed: float) -> void:
+	for k in count:
+		var body := RigidBody3D.new()
+		body.collision_layer = 16
+		body.collision_mask = 1
+		body.mass = 0.3
+		var s := 0.12 + 0.08 * float(k % 3)
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(s, s * 0.8, s * 1.2)
+		shape.shape = box
+		body.add_child(shape)
+		Models.box(body, box.size, Vector3.ZERO, Models.mat(colors[k % colors.size()], 0.9))
+		parent.add_child(body)
+		var a := TAU * k / count + 0.37 * k
+		var up := 0.6 + 0.4 * float((k * 7) % 5) / 4.0
+		body.global_position = pos + Vector3(cos(a), 0.3, sin(a)) * 0.3
+		body.linear_velocity = Vector3(cos(a), up * 1.4, sin(a)).normalized() * speed * (0.7 + 0.3 * float(k % 4) / 3.0)
+		body.angular_velocity = Vector3(sin(a * 3.0), cos(a * 2.0), sin(a)) * 8.0
+		free_after(body, 3.0 + 0.1 * (k % 5))

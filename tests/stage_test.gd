@@ -323,6 +323,14 @@ func _run() -> void:
 		_check(ally.at_gate, "E11 동료가 성문 앞에 도착 (%.1f초)" % t)
 		await _throw(s, K.FIRE, ally.global_position + Vector3(0, 1.0, 0.5))
 		await _expect(s, Stage.State.CLEARED, "E11 폭발통으로 성문 붕괴")
+		var steel_gone := 0
+		var stone_fell := 0
+		for blk in s.structures[0].blocks:
+			if blk.mat == Block.Mat.STEEL and blk.fallen:
+				steel_gone += 1
+			if blk.mat == Block.Mat.STONE and blk.fallen:
+				stone_fell += 1
+		_check(steel_gone >= 5 and stone_fell == 0, "E11 폭발통에 강철 문과 초소가 날아가고 흰 석재 기둥은 남는다 (강철 %d개, 석재 %d개)" % [steel_gone, stone_fell])
 		# 성문은 플레이어의 고폭탄으로는 부서지지 않는다
 		s = _new_stage(10)
 		await physics_frame
