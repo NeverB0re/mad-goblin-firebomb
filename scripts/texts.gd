@@ -34,7 +34,6 @@ const T := {
 	"menu_title": "첫 화면으로 도망!",
 	"paused": "잠깐! 숨 좀 돌리자",
 	"locked": "아직 꽁꽁",
-	"best_left": "제일 잘했을 때 %d발 남김",
 	"set_sens": "눈알 굴리는 빠르기",
 	"set_volume": "쾅! 소리 크기",
 	"set_fullscreen": "화면 꽉 채우기",
@@ -45,6 +44,17 @@ const T := {
 	"skip_intro": "아무거나 누르면 건너뛰기",
 	"any_key": "아무거나 눌러!",
 	"help": "WASD 걷기 · 마우스 두리번 · 왼쪽 꾹 = 힘 모으기, 떼면 휙! · 오른쪽 = 눈 크게 / 그만 · 1~5·휠 폭탄 바꾸기 · R 다시 · Esc 잠깐",
+	# 별 평가 보조 목표 (고블린 말투)
+	"bonus_direct": "하나는 정통으로 맞혀!",
+	"bonus_indirect": "맞히지 말고 무너뜨리거나 태워서만!",
+	"bonus_without_fire": "화염 항아리 없이!",
+	"bonus_without_he": "폭탄 없이!",
+	"bonus_without_oil": "기름 단지 없이!",
+	"bonus_without_flare": "조명탄 없이 깜깜한 채로!",
+	"bonus_without_paint": "물감탄 없이 감으로!",
+	"bonus_throws": "%d번만 던져서!",
+	"bonus_no_shotdown": "글라이더 하나도 안 떨어뜨리고!",
+	"bonus_one_go": "한 방에 다 같이!",
 	"opening_hint": "클릭 / 스페이스 ▶     Esc 건너뛰기",
 }
 

@@ -71,11 +71,11 @@ const STAGES := [
 	{"name": "짚 지붕 줄집", "ammo": {"fire": 2}, "villagers": 4, "wind": [2, 1, 0],
 		"parts": [["rowhouses", Vector3(0, 0, -38)]],
 		"story": "흰 돌담 안에 지붕이 잇닿은 짚 지붕 집 세 채, 집마다 지휘관이 하나. 한 채에 불이 붙으면 옆집으로 번진다. 산바람이 불기 시작했다: 들판의 깃발이 펴진 폭 수만큼 비켜 던진다. 이제부터는 늘 깃발을 본다."},
-	{"name": "마을 정문 지원", "fixed": "ally", "ammo": {"he": 3, "fire": 2}, "wind": [1, 1, 0],
-		"story": "인간들이 마을 정문을 석재 성문으로 막았다. 폭발통을 진 동료 고블린이 정문까지 걷는다. 방패병, 나무 바리케이드, 금 간 석재 울타리를 치워 준다."},
 	{"name": "촌장 집 점령군 본부", "ammo": {"he": 2, "fire": 2}, "villagers": 5, "perch": 12.0, "wind": [2, 1, 0],
 		"parts": [["fortress", Vector3(0, 0, -54)], ["pillars", Vector3(-15, 0, -44)]],
-		"story": "클라이맥스: 점령군이 촌장 집 마당 흰 돌 성벽 안에 나무 공성탑을 세우고 본부로 쓴다. 탑 발치에는 마을에서 걷어 간 화약통, 강철 문 밑으로는 도화선이 삐져나와 있다. 부관은 옆 금 간 석재 망대에서 지켜본다."},
+		"story": "점령군이 촌장 집 마당 흰 돌 성벽 안에 돌 망루를 세우고 본부로 쓴다. 망루 앞면은 창 난 돌벽이라 지휘관이 창으로만 보인다. 금 간 기둥 발치에는 마을에서 걷어 간 화약통, 강철 문 밑으로는 검정·노랑 도화선이 삐져나와 있고, 성문 앞에서 고블린 하나가 도화선을 가리키며 방방 뛴다. 부관은 옆 금 간 석재 망대에서 지켜본다."},
+	{"name": "마을 정문 지원", "fixed": "ally", "ammo": {"he": 3, "fire": 2}, "wind": [2, 1, 0],
+		"story": "클라이맥스: 인간들이 마을 정문을 강철 성문으로 닫아걸고, 지휘관이 성문 뒤에서 빗장을 붙들고 버틴다. 폭발통을 진 동료 고블린이 심지에 불을 붙이고 정문까지 걷는다(성문 앞에 닿으면 스스로 터진다). 길을 막은 병사들, 폭탄에는 끄떡없는 목책 망루의 통나무 문(불로), 금 간 석재 성벽(폭탄)을 차례로 치워 준다."},
 
 	# ---------- 2월드: 비 내리는 광산 도시 (늘 비: 나무와 짚이 젖어 기름부터) ----------
 	{"name": "연료 창고", "ammo": {"oil": 2, "fire": 2}, "wind": [0, 1, 0],
@@ -141,43 +141,47 @@ const STAGES := [
 		"parts": [["fortress", Vector3(0, 0, -58)], ["windowpost", Vector3(-14, 0, -46)], ["guardhouse", Vector3(14, 0, -46), {"kegs": true, "door": -1}]],
 		"story": "클라이맥스: 밤의 관문 본루. 안뜰 공성탑의 지휘관(도화선이 강철 문 밑으로), 석벽 초소의 부관, 화약통 곁 초소의 경비대장."},
 
-	# ---------- 4월드: 대공 요새 (장거리, 조명탄을 보고 날아오는 글라이더 폭격, 발리스타) ----------
-	{"name": "먼 강철 벙커", "ammo": {"flare": 2}, "bombers": 2, "perch": 16.0, "wind": [2, 1, 0],
+	# ---------- 4월드: 대공 요새 (모든 진지에 글라이더 공수부대와 발리스타: 발리스타부터 치우고 조명탄으로 폭격을 부른다) ----------
+	{"name": "먼 강철 벙커", "ammo": {"he": 1, "flare": 2}, "bombers": 2, "perch": 16.0, "wind": [1, 1, 0],
+		"ballistas": [[Vector3(-6, 0, -46), "wood"]],
 		"parts": [["bunker", Vector3(0, 0, -82)]],
-		"story": "골짜기 건너 강철 벙커. 폭탄이 닿지도 않고 닿아도 안 부서진다. 글라이더를 멘 동료 고블린이 옆에서 기다린다. 조명탄을 벙커 근처에 떨어뜨리면 그 불빛을 보고 날아가 폭탄을 안고 뛰어내린다."},
-	{"name": "골짜기 건너 망루", "ammo": {"he": 3}, "perch": 20.0, "wind": [4, 1, 0],
-		"parts": [["tower", Vector3(0, 0, -66), {"legs": 5.0}]],
-		"story": "바람 부는 골짜기 건너 나무 망루. 가벼운 폭탄이 겨우 닿는 거리다(화염 항아리는 못 닿는다). 페인트탄으로 먼저 재 본다."},
-	{"name": "나무 발리스타", "ammo": {"he": 2, "flare": 2}, "bombers": 2, "perch": 18.0, "wind": [3, -1, 0],
-		"ballistas": [[Vector3(-8, 0, -56), "wood"]],
-		"parts": [["bunker", Vector3(0, 0, -92)], ["tent", Vector3(7, 0, -95)]],
-		"story": "벙커와 옆 천막의 지휘관 둘은 폭격 한 번이면 끝난다. 하지만 발리스타가 서 있으면 글라이더를 쏘아 떨어뜨린다. 나무 발리스타 탑부터 날린다."},
-	{"name": "석재 발리스타", "ammo": {"he": 2, "flare": 2}, "bombers": 2, "perch": 18.0, "wind": [3, 1, 0],
+		"story": "골짜기 건너 강철 벙커. 폭탄이 닿지도 않고 닿아도 안 부서진다. 글라이더를 멘 동료 고블린들이 옆 바위에서 기다린다: 조명탄을 벙커 근처에 떨어뜨리면 그 불빛을 보고 날아가 폭탄을 안고 뛰어내린다. 그런데 가까운 나무 발리스타가 서 있으면 글라이더를 쏘아 떨어뜨린다. 발리스타부터 날린다."},
+	{"name": "석재 발리스타", "ammo": {"he": 2, "flare": 2}, "bombers": 2, "perch": 18.0, "wind": [2, 1, 0],
 		"ballistas": [[Vector3(9, 0, -52), "stone"]],
-		"parts": [["bunker", Vector3(-6, 0, -96)], ["hut", Vector3(2, 0, -101)]],
-		"story": "금 간 석재 기둥 위의 발리스타. 폭탄으로 금 간 기둥을 부순 뒤 벙커와 오두막 사이에 조명탄을 떨어뜨린다."},
-	{"name": "골짜기 오두막과 종탑", "ammo": {"he": 3}, "perch": 20.0, "wind": [4, -1, 0],
-		"parts": [["hut", Vector3(-10, 0, -62)], ["bell", Vector3(12, 0, -66)]],
-		"story": "요새 아래 골짜기 마을. 오두막 안의 지휘관과 종탑 초소 안의 부관. 둘 다 사거리 끝이다. 폭격대는 여기까지 오지 않는다."},
-	{"name": "두 벙커", "ammo": {"he": 3, "flare": 2}, "bombers": 2, "perch": 20.0, "wind": [3, 1, 1],
+		"parts": [["bunker", Vector3(-6, 0, -92)], ["hut", Vector3(2, 0, -97)]],
+		"story": "금 간 석재 기둥 위의 발리스타. 흰 돌 기둥 셋은 꿈쩍도 안 한다: 금 간 기둥 하나를 골라 부순 뒤, 벙커와 오두막 사이에 조명탄을 떨어뜨린다."},
+	{"name": "골짜기 건너 망루", "ammo": {"he": 3, "flare": 2}, "bombers": 2, "perch": 20.0, "wind": [3, 1, 0],
+		"ballistas": [[Vector3(-9, 0, -54), "wood"]],
+		"parts": [["bunker", Vector3(4, 0, -98)], ["tower", Vector3(-4, 0, -66), {"legs": 5.0}]],
+		"story": "폭격 무리 밖에 홀로 선 망루의 포대장은 폭격이 닿지 않는다: 가벼운 폭탄으로 직접 닿는 거리(화염 항아리는 못 닿는다). 발리스타, 망루, 그리고 벙커에 조명탄."},
+	{"name": "두 나무 발리스타", "ammo": {"he": 3, "flare": 2}, "bombers": 2, "perch": 20.0, "wind": [3, 1, 1],
 		"ballistas": [[Vector3(-7, 0, -56), "wood"], [Vector3(8, 0, -60), "wood"]],
 		"parts": [["bunker", Vector3(-6, 0, -98)], ["bunker", Vector3(6, 0, -94)]],
-		"story": "나란히 선 벙커 둘을 나무 발리스타 둘이 지킨다. 발리스타를 모두 날리고 두 벙커 사이에 조명탄을 떨어뜨린다."},
-	{"name": "망대와 풍차", "ammo": {"he": 4}, "perch": 22.0, "wind": [3, -1, 0],
-		"parts": [["pillars", Vector3(-14, 0, -58)], ["windmill", Vector3(8, 0, -64)]],
-		"story": "옆바람이 부는 요새 앞 들판. 석재 망대의 지휘관과 풍차 회랑의 부관."},
+		"story": "나란히 선 벙커 둘을 나무 발리스타 둘이 지킨다. 하나라도 서 있으면 격추된다. 둘 다 날리고 두 벙커 사이에 조명탄."},
+	{"name": "골짜기 오두막과 종탑", "ammo": {"he": 4, "flare": 2}, "bombers": 2, "perch": 20.0, "wind": [4, -1, 0],
+		"ballistas": [[Vector3(14, 0, -54), "stone"]],
+		"parts": [["bunker", Vector3(0, 0, -100)], ["hut", Vector3(-10, 0, -62)], ["bell", Vector3(8, 0, -66)]],
+		"story": "요새 아래 골짜기 마을. 오두막 안의 지휘관과 종탑 초소 안의 부관은 사거리 끝에서 직접, 먼 벙커는 석재 발리스타를 치운 뒤 폭격으로."},
+	{"name": "망대와 풍차", "ammo": {"he": 5, "flare": 2}, "bombers": 2, "perch": 22.0, "wind": [3, -1, 0],
+		"ballistas": [[Vector3(0, 0, -60), "wood"], [Vector3(-12, 0, -54), "stone"]],
+		"parts": [["bunker", Vector3(0, 0, -104)], ["tent", Vector3(7, 0, -107)], ["pillars", Vector3(-16, 0, -64)], ["windmill", Vector3(12, 0, -64)]],
+		"story": "옆바람이 부는 요새 앞 들판. 발리스타 둘 뒤로 석재 망대의 지휘관과 풍차 회랑의 부관, 그 너머 벙커 무리."},
 	{"name": "요새 포대", "ammo": {"he": 4, "flare": 2}, "bombers": 2, "perch": 20.0, "wind": [4, 1, 0],
 		"ballistas": [[Vector3(-10, 0, -58), "wood"], [Vector3(10, 0, -56), "stone"]],
-		"parts": [["bunker", Vector3(0, 0, -104)], ["tower", Vector3(9, 0, -100)]],
-		"story": "나무와 석재 발리스타가 지키는 먼 벙커와 그 옆 망루의 포대장."},
-	{"name": "절벽 굴과 벙커", "ammo": {"he": 3, "flare": 2}, "bombers": 2, "perch": 18.0, "wind": [4, -1, 0],
-		"ballistas": [[Vector3(-14, 0, -52), "stone"]],
-		"parts": [["cave", Vector3(-5, 0, -98)], ["bunker", Vector3(6, 0, -92)]],
-		"story": "절벽 밑 감시굴과 그 옆 벙커. 석재 발리스타 하나가 지킨다."},
-	{"name": "대공 요새 본루", "ammo": {"he": 5, "flare": 2}, "bombers": 2, "perch": 25.0, "wind": [4, 1, 0],
+		"parts": [["bunker", Vector3(0, 0, -104)], ["tower", Vector3(9, 0, -100)], ["cave", Vector3(-8, 0, -100)]],
+		"story": "나무와 석재 발리스타가 지키는 먼 벙커와 그 양옆 망루·감시굴. 셋이 한 무리라 폭격 한 번이면 끝난다."},
+	{"name": "절벽 굴과 벙커", "ammo": {"he": 4, "flare": 3}, "bombers": 2, "perch": 18.0, "wind": [4, -1, 0],
+		"ballistas": [[Vector3(-14, 0, -52), "stone"], [Vector3(14, 0, -66), "stone"]],
+		"parts": [["cave", Vector3(-5, 0, -98)], ["bunker", Vector3(6, 0, -92)], ["rampart", Vector3(-2, 0, -62)]],
+		"story": "절벽 밑 감시굴과 그 옆 벙커를 석재 발리스타 둘이 지킨다. 앞 성벽 보행로의 감시대장은 직접."},
+	{"name": "세 발리스타", "ammo": {"he": 5, "flare": 2}, "bombers": 2, "perch": 22.0, "wind": [4, 1, -1],
+		"ballistas": [[Vector3(-12, 0, -60), "wood"], [Vector3(12, 0, -58), "stone"], [Vector3(0, 0, -68), "wood"]],
+		"parts": [["bunker", Vector3(-5, 0, -102)], ["bunker", Vector3(6, 0, -106)], ["tower", Vector3(16, 0, -66), {"legs": 5.0}]],
+		"story": "발리스타 셋이 겹겹이 지키는 벙커 둘, 오른쪽 높은 망루의 관측병."},
+	{"name": "대공 요새 본루", "ammo": {"he": 6, "flare": 2}, "bombers": 2, "perch": 25.0, "wind": [5, 1, 0],
 		"ballistas": [[Vector3(-12, 0, -62), "wood"], [Vector3(12, 0, -60), "stone"], [Vector3(0, 0, -70), "wood"]],
-		"parts": [["bunker", Vector3(0, 0, -110)], ["tower", Vector3(-9, 0, -106), {"legs": 5.0}]],
-		"story": "클라이맥스: 발리스타 셋이 지키는 대공 요새 본루 벙커와 그 옆 망루의 포대장."},
+		"parts": [["bunker", Vector3(0, 0, -110)], ["tower", Vector3(-9, 0, -106), {"legs": 5.0}], ["pillars", Vector3(-17, 0, -70)], ["windowpost", Vector3(16, 0, -72)]],
+		"story": "클라이맥스: 발리스타 셋이 지키는 대공 요새 본루 벙커와 그 옆 망루의 포대장, 앞 들판의 석재 망대와 석벽 초소."},
 
 	# ---------- 5월드: 왕국 성채 (모든 기믹, 지휘관 여럿) ----------
 	{"name": "왕성 외곽 밤바람", "ammo": {"he": 2, "fire": 3, "flare": 2}, "night": true, "wind": [4, 1, 0],
@@ -216,6 +220,25 @@ const STAGES := [
 ]
 const COUNT := 50
 
+## 진지별 보조 목표 (별 셋째). 예상 정답과 다른 길, 정통 직격, 간접으로만, 적은 투척 등 진지에 맞춰 하나씩.
+const BONUS := [
+	# 1월드
+	["direct"], ["throws", 2], ["throws", 2], ["direct"], ["indirect"],
+	["indirect"], ["throws", 1], ["throws", 1], ["without", "fire"], ["throws", 3],
+	# 2월드
+	["throws", 2], ["throws", 2], ["throws", 2], ["throws", 3], ["throws", 4],
+	["throws", 3], ["throws", 4], ["direct"], ["throws", 5], ["without", "he"],
+	# 3월드
+	["without", "flare"], ["direct"], ["throws", 2], ["throws", 1], ["throws", 1],
+	["throws", 3], ["throws", 2], ["throws", 3], ["without", "he"], ["without", "fire"],
+	# 4월드
+	["no_shotdown"], ["throws", 1], ["no_shotdown"], ["throws", 2], ["direct"],
+	["no_shotdown"], ["throws", 2], ["no_shotdown"], ["throws", 4], ["no_shotdown"],
+	# 5월드
+	["throws", 4], ["throws", 5], ["throws", 5], ["throws", 6], ["no_shotdown"],
+	["direct"], ["throws", 6], ["without", "he"], ["no_shotdown"], ["throws", 2],
+]
+
 
 static func label(i: int) -> String:
 	return "%d-%d" % [i / 10 + 1, i % 10 + 1]
@@ -242,6 +265,67 @@ static func wind_of(i: int) -> Vector3:
 	var w: Array = STAGES[i].get("wind", [0, 1, 0])
 	var dir := Vector3(w[1], 0, w[2]).normalized()
 	return dir * Stage.WIND_STEP * float(w[0])
+
+
+## ---------- 별 평가 ----------
+## 별 하나: 목표 달성(클리어). 별 둘: 폭탄을 남기고 클리어. 별 셋: 진지마다 하나씩 정한 보조 목표 (BONUS).
+## 보조 목표 종류:
+## - ["direct"]: 지휘관 하나 이상을 폭탄·항아리로 정통 맞힘
+## - ["indirect"]: 모든 지휘관을 맞히지 않고 무너뜨리거나(깔림·추락) 태워서만
+## - ["without", 탄종]: 그 탄종을 한 번도 안 던지고 (예상 정답과 다른 길)
+## - ["throws", n]: 폭탄·항아리·기름 단지를 n번 이하로 던져서 (물감탄·조명탄은 안 셈)
+## - ["no_shotdown"]: 글라이더를 하나도 안 떨어뜨리고
+## - ["one_go"]: 지휘관 모두를 3초 안에 한꺼번에
+
+
+static func bonus_of(i: int) -> Array:
+	return BONUS[i]
+
+
+static func bonus_text(i: int) -> String:
+	var b := bonus_of(i)
+	match b[0]:
+		"direct":
+			return Texts.t("bonus_direct")
+		"indirect":
+			return Texts.t("bonus_indirect")
+		"without":
+			return Texts.t("bonus_without_" + str(b[1]))
+		"throws":
+			return Texts.t("bonus_throws") % b[1]
+		"no_shotdown":
+			return Texts.t("bonus_no_shotdown")
+		"one_go":
+			return Texts.t("bonus_one_go")
+	return ""
+
+
+static func bonus_met(i: int, s: Stage) -> bool:
+	var b := bonus_of(i)
+	match b[0]:
+		"direct":
+			return s.commanders.any(func(c): return c.dead and c.defeat_cause == "direct")
+		"indirect":
+			return s.commanders.all(func(c): return c.defeat_cause in ["fall", "crush", "fire"])
+		"without":
+			var kind: int = {"fire": K.FIRE, "he": K.HE, "oil": K.OIL, "flare": K.FLARE, "paint": K.PAINT}[b[1]]
+			return int(s.thrown.get(kind, 0)) == 0
+		"throws":
+			var n := 0
+			for k in [K.FIRE, K.HE, K.OIL]:
+				n += int(s.thrown.get(k, 0))
+			return n <= int(b[1])
+		"no_shotdown":
+			return s.shot_down == 0
+		"one_go":
+			var times: Array = s.commanders.map(func(c): return float(c.get_meta("down_at", 0.0)))
+			return times.max() - times.min() <= 3.0
+	return false
+
+
+## 클리어한 진지의 별 수 (1~3).
+static func stars(i: int, s: Stage) -> int:
+	return 1 + (1 if s.total_ammo() > 0 else 0) + (1 if bonus_met(i, s) else 0)
 
 
 ## 바람 깃발 자리: 투척 구역에서 진지 쪽으로 7할쯤 간 길목에서 옆으로 비켜, 부품·발리스타에서 넉넉히 떨어진 땅.
@@ -297,7 +381,7 @@ static func build(i: int, s: Stage) -> void:
 	var d: Dictionary = STAGES[i]
 	s.world = world_of(i)
 	if d.get("fixed", "") == "ally":
-		StageDefs._e11(s)
+		_ally_stage(s, label(i), d.name)
 	else:
 		s.begin(label(i), d.name, false)
 		s.set_zone(Vector3(0, d.get("perch", HILL), d.get("zone", 0.0)), Vector2(3.0, 3.0))
@@ -371,13 +455,13 @@ static func _extras(s: Stage, d: Dictionary, world: int) -> void:
 				s.add_extra(c + Vector3(5.6, 0, 2.2), 200.0, GE.WAVE, c + Vector3(3.6, 0.5, -0.6))
 			"fortress":
 				if not opts.get("wet", false):
-					# 성벽 위에 올라서서 안뜰의 화약통을 가리킨다
-					s.add_extra(c + Vector3(2.25, 4.5, 6.0), 180.0, GE.WAVE, c + Vector3(0, 0.4, 2.3))
+					# 성문 앞에서 방방 뛰며 도화선 끝을 가리킨다
+					s.add_extra(c + Vector3(FORT_FUSE_X - 2.6, 0, FORT_FUSE_Z + 0.6), 150.0, GE.WAVE, c + Vector3(FORT_FUSE_X, 0.1, FORT_FUSE_Z))
 			"kegyard":
 				s.add_extra(c + Vector3(KEG_FUSE_X + 1.0, 0, 5.0), 200.0, GE.WAVE, c + Vector3(KEG_FUSE_X, 0, 5.4))
 			"hopper":
 				s.add_extra(c + Vector3(2.7, 0, 1.8), 210.0, GE.WAVE, c + Vector3(0, 4.4, 0))
-		if world == 0 and n < 2:
+		if world == 0 and n < 2 and part[0] != "fortress":
 			var side := -1.0 if c.x > 0.0 else 1.0
 			s.add_extra(c + Vector3(side * 4.5, 0, 6.0), 90.0 * side, GE.FIGHT)
 			s.add_extra(c + Vector3(-side * 3.0, 0, 7.5), 0.0, GE.THROW)
@@ -447,7 +531,10 @@ static func _in_rocket_cluster(d: Dictionary, pos: Vector3) -> bool:
 static func plan(i: int) -> Array:
 	var d: Dictionary = STAGES[i]
 	if d.get("fixed", "") == "ally":
-		return [["ally"]]
+		# 병사 셋 한가운데 폭탄 → 망루 통나무 문에 불 → 금 간 성벽에 폭탄 → 동료가 성문 앞에서 스스로 터진다
+		return [[K.HE, StageDefs._along(ALLY_PTS, ALLY_SOLDIERS) + Vector3(0, 0.6, 0.3), false, 0.0],
+			[K.FIRE, StageDefs._along(ALLY_PTS, ALLY_TOWER) + Vector3(0, 1.2, 0), false, 0.0],
+			[K.HE, StageDefs._along(ALLY_PTS, ALLY_WALL) + Vector3(0, 1.0, 0), false, 0.0]]
 	var rain := is_rain(i)
 	var out := []
 	# 남은 폭탄 수: 폭탄 풀이를 고를 때마다 하나씩 쓴다 (모자라면 불 풀이)
@@ -547,11 +634,12 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 			if o.get("wet", false):
 				out.append([K.OIL, c + Vector3(0, 1.5, 1.5), true, 0.3])
 				out.append([K.FIRE, c + Vector3(0, 1.5, 1.5), true, 0.0])
-			elif ammo.has("fire"):
-				# 성벽 앞으로 빠져나온 도화선 끝에 불 → 탑 발치 화약통이 터진다
-				out.append([K.FIRE, c + Vector3(0, 0.1, FORT_FUSE_Z - 0.4), false, 0.0])
+			elif ammo.get("fire", 0) > 0:
+				# 성벽 앞으로 빠져나온 도화선 끝에 불 → 화약통이 터져 금 간 기둥이 부러진다
+				out.append([K.FIRE, c + Vector3(FORT_FUSE_X, 0.1, FORT_FUSE_Z - 0.4), false, 0.0])
 			else:
-				out.append([K.HE, c + Vector3(0, 0.7, 2.3), true, 0.0])
+				# 성벽 너머로 높이 띄워 화약통에 폭탄
+				out.append([K.HE, c + Vector3(-0.75, 0.75, 2.3), true, 0.0])
 		"oilhouse":
 			out.append([K.OIL, c + Vector3(0.3, 0.3, 5.0), false, 0.3])
 			out.append([K.FIRE, c + Vector3(0.3, 1.0, 7.6), false, 0.0])
@@ -758,6 +846,8 @@ static func _part_courtyard(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var st := s.add_structure()
 	StageDefs.window_wall(st, M.CRACKED, c + Vector3(0, 0, 4.5), 9.0, [2.0, 0.5, 1.5], 7, [3], 0.5)
 	StageDefs.hut(st, c, 2.0, 2.6)
+	# 마당을 두르는 흰 돌담 (앞벽만 낡아 금이 갔다)
+	s.add_enclosure(c + Vector3(0, 0, 0.5), Vector2(4.5, 4.25), 3.0, "stone", 0.5)
 	s.add_commander(c, 180.0, Vector3(3.0, 0, -0.5))
 
 
@@ -778,12 +868,16 @@ static func _part_pillars(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	s.add_guard(c + Vector3(4, 0, 3), 180.0)
 
 
-## 공성탑 요새의 도화선이 성벽 앞으로 뻗어 나온 끝 z (부품 중심 기준, 성벽은 +6)
-const FORT_FUSE_Z := 8.2
+## 공성탑 요새의 도화선이 성벽 앞으로 뻗어 나온 끝 z와 도화선 x (부품 중심 기준, 성벽은 +6)
+const FORT_FUSE_Z := 9.4
+const FORT_FUSE_X := -0.75
 
 
-## 공성탑 요새: 앞 성벽(반듯한 석재, 강철 문) 너머 안뜰의 나무 탑.
-## 기본은 탑 발치에 화약통: 강철 문 밑으로 빠져나온 도화선 끝에 불을 붙이거나, 높이 띄워 넣는다. wet: 화약통 없이 돌 난간 두른 탑 (기름과 불을 높이 띄워 넣는다).
+## 공성탑 요새: 앞 성벽(반듯한 흰 돌, 강철 문) 너머 안뜰의 망루.
+## 기본: 흰 돌 망루 (기둥 넷 중 앞 왼쪽 하나만 금이 갔고, 위 앞면은 창 난 돌벽이라 창으로 지휘관만 보인다).
+##   금 간 기둥 발치에 화약통, 검정·노랑 도화선이 강철 문 밑 틈으로 성벽 앞까지 빠져나와 있다.
+##   도화선 끝에 불 → 화약통이 터져 금 간 기둥이 부러지고 망루가 기운다 (성벽 너머로 높이 띄워 기둥이나 화약통에 폭탄을 넣어도 된다).
+## wet: 화약통 없이 돌 난간 두른 젖은 나무 탑 (기름과 불을 높이 띄워 넣는다).
 static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	var wall := s.add_structure()
 	var wz := c.z + 6.0
@@ -797,20 +891,49 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	# 강철 문은 땅에서 살짝 떠 있다 (그 틈으로 도화선이 빠져나온다)
 	wall.add_block(M.STEEL, Vector3(c.x, 1.675, wz), Vector3(2.25, 3.05, 0.5))
 	wall.add_block(M.STONE, Vector3(c.x, 3.85, wz), Vector3(2.25, 1.3, 1.0))
-	var wet: bool = o.get("wet", false)
-	_part_tower(s, c, {"legs": 6.0, "parapet": wet})
-	if not wet:
-		var tower: Structure = s.structures[s.structures.size() - 1]
-		for k in 3:
-			tower.add_block(M.KEG, c + Vector3(-0.75 + k * 0.75, 0.375, 2.3), Vector3(0.75, 0.75, 0.75))
-		# 도화선: 가운데 화약통에서 강철 문 밑 틈을 지나 성벽 앞까지 (끝에 불을 붙이면 타 들어가 화약통이 터진다)
-		var h := 0.1
-		var z0 := 2.675
-		var n := 8
-		var zseg := (FORT_FUSE_Z - z0) / n
-		for k in n:
-			tower.add_block(M.ROPE, c + Vector3(0, h * 0.5, z0 + (k + 0.5) * zseg), Vector3(0.12, h, zseg))
+	# 성벽이 안뜰을 두르고 있다 (양옆과 뒤로 이어지는 성벽, 판정 없는 배경)
+	s.add_enclosure(c + Vector3(0, 0, -1.5), Vector2(10.125, 7.5), 4.5, "stone", 1.0)
+	if o.get("wet", false):
+		_part_tower(s, c, {"legs": 6.0, "parapet": true})
+		s.add_guard(c + Vector3(5, 0, 2), 180.0)
+		return
+	var st := s.add_structure()
+	var h := 6.0
+	for sx in [-1, 1]:
+		for sz in [-1, 1]:
+			st.add_block(M.CRACKED if sx == -1 and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
+	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
+	deck.support_ratio = 1.0
+	# 앞면: 창 난 돌벽 (창으로 지휘관이 보인다), 옆과 뒤는 낮은 돌 난간
+	StageDefs.window_wall(st, M.STONE, c + Vector3(0, h + 0.4, 1.65), 3.6, [0.9, 0.6, 0.9], 5, [2], 0.3)
+	st.add_block(M.STONE, c + Vector3(0, h + 0.8, -1.65), Vector3(3.6, 0.8, 0.3))
+	for sx in [-1, 1]:
+		st.add_block(M.STONE, c + Vector3(sx * 1.65, h + 0.8, 0), Vector3(0.3, 0.8, 3.0))
+	_legs(st, func(b): return b.start_low < 0.05, 0)
+	s.add_commander(c + Vector3(0, h + 0.4, -0.2), 180.0, Vector3(1.0, 0, -0.9))
+	var yard := s.add_structure()
+	for k in 3:
+		yard.add_block(M.KEG, c + Vector3(-1.5 + k * 0.75, 0.375, 2.3), Vector3(0.75, 0.75, 0.75))
+	# 도화선: 가운데 화약통에서 강철 문 밑 틈을 지나 성벽 앞까지 (끝에 불을 붙이면 타 들어가 화약통이 터진다)
+	_fuse(yard, c + Vector3(FORT_FUSE_X, 0, 2.675), c + Vector3(FORT_FUSE_X, 0, FORT_FUSE_Z), 11)
 	s.add_guard(c + Vector3(5, 0, 2), 180.0)
+
+
+## 도화선 한 줄 (a → b, 땅 위). 맞닿은 밧줄 토막을 따라 불이 번진다. 검정·노랑 줄무늬로 눈에 띈다.
+static func _fuse(st: Structure, a: Vector3, b: Vector3, n: int) -> void:
+	var h := 0.12
+	var d := b - a
+	var seg := d.length() / n
+	var along_x := absf(d.x) > absf(d.z)
+	for k in n:
+		var p := a + d * ((k + 0.5) / n) + Vector3(0, h * 0.5, 0)
+		var size := Vector3(seg, h, 0.14) if along_x else Vector3(0.14, h, seg)
+		var blk := st.add_block(M.ROPE, p, size)
+		blk.set_color(FUSE_BLACK if k % 2 == 0 else FUSE_YELLOW)
+
+
+const FUSE_BLACK := Color(0.1, 0.09, 0.08)
+const FUSE_YELLOW := Color(1.0, 0.8, 0.12)
 
 
 ## 연료 창고 (E7): 석재 건물 안 지휘관과 연료 배관, 바깥 짚 더미에서 이어진 젖은 홈통.
@@ -909,6 +1032,8 @@ static func _part_cave(s: Stage, c: Vector3, _o: Dictionary) -> void:
 static func _part_steelhut(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var wall := s.add_structure()
 	StageDefs.window_wall(wall, M.STEEL, c + Vector3(0, 0, 3.2), 8.0, [1.2, 0.6, 0.8], 5, [2], 0.4)
+	# 막사 마당을 두르는 강철 성벽 (앞벽에만 작은 창)
+	s.add_enclosure(c + Vector3(0, 0, 0.2), Vector2(4.0, 3.2), 2.6, "steel", 0.4)
 	var st := s.add_structure()
 	StageDefs.hut(st, c, 2.0, 2.6)
 	s.add_commander(c + Vector3(0, 0, 1.0), 180.0, Vector3(3.0, 0, 1.0))
@@ -949,6 +1074,8 @@ static func _part_rampart(s: Stage, c: Vector3, _o: Dictionary) -> void:
 		st.add_block(M.STONE, c + Vector3(sx * w * 1.5, 4.15, 0.6), Vector3(w * 2.0, 0.3, 1.6))
 		for x in [1.8, 3.0]:
 			st.add_block(M.STONE, c + Vector3(sx * x, 4.8, 1.25), Vector3(0.8, 1.0, 0.3))
+		# 양옆으로 이어지는 관문 성벽 (판정 없는 배경)
+		s.add_wall_prop(c + Vector3(sx * 9.0, 2.15, 0.6), Vector3(10.0, 4.3, 1.6), "stone")
 	s.add_commander(c + Vector3(0, 4.3, 0.3), 180.0, Vector3(1.8, 0, -0.1))
 	s.add_guard(c + Vector3(-5.5, 0, 3), 180.0)
 
@@ -967,19 +1094,13 @@ static func _part_kegyard(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var yard := s.add_structure()
 	var keg := yard.add_block(M.KEG, c + Vector3(0, 0.5, 1.4), Vector3(1.0, 1.0, 0.8))
 	keg.set_meta("blast", [9.0, 1000.0])
+	# 보급 마당: 왼쪽과 뒤는 강철 방벽, 오른쪽 뒤에는 보급 상자 더미 (오른쪽 앞은 도화선이 빠져나가는 틈)
+	s.add_enclosure(c + Vector3(0, 0, -0.6), Vector2(4.5, 3.6), 3.0, "steel", 0.4, "lb")
+	for k in 3:
+		s.add_wall_prop(c + Vector3(4.0 - (k % 2) * 0.2, 0.5 + (k / 2) * 1.0, -2.6 + (k % 2) * 1.1), Vector3(1.0, 1.0, 1.0), "plank", 0.2 * k)
 	# 도화선: 화약통 오른쪽에서 방벽 뒤를 따라 끝까지, 방벽 끝을 돌아 앞으로 (맞닿은 밧줄 토막을 따라 불이 번진다)
-	var h := 0.1
-	var n := 8
-	var x0 := 0.5
-	var seg := (KEG_FUSE_X - 0.06 - x0) / n
-	for k in n:
-		yard.add_block(M.ROPE, c + Vector3(x0 + (k + 0.5) * seg, h * 0.5, 1.4), Vector3(seg, h, 0.12))
-	var z0 := 1.34
-	var z1 := 5.6
-	var m := 7
-	var zseg := (z1 - z0) / m
-	for k in m:
-		yard.add_block(M.ROPE, c + Vector3(KEG_FUSE_X, h * 0.5, z0 + (k + 0.5) * zseg), Vector3(0.12, h, zseg))
+	_fuse(yard, c + Vector3(0.5, 0, 1.4), c + Vector3(KEG_FUSE_X - 0.07, 0, 1.4), 8)
+	_fuse(yard, c + Vector3(KEG_FUSE_X, 0, 1.33), c + Vector3(KEG_FUSE_X, 0, 5.6), 7)
 	s.add_commander(c + Vector3(-2.25, 0, 0.8), 180.0, Vector3(-1.0, 0, -0.8))
 	s.add_commander(c + Vector3(2.25, 0, 0.8), 180.0, Vector3(1.0, 0, -0.8))
 
@@ -1007,9 +1128,10 @@ static func _part_rowhouses(s: Stage, c: Vector3, o: Dictionary) -> void:
 			st.add_block(M.WOOD_BEAM, hc + Vector3(half - 0.1, ROW_H * 0.5, 0), Vector3(0.2, ROW_H, ROW_W - 0.4))
 		st.add_block(M.STRAW, hc + Vector3(0, ROW_H + 0.15, 0), Vector3(ROW_W, 0.3, ROW_W + 0.3))
 		s.add_commander(hc + Vector3(0, 0, -0.75), 180.0, Vector3(0.9, 0, 4.3))
-	# 흰 돌 앞담 (허리 높이: 지붕과 벽은 보인다)
+	# 흰 돌 앞담 (허리 높이: 지붕과 벽은 보인다)과 집 뒤뜰을 두르는 낮은 돌담
 	var wall := s.add_structure()
 	wall.add_block(M.STONE, c + Vector3(0, 0.55, half + 1.2), Vector3(ROW_W * n + 1.0, 1.1, 0.5))
+	s.add_enclosure(c + Vector3(0, 0, 0.0), Vector2(ROW_W * n * 0.5 + 0.5, half + 1.45), 1.1, "stone", 0.5)
 
 
 ## 강철 초소의 구경 자리 (부품 중심 기준): 문 밖 옆 빈터.
@@ -1072,6 +1194,80 @@ static func _part_bunker(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	s.add_commander(c + Vector3(0, 0, -0.4), 180.0, Vector3(3.0, 0, 2.6))
 	s.add_guard(c + Vector3(-4, 0, 3.5), 180.0)
 	s.add_guard(c + Vector3(4, 0, 3.5), 180.0)
+
+
+## ---------- 지원 진지 (1-10 마을 정문) ----------
+## 폭발통을 진 동료 고블린이 마을 길을 따라 닫힌 강철 성문까지 걷는다. 걷기 시작하면 심지에 불이 붙어 타 들어가고,
+## 성문 앞에 닿으면 스스로 터진다. 플레이어는 길을 막은 것을 차례로 치워 준다:
+##   병사 셋(다가오면 창을 겨누고 싸우려 든다) → 목책 망루의 통나무 문(쇠사슬로 엮어 폭탄에는 끄떡없지만 불에는 탄다)
+##   → 금 간 석재 성벽 (폭탄). 목책과 성벽은 양옆으로 길게 이어져 돌아갈 길이 없다.
+## 지휘관은 성문 뒤에서 빗장을 붙들고 버틴다. 폭발통이 터지면 성문째 날아간다.
+const ALLY_PTS := [Vector3(-12, 0, -14), Vector3(-5, 0, -28), Vector3(-1.5, 0, -42), Vector3(0, 0, -57.2)]
+const ALLY_GATE_Z := -58.6
+const ALLY_SOLDIERS := 11.0
+const ALLY_TOWER := 24.0
+const ALLY_WALL := 36.0
+
+
+static func _ally_stage(s: Stage, id: String, title_text: String) -> void:
+	s.begin(id, title_text, false)
+	s.set_zone(Vector3(0, 8.0, 0), Vector2(3.0, 3.0))
+	var pts: Array = ALLY_PTS
+	# 성문: 흰 돌 성문 기둥과 양옆으로 길게 이어진 성벽, 닫힌 강철 성문 두 짝과 안쪽 나무 빗장
+	var gate := Vector3(0, 0, ALLY_GATE_Z)
+	var st := s.add_structure()
+	# 성문은 동료의 폭발통으로만 부서진다 (플레이어의 투척과 떨어지는 잔해는 통하지 않는다)
+	st.player_proof = true
+	for sx in [-1, 1]:
+		st.add_block(M.STONE, gate + Vector3(sx * 2.6, 2.75, 0), Vector3(1.6, 5.5, 2.0))
+		st.add_block(M.STEEL, gate + Vector3(sx * 0.9, 2.0, 0.25), Vector3(1.8, 4.0, 0.3))
+	st.add_block(M.STONE, gate + Vector3(0, 4.75, 0), Vector3(3.6, 1.5, 2.0))
+	st.add_block(M.WOOD_BEAM, gate + Vector3(0, 1.6, -0.15), Vector3(3.4, 0.3, 0.3))
+	for sx in [-1, 1]:
+		s.add_wall_prop(gate + Vector3(sx * 13.4, 2.5, 0), Vector3(20.0, 5.0, 1.8), "stone")
+		s.add_wall_prop(gate + Vector3(sx * 6.0, 3.5, 0), Vector3(2.4, 7.0, 2.6), "stone")
+	var cm := s.add_commander(gate + Vector3(0, 0, -1.0), 180.0, Vector3(3.6, 0, -1.6))
+	cm.hold_bar = true
+	# 1) 병사 셋이 길을 막아선다
+	var g := []
+	for k in 3:
+		var gp := StageDefs._along(pts, ALLY_SOLDIERS) + Vector3(-1.0 + k * 1.0, 0, (k % 2) * 0.6)
+		g.append(s.add_guard(gp, 20.0, true))
+	# 2) 목책 망루: 길 양옆으로 긴 통나무 목책, 길 위에는 망루와 통나무 문
+	var tp := StageDefs._along(pts, ALLY_TOWER)
+	# 길은 거의 앞뒤로 나 있어 문과 목책은 좌우(x)로 가로지른다
+	var side := Vector3.RIGHT
+	var tower := s.add_structure()
+	tower.player_proof = true
+	for sx in [-1, 1]:
+		tower.add_block(M.WOOD_BEAM, tp + side * sx * 1.5 + Vector3(0, 2.5, 0), Vector3(0.6, 5.0, 0.6))
+	var doors := []
+	for k in 4:
+		var dp := tp + side * (-0.9 + k * 0.6) + Vector3(0, 1.3, 0)
+		doors.append(tower.add_block(M.WOOD_BEAM, dp, Vector3(0.55, 2.6, 0.45)))
+	tower.add_block(M.WOOD_THIN, tp + Vector3(0, 5.15, 0), Vector3(3.6, 0.3, 2.0))
+	tower.add_block(M.STRAW, tp + Vector3(0, 6.95, 0), Vector3(3.8, 0.3, 2.4))
+	for sx in [-1, 1]:
+		tower.add_block(M.WOOD_THIN, tp + side * sx * 1.5 + Vector3(0, 6.05, 0), Vector3(0.25, 1.5, 0.25))
+		s.add_wall_prop(tp + side * sx * 11.8 + Vector3(0, 1.6, 0), Vector3(20.0, 3.2, 0.5), "plank")
+	# 3) 금 간 석재 성벽: 길을 가로지른 한 칸만 낡아 금이 갔고, 양옆은 흰 돌 성벽으로 길게 이어진다
+	var wp := StageDefs._along(pts, ALLY_WALL)
+	var wside := Vector3.RIGHT
+	var fence := s.add_structure()
+	for k in 3:
+		for row in 2:
+			fence.add_block(M.CRACKED, wp + wside * (-1.0 + k * 1.0) + Vector3(0, 0.6 + row * 1.2, 0), Vector3(1.0, 1.2, 0.6))
+	for sx in [-1, 1]:
+		s.add_wall_prop(wp + wside * sx * 11.5 + Vector3(0, 1.4, 0), Vector3(20.0, 2.8, 0.8), "stone")
+	var obstacles := [
+		{"distance": ALLY_SOLDIERS, "cleared": func(): return g.all(func(x): return x.dead)},
+		{"distance": ALLY_TOWER, "cleared": func(): return doors.all(func(x): return not is_instance_valid(x) or x.burnt or x.fallen)},
+		{"distance": ALLY_WALL, "cleared": func(): return StageDefs._path_open(fence, pts, ALLY_WALL)},
+	]
+	var ally := s.add_ally(pts, 1.8, obstacles)
+	ally.auto_fuse = true
+	for x in g:
+		x.watch = ally
 
 
 ## 부족장이 갇힌 우리 (판정과 무관한 장식, 최종 진지).

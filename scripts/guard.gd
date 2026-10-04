@@ -6,6 +6,11 @@ extends Actor
 var shield := false
 var _helmet: Node3D
 var _startle := 0.0
+## 지켜보는 상대 (다가오는 동료 고블린). 가까워지면 그쪽을 보고 경계하다가, 더 가까우면 창을 찌르며 싸우려 든다
+var watch: Node3D
+const ALERT_RANGE := 12.0
+const FIGHT_RANGE := 5.0
+var _home_yaw := 0.0
 
 
 func _init() -> void:
@@ -15,6 +20,7 @@ func _init() -> void:
 
 func setup(with_shield: bool) -> Guard:
 	shield = with_shield
+	_home_yaw = rotation.y
 	set_visual(Models.human(Models.HUMAN_STEEL, Models.Hat.HELMET))
 	_helmet = visual.get_node_or_null("Helmet")
 	if shield:
@@ -53,10 +59,30 @@ func _process(delta: float) -> void:
 	super(delta)
 	if dead or visual == null:
 		return
+	var arm_l: Node3D = visual.get_node("ArmL")
+	var arm_r: Node3D = visual.get_node("ArmR")
+	if is_instance_valid(watch) and _startle <= 0.0:
+		var to := watch.global_position - global_position
+		to.y = 0.0
+		var d := to.length()
+		if d < ALERT_RANGE and d > 0.1:
+			# 다가오는 고블린 쪽으로 몸을 돌린다
+			rotation.y = lerp_angle(rotation.y, atan2(-to.x, -to.z), clampf(delta * 4.0, 0.0, 1.0))
+			if d < FIGHT_RANGE:
+				# 싸우려 든다: 오른팔로 창을 찌르고, 방패를 앞세워 들썩
+				var t := _anim_t * 7.0
+				arm_r.rotation = Vector3(-1.2 - maxf(sin(t), 0.0) * 0.9, 0, 0.2)
+				arm_l.rotation = Vector3(-0.9, 0, -0.3)
+				visual.position = Vector3(0, absf(sin(t)) * 0.08, -maxf(sin(t), 0.0) * 0.2)
+			else:
+				# 경계: 창을 겨누고 몸을 낮춘다
+				arm_r.rotation = Vector3(-1.1, 0, 0.25)
+				arm_l.rotation = Vector3(-0.6, 0, -0.3)
+				visual.position = Vector3(0, -0.08, 0)
+				visual.rotation.x = 0.12
+			return
 	if _startle > 0.0:
 		_startle = maxf(0.0, _startle - delta * 2.0)
 		visual.position.y = sin((1.0 - _startle) * PI) * 0.6 * _startle
-		var arm_l: Node3D = visual.get_node("ArmL")
-		var arm_r: Node3D = visual.get_node("ArmR")
 		arm_l.rotation.z = -2.5 * _startle
 		arm_r.rotation.z = 2.5 * _startle

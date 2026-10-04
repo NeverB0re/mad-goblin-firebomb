@@ -60,6 +60,10 @@ var cine_cam_pos := Vector3.INF
 var ammo_slots: Array = []
 var current_slot := 0
 var throws := 0
+## 탄종별로 던진 수 (별 평가의 보조 목표용)
+var thrown := {}
+## 발리스타에 격추된 글라이더 수
+var shot_down := 0
 var elapsed := 0.0
 var _projectiles: Array[Projectile] = []
 var _quiet := 0.0
@@ -345,6 +349,40 @@ func add_prop(center: Vector3, size: Vector3, color: Color, collide := true) -> 
 	node.position = center
 	add_child(node)
 	return node
+
+
+## 배경 벽 한 칸 (블록 시스템과 무관, 무엇으로도 안 부서진다). 겉모양은 블록과 같은 로우폴리 재질 모양.
+## 진지를 두르는 성벽·담·울타리가 혼자 덩그러니 서 있지 않게 둘레를 이어 준다. style: stone, steel, plank, straw.
+func add_wall_prop(center: Vector3, size: Vector3, style: String, yaw := 0.0) -> Node3D:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	var mi := MeshInstance3D.new()
+	mi.mesh = LowPoly.block_mesh(style, size)
+	var colors := {"stone": Block.INFO[Block.Mat.STONE].color, "steel": Block.INFO[Block.Mat.STEEL].color,
+		"plank": Block.INFO[Block.Mat.WOOD_BEAM].color, "straw": Block.INFO[Block.Mat.STRAW].color}
+	var m := Models.mat(colors.get(style, Color.WHITE), 0.95)
+	mi.material_override = m
+	body.add_child(mi)
+	body.position = center
+	body.rotation.y = yaw
+	add_child(body)
+	return body
+
+
+## 마당을 두르는 배경 벽 (앞면 제외: 앞면은 진짜 블록 벽). center: 마당 가운데, half: 반폭(x)과 반깊이(z).
+## sides: "l"(왼), "r"(오른), "b"(뒤) 중 둘러칠 쪽.
+func add_enclosure(center: Vector3, half: Vector2, height: float, style: String, thick := 0.6, sides := "lrb") -> void:
+	var y := center.y + height * 0.5
+	if "b" in sides:
+		add_wall_prop(Vector3(center.x, y, center.z - half.y + thick * 0.5), Vector3(half.x * 2.0, height, thick), style)
+	for sx in [-1, 1]:
+		if ("l" if sx < 0 else "r") in sides:
+			add_wall_prop(Vector3(center.x + sx * (half.x - thick * 0.5), y, center.z), Vector3(thick, height, half.y * 2.0), style)
 
 
 ## 각진 바위 (충돌은 상자 그대로, 겉모양만 울퉁불퉁한 로우폴리 바위).
@@ -654,6 +692,7 @@ func try_throw(origin: Vector3, direction: Vector3) -> bool:
 		return false
 	slot.count -= 1
 	throws += 1
+	thrown[slot.type.kind] = int(thrown.get(slot.type.kind, 0)) + 1
 	var p := Projectile.new()
 	add_child(p)
 	var excluded: Array[RID] = []
@@ -1021,6 +1060,10 @@ func _on_collapsed(pos: Vector3, count: int) -> void:
 func _on_barrel_exploded(pos: Vector3, ally: Ally) -> void:
 	# 강철 문짝과 문 위 강철 초소를 통째로 날린다 (흰 석재 기둥은 남는다)
 	explode(pos, 8.0, 1200.0, true)
+	# 성문 바로 뒤에서 빗장을 붙든 지휘관은 성문째 날아간다 (엄폐와 상관없이)
+	for c in commanders:
+		if not c.dead and c.global_position.distance_to(pos) < 6.0:
+			c.defeat("blast")
 	# 그을린 동료가 웃으며 날아간다 (연출)
 	ally.launch(Vector3(0.3, 0, 1.0), 3, 0.9)
 
@@ -1028,6 +1071,7 @@ func _on_barrel_exploded(pos: Vector3, ally: Ally) -> void:
 # ---------- 판정 ----------
 
 func _on_commander_defeated(c: Commander, cause: String) -> void:
+	c.set_meta("down_at", elapsed)
 	_drop_flag(c)
 	if state != State.PLAYING or goal != Goal.COMMANDER:
 		return

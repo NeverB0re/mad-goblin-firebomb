@@ -138,6 +138,10 @@ func show_title() -> void:
 var _select_world := -1
 
 
+## 지금 진지가 있는 월드 (잠깐 메뉴에서 진지 고르기를 열면 이 월드부터 보여 준다)
+var current_world := -1
+
+
 func show_select(back_to: int, world := -1) -> void:
 	screen = Screen.SELECT
 	_back_to = back_to
@@ -166,7 +170,8 @@ func show_select(back_to: int, world := -1) -> void:
 		var open := i < SaveData.open_count()
 		var text := "%s\n%s" % [Campaign.label(i), Campaign.title(i) if open else Texts.t("locked")]
 		if SaveData.is_cleared(i):
-			text += "\n" + Texts.t("best_left") % int(SaveData.best[i])
+			var n := int(SaveData.stars.get(i, 1))
+			text += "\n" + "★".repeat(n) + "☆".repeat(3 - n)
 		var b := _button(grid, text, func(): stage_chosen.emit(i), open)
 		b.custom_minimum_size = Vector2(230, 110)
 		b.add_theme_font_size_override("font_size", 18)
@@ -189,7 +194,7 @@ func show_pause() -> void:
 	_title_label(box, Texts.t("paused"), 64)
 	_button(box, Texts.t("menu_resume"), func(): resume_requested.emit()).grab_focus()
 	_button(box, Texts.t("menu_restart"), func(): restart_requested.emit())
-	_button(box, Texts.t("menu_select"), func(): show_select(Screen.PAUSE))
+	_button(box, Texts.t("menu_select"), func(): show_select(Screen.PAUSE, current_world))
 	_button(box, Texts.t("menu_settings"), func(): show_settings(Screen.PAUSE))
 	_button(box, Texts.t("menu_title"), func(): title_requested.emit())
 

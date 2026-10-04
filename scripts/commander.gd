@@ -16,6 +16,8 @@ const WALK_SPEED := 2.4
 const LINGER := 1.5
 
 var mood: int = Mood.SWAGGER
+## 성문 빗장을 두 손으로 붙들고 버틴다 (지원 진지)
+var hold_bar := false
 var _check := 0
 ## 구경 길: [숨은 자리, ..., 구경 자리] (월드 좌표). 비어 있으면 구경하지 않는다
 var lure_path: Array = []
@@ -123,6 +125,13 @@ func _process(delta: float) -> void:
 	var t := _anim_t
 	var arm_l: Node3D = visual.get_node("ArmL")
 	var arm_r: Node3D = visual.get_node("ArmR")
+	if hold_bar and mood == Mood.SWAGGER:
+		# 두 팔을 앞으로 뻗어 빗장을 붙들고 등을 기댄 채 들썩
+		visual.rotation = Vector3(-0.15, 0, sin(t * 3.0) * 0.04)
+		visual.position = Vector3(0, absf(sin(t * 3.0)) * 0.03, 0)
+		arm_l.rotation = Vector3(-1.45, 0, -0.15)
+		arm_r.rotation = Vector3(-1.45, 0, 0.15)
+		return
 	match mood:
 		Mood.SWAGGER:
 			# 가슴을 내밀고 허리에 손, 거들먹거리며 들썩

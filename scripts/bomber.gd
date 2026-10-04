@@ -108,6 +108,7 @@ func _glide() -> void:
 		Sfx.play(_stage, "break", p, 2.0)
 		Fx.smoke_puff(_stage, p, 1.5)
 		_stage.toast.emit(Texts.t("rocket_shot_down"))
+		_stage.shot_down += 1
 		return
 	if k >= 1.0:
 		# 표적 위: 폭탄을 끌어안고 뛰어내린다. 글라이더는 그대로 앞으로 날아가 버린다

@@ -218,6 +218,7 @@ func load_stage(index: int) -> void:
 		result.close()
 		result = null
 	stage_index = posmod(index, _count())
+	menus.current_world = Campaign.world_of(stage_index) if not test_mode else -1
 	if stage:
 		remove_child(stage)
 		stage.queue_free()
@@ -233,16 +234,22 @@ func load_stage(index: int) -> void:
 	stage.state_changed.connect(_on_stage_state)
 	stage.target_down.connect(_on_target_down)
 	hud.bind(stage)
+	hud.set_bonus("" if test_mode else Campaign.bonus_text(stage_index))
 
 
 func _on_target_down(target: Actor, cause: String, focus: Vector3) -> void:
 	result = ResultScreen.new()
 	add_child(result)
 	result.proceed.connect(_on_result_proceed)
+	# 결과 화면에서는 클릭이 고블린 조작(마우스 붙잡기·투척)으로 가지 않게 한다
+	stage.player.input_locked = true
 	var start_cam: Camera3D = hud.follow_cam.camera() if hud.follow_cam.visible else null
 	hud.set_gameplay_visible(false)
 	if not test_mode:
-		SaveData.record_clear(stage_index, stage.total_ammo())
+		SaveData.record_clear(stage_index, stage.total_ammo(), Campaign.stars(stage_index, stage))
+		result.stars = Campaign.stars(stage_index, stage)
+		result.bonus_text = Campaign.bonus_text(stage_index)
+		result.bonus_ok = Campaign.bonus_met(stage_index, stage)
 	result.play_victory(stage, target, cause, focus, start_cam)
 
 
@@ -251,6 +258,7 @@ func _on_stage_state(state: int, message: String) -> void:
 		result = ResultScreen.new()
 		add_child(result)
 		result.proceed.connect(_on_result_proceed)
+		stage.player.input_locked = true
 		hud.set_gameplay_visible(false)
 		result.play_failure(message, _fail_count, stage.world)
 		_fail_count += 1
@@ -258,6 +266,12 @@ func _on_stage_state(state: int, message: String) -> void:
 
 func _on_result_proceed(action: String) -> void:
 	result = null
+	if action == "select" and not test_mode:
+		Engine.time_scale = 1.0
+		get_tree().paused = true
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		menus.show_select(Menus.Screen.TITLE, Campaign.world_of(stage_index))
+		return
 	if action == "next" and stage_index == _count() - 1:
 		# 마지막 진지를 박살 내면 엔딩 컷만화 (그을린 부족장과 기뻐하는 고블린들) → 타이틀
 		Engine.time_scale = 1.0

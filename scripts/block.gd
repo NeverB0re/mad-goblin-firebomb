@@ -161,6 +161,12 @@ func is_flammable() -> bool:
 	return INFO[mat].flammable
 
 
+## 겉 색을 바꾼다 (판정과 무관: 눈에 띄는 검정·노랑 도화선 등).
+func set_color(c: Color) -> void:
+	_base_color = c
+	_material.albedo_color = c
+
+
 ## 비에 젖는다 (나무와 짚). 그대로는 타지 않고 기름을 묻혀야 탄다.
 ## 화약통은 덮개 없이 비를 맞는 것(rain_wets 메타)만 젖는다: 불로는 안 붙고 기름을 부어야 탄다 (폭발에는 그대로 터진다).
 func make_wet() -> void:

@@ -7,10 +7,15 @@ extends CanvasLayer
 ##  - 불탐: 날아가지 않고 불붙어 당황하는 모습을 정면에서
 ##  - 깔림·추락: 줌을 당겨 무너진 건물과 깔린 지휘관을 함께
 ##  - 다리 (전령 스테이지): 끊긴 다리 앞에서 허둥대는 전령을 정면에서
-## 아무 입력이나 누르면 바로 넘어간다 (R은 다시 하기).
+## 끝나면 마우스 포인터가 돌아와 버튼(다음 진지로 / 다시 던지기 / 진지 고르기)을 고른다. Enter·스페이스 = 첫 버튼, R = 다시.
 ## 실패: 고블린 그림 한 장(1.2초) + 원인 한 줄 → 다시 하기.
 
 signal proceed(action: String)
+
+## 별 평가 (0이면 표시하지 않음: 시험 스테이지)
+var stars := 0
+var bonus_text := ""
+var bonus_ok := false
 
 ## 날아가는 모습을 감상하는 시간 (현실 시간)과 그동안의 배속
 const FLY_WATCH := 1.5
@@ -249,16 +254,47 @@ func _smash(stage: Stage) -> void:
 	smash.scale = Vector2.ONE * 2.6
 	_tween().tween_property(smash, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await _wait_real(0.45)
-	# 남은 탄: 폭탄 그림 + 개수
-	var left := HBoxContainer.new()
-	left.alignment = BoxContainer.ALIGNMENT_CENTER
-	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(left)
-	_place(left, Vector4(0, 0.62, 1, 0.7))
-	left.add_child(UiIcon.make("he", 40.0))
-	var n := _label("×%d" % stage.total_ammo(), 30, Color(1, 1, 1))
-	n.reparent(left)
-	_buttons([Texts.t("next"), Texts.t("retry") + " (R)"])
+	# 별 셋: 목표 달성(깃발) · 폭탄 남김(폭탄 그림 ×남은 수) · 보조 목표(고블린 말)
+	if stars > 0:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", 46)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_root.add_child(row)
+		_place(row, Vector4(0, 0.5, 1, 0.74))
+		var got := [true, stage.total_ammo() > 0, bonus_ok]
+		for k in 3:
+			var col := VBoxContainer.new()
+			col.alignment = BoxContainer.ALIGNMENT_CENTER
+			col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(col)
+			var star := _label("★" if got[k] else "☆", 84, Color(1.0, 0.84, 0.2) if got[k] else Color(0.6, 0.6, 0.6))
+			star.reparent(col)
+			star.pivot_offset = Vector2(40, 50)
+			star.scale = Vector2.ZERO
+			_tween().tween_property(star, "scale", Vector2.ONE, 0.25).set_delay(0.12 * k).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			var cap := HBoxContainer.new()
+			cap.alignment = BoxContainer.ALIGNMENT_CENTER
+			cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			col.add_child(cap)
+			match k:
+				0:
+					cap.add_child(_flag_icon())
+				1:
+					cap.add_child(UiIcon.make("he", 34.0))
+					_label("×%d" % stage.total_ammo(), 24, Color(1, 1, 1)).reparent(cap)
+				2:
+					_label(bonus_text, 20, Color(1, 0.95, 0.8) if bonus_ok else Color(0.75, 0.75, 0.75)).reparent(cap)
+	else:
+		var left := HBoxContainer.new()
+		left.alignment = BoxContainer.ALIGNMENT_CENTER
+		left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_root.add_child(left)
+		_place(left, Vector4(0, 0.62, 1, 0.7))
+		left.add_child(UiIcon.make("he", 40.0))
+		var n := _label("×%d" % stage.total_ammo(), 30, Color(1, 1, 1))
+		n.reparent(left)
+	_buttons([[Texts.t("next"), "next"], [Texts.t("retry") + " (R)", "retry"], [Texts.t("menu_select"), "select"]])
 	_ready_for_input = true
 
 
@@ -324,11 +360,32 @@ func play_failure(cause_text: String, picture: int, world := 0) -> void:
 	line.anchor_top = 0.64
 	line.anchor_bottom = 0.72
 	await _wait_real(1.2)
-	_buttons([Texts.t("retry")])
+	_buttons([[Texts.t("retry") + " (R)", "retry"], [Texts.t("menu_select"), "select"]])
 	_ready_for_input = true
 
 
-func _buttons(texts: Array) -> void:
+## 작은 빨간 깃발 그림 (목표 달성)
+func _flag_icon() -> Control:
+	var box := Control.new()
+	box.custom_minimum_size = Vector2(30, 34)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pole := ColorRect.new()
+	pole.color = Color(0.15, 0.1, 0.05)
+	pole.position = Vector2(6, 0)
+	pole.size = Vector2(3, 34)
+	box.add_child(pole)
+	var cloth := ColorRect.new()
+	cloth.color = Color(0.9, 0.12, 0.08)
+	cloth.position = Vector2(9, 1)
+	cloth.size = Vector2(19, 13)
+	box.add_child(cloth)
+	return box
+
+
+## 버튼 줄: [[글, 동작], ...]. 마우스 포인터를 되살려 자유롭게 고를 수 있다.
+## 키: Enter·스페이스 = 첫 버튼, R = 다시 던지기.
+func _buttons(items: Array) -> void:
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var box := HBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 30)
@@ -338,30 +395,38 @@ func _buttons(texts: Array) -> void:
 	box.anchor_bottom = 0.84
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(box)
-	for t in texts:
-		var panel := PanelContainer.new()
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.35, 0.5, 0.2)
-		sb.border_color = Color(0.1, 0.08, 0.05)
-		sb.set_border_width_all(4)
-		sb.set_corner_radius_all(6)
-		sb.content_margin_left = 28
-		sb.content_margin_right = 28
-		sb.content_margin_top = 8
-		sb.content_margin_bottom = 8
-		panel.add_theme_stylebox_override("panel", sb)
-		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var l := Label.new()
-		l.text = t
-		l.add_theme_font_size_override("font_size", 30)
-		l.add_theme_color_override("font_color", Color(1, 0.95, 0.85))
-		panel.add_child(l)
-		box.add_child(panel)
-	var hint := _label(Texts.t("any_key"), 16, Color(1, 1, 1, 0.7))
-	hint.anchor_left = 0.0
-	hint.anchor_right = 1.0
-	hint.anchor_top = 0.85
-	hint.anchor_bottom = 0.9
+	_first_action = items[0][1]
+	for it in items:
+		var b := Button.new()
+		b.text = it[0]
+		b.add_theme_font_size_override("font_size", 30)
+		b.add_theme_color_override("font_color", Color(1, 0.95, 0.85))
+		b.add_theme_color_override("font_hover_color", Color(1, 1, 0.7))
+		for st_name in ["normal", "hover", "pressed", "focus"]:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.35, 0.5, 0.2) if st_name == "normal" else (Color(0.45, 0.64, 0.26) if st_name != "pressed" else Color(0.25, 0.38, 0.14))
+			sb.border_color = Color(0.1, 0.08, 0.05) if st_name != "hover" else Color(1.0, 0.85, 0.35)
+			sb.set_border_width_all(4)
+			sb.set_corner_radius_all(6)
+			sb.content_margin_left = 28
+			sb.content_margin_right = 28
+			sb.content_margin_top = 8
+			sb.content_margin_bottom = 8
+			b.add_theme_stylebox_override(st_name, sb)
+		var action: String = it[1]
+		b.pressed.connect(func(): _choose(action))
+		box.add_child(b)
+
+
+var _first_action := ""
+
+
+func _choose(action: String) -> void:
+	if not _ready_for_input:
+		return
+	_ready_for_input = false
+	close()
+	proceed.emit(action)
 
 
 func _tween() -> Tween:
@@ -383,24 +448,54 @@ func _process(_delta: float) -> void:
 		_cam.global_position = _cam_from.lerp(_cam_to, k)
 	if Engine.time_scale > 0.0:
 		_aim_cam()
+	_clear_view()
+
+
+## 카메라와 보고 있는 인물 사이를 가리는 벽·잔해·소품을 감춘다 (불타는 지휘관이 벽 뒤에 있어도 보이게).
+## 지형(구릉, 바위 절벽)은 감추지 않는다. 감춘 것은 결과 화면을 닫을 때 되돌린다.
+var _hidden: Array[Node3D] = []
+
+
+func _clear_view() -> void:
+	var p := _look_node.global_position + Vector3.UP * 1.1 if is_instance_valid(_look_node) else _look_point
+	var from := _cam.global_position
+	var space := _cam.get_world_3d().direct_space_state
+	var exclude: Array[RID] = []
+	for i in 8:
+		var q := PhysicsRayQueryParameters3D.create(from, p, 1 | 8, exclude)
+		var hit := space.intersect_ray(q)
+		if hit.is_empty():
+			return
+		var col: Object = hit.collider
+		if not (col is Node3D) or col.is_in_group("ground") or col is Actor:
+			return
+		# 지형 바위(투척 언덕·절벽)는 감추지 않는다
+		if not (col is Block) and (col as Node3D).global_position.distance_to(p) > 12.0:
+			return
+		var n := col as Node3D
+		if n.visible:
+			n.visible = false
+			_hidden.append(n)
+		exclude.append(hit.rid)
 
 
 func _input(event: InputEvent) -> void:
-	if not _ready_for_input:
+	if not _ready_for_input or not (event is InputEventKey) or not event.pressed or event.echo:
 		return
-	var pressed: bool = (event is InputEventKey and event.pressed and not event.echo) or (event is InputEventMouseButton and event.pressed)
-	if not pressed:
-		return
-	get_viewport().set_input_as_handled()
-	_ready_for_input = false
-	var action := "next" if _victory else "retry"
-	if event is InputEventKey and event.physical_keycode == KEY_R:
-		action = "retry"
-	close()
-	proceed.emit(action)
+	match event.physical_keycode:
+		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+			get_viewport().set_input_as_handled()
+			_choose(_first_action)
+		KEY_R:
+			get_viewport().set_input_as_handled()
+			_choose("retry")
 
 
 func close() -> void:
+	for n in _hidden:
+		if is_instance_valid(n):
+			n.visible = true
+	_hidden.clear()
 	Engine.time_scale = 1.0
 	_set_lowpass(false)
 	queue_free()

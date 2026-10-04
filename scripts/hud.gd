@@ -4,6 +4,8 @@ extends CanvasLayer
 ## (무엇을 해야 할지는 재질과 직접 던져 보며 알아낸다). 조작 안내는 첫 투척 뒤 사라진다.
 
 var _title: Label
+## 별 셋째 칸 보조 목표 (☆ + 고블린 말)
+var _bonus: Label
 ## 탄약 줄: 탄종 그림, 숫자 키, 남은 개수 (글자 대신 그림)
 var _ammo: HBoxContainer
 var _banner: Label
@@ -51,6 +53,9 @@ func _ready() -> void:
 
 	_title = _label(root, 24)
 	_place(_title, Vector4(0, 0, 0, 0), Vector4(24, 16, 900, 50))
+	_bonus = _label(root, 17)
+	_bonus.add_theme_color_override("font_color", Color(1.0, 0.88, 0.45))
+	_place(_bonus, Vector4(0, 0, 0, 0), Vector4(80, 22, 900, 46))
 
 	_targets = HBoxContainer.new()
 	_targets.add_theme_constant_override("separation", 8)
@@ -250,6 +255,11 @@ func _flag_icon(alive: bool) -> Control:
 	return box
 
 
+## 보조 목표 한 줄 (빈 글이면 숨김).
+func set_bonus(text: String) -> void:
+	_bonus.text = ("☆ " + text) if text != "" else ""
+
+
 ## 승리·실패 화면은 ResultScreen이 그린다. 여기서는 아무것도 하지 않는다.
 func _on_state(_state: int, _message: String) -> void:
 	pass
@@ -257,7 +267,7 @@ func _on_state(_state: int, _message: String) -> void:
 
 ## 승리 연출·실패 그림 동안에는 조준점, 탄약, 추적 화면을 숨긴다.
 func set_gameplay_visible(on: bool) -> void:
-	for n in [_title, _ammo, _help, _toast, _banner, _sub, _targets]:
+	for n in [_title, _bonus, _ammo, _help, _toast, _banner, _sub, _targets]:
 		n.visible = on
 	if _dot:
 		_dot.visible = on

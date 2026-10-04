@@ -173,11 +173,11 @@ func _run() -> void:
 			if blk.fallen:
 				blown += 1
 		_check(blown >= walls / 2 and s.commanders_left() == 0, "3-5 도화선 → 숨은 화약통 폭발 → 강철 방벽 %d/%d조각 날아감, 남은 지휘관 %d" % [blown, walls, s.commanders_left()])
-	# 흰 석재는 화약통 폭발에도 안 부서진다 (1-10 공성탑 화약통 옆 성벽)
+	# 흰 석재는 화약통 폭발에도 안 부서진다 (1-9 돌 망루 화약통 옆 성벽)
 	if _only <= 0 or _only == 1:
-		var s := _campaign(9)
+		var s := _campaign(8)
 		await physics_frame
-		for step in Campaign.plan(9):
+		for step in Campaign.plan(8):
 			var target: Vector3 = s.commanders[step[1]].global_position + Vector3(0, 1.2, 0) if step[1] is int else step[1]
 			await _throw_plan(s, step[0], target, step[2])
 		await _wait(s, 6.0)
@@ -189,7 +189,7 @@ func _run() -> void:
 			for blk in st.blocks:
 				if blk.mat == Block.Mat.STONE and blk.fallen and blk.start_low < 0.1:
 					stone_fell += 1
-		_check(stone_fell == 0, "1-10 화약통이 터져도 땅에 선 흰 석재는 그대로 (%d개 넘어짐)" % stone_fell)
+		_check(stone_fell == 0, "1-9 화약통이 터져도 땅에 선 흰 석재는 그대로 (%d개 넘어짐)" % stone_fell)
 	# 발리스타가 남아 있으면 글라이더가 격추되어 불시착한다 (4-3). 폭격대 한 명을 잃는다
 	if _only <= 0 or _only == 4:
 		var s := _campaign(32)
@@ -266,6 +266,10 @@ func _run() -> void:
 		var paint := Campaign.paint_count(i)
 		_check(paint == 1 + Campaign.commander_count(i) and (i < 7 or d.has("wind")),
 			"%s 페인트탄 %d (지휘관 %d), 바람 %d단계" % [Campaign.label(i), paint, Campaign.commander_count(i), d.get("wind", [0])[0]])
+		if Campaign.world_of(i) == 3 and (d.get("ballistas", []).is_empty() or d.get("bombers", 0) <= 0):
+			_check(false, "%s 4월드 진지에 발리스타와 공수부대가 없다" % Campaign.label(i))
+		if Campaign.bonus_text(i) == "":
+			_check(false, "%s 보조 목표 문구가 없다" % Campaign.label(i))
 		if Campaign.is_night(i) and not d.get("ballistas", []).is_empty():
 			_check(false, "%s 밤 진지에 발리스타가 있다" % Campaign.label(i))
 		if Campaign.world_of(i) == 4 and not d.get("final", false):
@@ -295,6 +299,21 @@ func _run() -> void:
 		var step: Array = Campaign.plan(7)[0]
 		await _throw_plan(s, step[0], step[1], step[2])
 		await _expect(s, Stage.State.CLEARED, "1-8 끝집에 불 한 번 → 옆집으로 번져 지휘관 셋", 40.0)
+	# 1-10 지원: 동료가 걷기 시작하면 심지가 타고, 성문 앞에 닿으면 플레이어가 안 터뜨려도 스스로 터져 빗장 잡은 지휘관이 날아간다
+	if _only <= 0 or _only == 1:
+		var s := _campaign(9)
+		await physics_frame
+		var steps := Campaign.plan(9)
+		var ally: Ally = s.allies[0]
+		for step in steps:
+			await _throw_plan(s, step[0], step[1], step[2])
+			await _wait(s, 1.0)
+		var t := 0.0
+		while not ally.at_gate and t < 60.0:
+			await physics_frame
+			t += 1.0 / 60.0
+		var waited_alive := not s.commanders[0].dead and not ally.exploded
+		await _expect(s, Stage.State.CLEARED, "1-10 동료가 성문 앞에서 스스로 터진다 (성문 앞까지 %.1f초, 도착 직후엔 아직 안 터짐 %s)" % [t, waited_alive], 10.0)
 	# 시작 조망: 한 바퀴 돌고 투척 시점으로 내려오며, 건너뛸 수 있다
 	if _only <= 0 or _only == 1:
 		var s := _campaign(2)

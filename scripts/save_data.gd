@@ -16,6 +16,8 @@ static func open_count() -> int:
 	return Campaign.COUNT if unlock_all else unlocked
 ## 스테이지 번호 → 최고 기록 (클리어할 때 남은 탄 수, 클리어 못 했으면 없음)
 static var best := {}
+## 스테이지 번호 → 받은 별 수 최고 기록 (1~3)
+static var stars := {}
 static var opening_seen := false
 ## 시작 컷을 본 월드 번호들
 static var worlds_seen := []
@@ -35,6 +37,7 @@ static func load_all() -> void:
 		return
 	unlocked = maxi(1, int(cfg.get_value("progress", "unlocked", 1)))
 	best = cfg.get_value("progress", "best", {})
+	stars = cfg.get_value("progress", "stars", {})
 	opening_seen = bool(cfg.get_value("progress", "opening_seen", false))
 	worlds_seen = cfg.get_value("progress", "worlds_seen", [])
 	mouse_sens = float(cfg.get_value("settings", "mouse_sens", 1.0))
@@ -46,6 +49,7 @@ static func save_all() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("progress", "unlocked", unlocked)
 	cfg.set_value("progress", "best", best)
+	cfg.set_value("progress", "stars", stars)
 	cfg.set_value("progress", "opening_seen", opening_seen)
 	cfg.set_value("progress", "worlds_seen", worlds_seen)
 	cfg.set_value("settings", "mouse_sens", mouse_sens)
@@ -54,10 +58,11 @@ static func save_all() -> void:
 	cfg.save(path)
 
 
-## 클리어 기록: 다음 스테이지를 열고 최고 기록(남은 탄)을 갱신한다.
-static func record_clear(index: int, ammo_left: int) -> void:
+## 클리어 기록: 다음 스테이지를 열고 최고 기록(남은 탄, 별)을 갱신한다.
+static func record_clear(index: int, ammo_left: int, star_count := 1) -> void:
 	unlocked = maxi(unlocked, index + 2)
 	best[index] = maxi(int(best.get(index, -1)), ammo_left)
+	stars[index] = maxi(int(stars.get(index, 0)), star_count)
 	save_all()
 
 
