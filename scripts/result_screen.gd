@@ -106,6 +106,21 @@ func play_victory(stage: Stage, target: Actor, cause: String, focus: Vector3, st
 	else:
 		_cam.global_position = stage.player.global_position + Vector3.UP * 2.0
 	_cam.make_current()
+	if stage.night:
+		# 밤에는 연출 카메라에 조명을 달아 쓰러지는 모습이 보이게 한다 (연출 전용)
+		var lamp := OmniLight3D.new()
+		lamp.light_color = Color(1.0, 0.88, 0.7)
+		lamp.light_energy = 3.0
+		lamp.omni_range = 30.0
+		lamp.omni_attenuation = 0.6
+		lamp.position = Vector3(0, 1.5, 0)
+		_cam.add_child(lamp)
+		var fill := OmniLight3D.new()
+		fill.light_color = Color(1.0, 0.7, 0.45)
+		fill.light_energy = 2.0
+		fill.omni_range = 14.0
+		fill.position = focus + Vector3.UP * 4.0
+		stage.add_child(fill)
 	_look_point = focus
 	_vignette = TextureRect.new()
 	var g := Gradient.new()
@@ -356,7 +371,7 @@ func _process(_delta: float) -> void:
 	var now := Time.get_ticks_msec()
 	var real_dt := (now - _last_ms) / 1000.0
 	_last_ms = now
-	if _cam == null or not is_instance_valid(_cam):
+	if _cam == null or not is_instance_valid(_cam) or not _cam.is_inside_tree():
 		return
 	if _cam_t < 1.0:
 		_cam_t = minf(1.0, _cam_t + real_dt / _cam_move)

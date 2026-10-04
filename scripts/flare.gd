@@ -28,7 +28,7 @@ func setup(at: Vector3, p_height: float, p_duration: float) -> Flare:
 	_light = OmniLight3D.new()
 	_light.light_color = Color(1.0, 0.9, 0.7)
 	_light.light_energy = 0.0
-	_light.omni_range = 38.0
+	_light.omni_range = 45.0
 	_light.omni_attenuation = 0.8
 	_light.shadow_enabled = false
 	add_child(_light)
@@ -53,7 +53,8 @@ func _process(delta: float) -> void:
 		# 천천히 내려오며 밝게 비춘다
 		var k := (_t - RISE_TIME) / duration
 		global_position = _base + Vector3.UP * (height - k * 2.0)
-		_light.light_energy = 4.0 * (1.0 - k * k)
+		# 끝나기 직전까지 밝게 유지하다가 마지막에 빠르게 어두워진다
+		_light.light_energy = 4.0 * (1.0 - pow(k, 6.0))
 	else:
 		_light.light_energy = 0.0
 		_core.visible = false
