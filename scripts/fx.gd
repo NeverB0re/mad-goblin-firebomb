@@ -4,8 +4,8 @@ extends RefCounted
 
 const FLAME_COLORS := [Color(1.0, 0.95, 0.6, 1.0), Color(1.0, 0.55, 0.1, 0.95), Color(0.85, 0.15, 0.05, 0.7), Color(0.1, 0.05, 0.03, 0.0)]
 const SMOKE_COLORS := [Color(0.25, 0.25, 0.25, 0.0), Color(0.3, 0.3, 0.3, 0.55), Color(0.55, 0.55, 0.55, 0.35), Color(0.7, 0.7, 0.7, 0.0)]
-## 연기알 신호 연기 색 (어느 배경에서도 튀는 분홍)
-const PAINT_COLOR := Color(1.0, 0.18, 0.72)
+## 연기알 신호 연기 색 (어느 배경에서도 튀는 연두)
+const PAINT_COLOR := Color(0.62, 0.95, 0.28)
 
 
 static func _gradient(colors: Array) -> GradientTexture1D:
@@ -170,7 +170,7 @@ static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Nod
 			Models.ball(root, 0.025, Vector3(0.02, -0.15, 0.06), oil, 5)
 			spark_at = Vector3(-1, -1, -1)
 		AmmoType.Kind.PAINT:
-			# 연기알: 분홍 유리 구슬. 속이 은은히 빛나고 가는 분홍 연기가 새어 나온다
+			# 연기알: 연두 유리 구슬. 속이 은은히 빛나고 가는 연두 연기가 새어 나온다
 			var marble := Models.mat(PAINT_COLOR, 0.15, 0.1, 0.8)
 			var core := Models.mat(PAINT_COLOR.lightened(0.5), 0.3, 0.0, 1.5)
 			Models.ball(root, 0.09, Vector3.ZERO, marble, 10)
@@ -251,7 +251,7 @@ static func blast_rings(parent: Node, pos: Vector3, break_radius: float, kill_ra
 
 static var _puff_mesh: QuadMesh
 
-## 연기알이 날아가며 남기는 가는 분홍 연기 한 덩이. 날아가는 동안 짧은 간격으로 떨어뜨리면
+## 연기알이 날아가며 남기는 가는 연두 연기 한 덩이. 날아가는 동안 짧은 간격으로 떨어뜨리면
 ## 지나간 길을 따라 가는 연기 줄이 되어 몇 초 동안 공중에 남았다가 흩어진다 (다음 투척의 길잡이).
 static func trail_puff(parent: Node, pos: Vector3, life := 6.0) -> void:
 	if _puff_mesh == null:
@@ -259,9 +259,20 @@ static func trail_puff(parent: Node, pos: Vector3, life := 6.0) -> void:
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-		m.albedo_color = Color(PAINT_COLOR.lightened(0.15), 0.6)
+		m.albedo_color = Color(PAINT_COLOR.lightened(0.55), 0.6)
+		# 가장자리가 흐린 둥근 덩이 (네모가 보이지 않게)
+		var g := Gradient.new()
+		g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
+		var tex := GradientTexture2D.new()
+		tex.gradient = g
+		tex.fill = GradientTexture2D.FILL_RADIAL
+		tex.fill_from = Vector2(0.5, 0.5)
+		tex.fill_to = Vector2(1.0, 0.5)
+		tex.width = 32
+		tex.height = 32
+		m.albedo_texture = tex
 		_puff_mesh = QuadMesh.new()
-		_puff_mesh.size = Vector2(0.16, 0.16)
+		_puff_mesh.size = Vector2(0.12, 0.12)
 		_puff_mesh.material = m
 	var mi := MeshInstance3D.new()
 	mi.mesh = _puff_mesh
@@ -269,13 +280,13 @@ static func trail_puff(parent: Node, pos: Vector3, life := 6.0) -> void:
 	parent.add_child(mi)
 	mi.global_position = pos
 	var tw := mi.create_tween().set_parallel(true)
-	tw.tween_property(mi, "scale", Vector3.ONE * 1.8, life)
+	tw.tween_property(mi, "scale", Vector3.ONE * 1.5, life)
 	tw.tween_property(mi, "global_position", pos + Vector3(0, 0.6, 0), life)
 	tw.tween_property(mi, "transparency", 1.0, life).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(mi.queue_free)
 
 
-## 연기알이 떨어진 자리: 분홍 연기가 퍽 터지고 가는 분홍 연기 기둥이 한동안 솟는다 (밤에도 보인다).
+## 연기알이 떨어진 자리: 연두 연기가 퍽 터지고 가는 연두 연기 기둥이 한동안 솟는다 (밤에도 보인다).
 static func signal_smoke(parent: Node, pos: Vector3) -> void:
 	var puff := burst(24, 2.5, 0.6, [Color(PAINT_COLOR, 0.8), Color(PAINT_COLOR.lightened(0.4), 0.0)], false)
 	puff.lifetime = 1.6

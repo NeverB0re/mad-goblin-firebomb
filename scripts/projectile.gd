@@ -35,7 +35,7 @@ func launch(origin: Vector3, direction: Vector3, ammo_type: AmmoType, excluded: 
 	_model = Fx.ammo_model(ammo.kind, ammo.model_scale)
 	add_child(_model)
 	if ammo.kind == AmmoType.Kind.PAINT:
-		# 연기알: 날아가는 동안 가는 분홍 연기 줄을 남긴다 (step에서 떨어뜨린다)
+		# 연기알: 날아가는 동안 가는 연두 연기 줄을 남긴다 (step에서 떨어뜨린다)
 		_smoke_trail = true
 		return
 	if ammo.kind == AmmoType.Kind.OIL:
@@ -74,11 +74,11 @@ func step(dt: float) -> void:
 
 	global_position = to
 	if _smoke_trail and get_parent():
-		# 0.3m마다 한 덩이 (빠르게 날아도 끊기지 않는 가는 줄)
+		# 0.1m마다 한 덩이 (빠르게 날아도 끊기지 않는 가는 줄)
 		if _last_puff == Vector3.INF:
 			_last_puff = from
-		while _last_puff.distance_to(to) >= 0.3:
-			_last_puff = _last_puff.move_toward(to, 0.3)
+		while _last_puff.distance_to(to) >= 0.1:
+			_last_puff = _last_puff.move_toward(to, 0.1)
 			Fx.trail_puff(get_parent(), _last_puff)
 	if _model:
 		# 무거운 화염 항아리는 느리게 굴러 묵직해 보인다

@@ -80,7 +80,7 @@ func _draw() -> void:
 			_spark(Vector2(19, 13), 14.0, ink)
 			_spark(Vector2(19, 13), 12.0, Color(1.0, 0.85, 0.2))
 		"paint":
-			# 연기알: 분홍 유리 구슬에서 가는 연기가 꼬불꼬불 솟는다
+			# 연기알: 연두 유리 구슬에서 가는 연기가 꼬불꼬불 솟는다
 			var c := Fx.PAINT_COLOR
 			draw_polyline(PackedVector2Array([Vector2(26, 26), Vector2(30, 18), Vector2(26, 11), Vector2(31, 4)]), Color(c, 0.55), 4.0)
 			draw_polyline(PackedVector2Array([Vector2(22, 24), Vector2(18, 15), Vector2(22, 8)]), Color(c, 0.4), 3.0)
