@@ -77,6 +77,12 @@ func track_rocket(m: Missile) -> void:
 	m.exploded.connect(_on_rocket_exploded.bind(m))
 
 
+## 조명탄을 보고 날아오른 글라이더 폭격 고블린을 따라간다.
+func track_bomber(b: Bomber) -> void:
+	_begin(b, b.target_pos() - b.global_position, true)
+	b.exploded.connect(_on_rocket_exploded.bind(b))
+
+
 func _begin(node: Node3D, heading: Vector3, rocket: bool) -> void:
 	_target = node
 	_rocket = rocket
@@ -110,7 +116,7 @@ func _on_impacted(p: Projectile, pos: Vector3, _normal: Vector3, collider: Objec
 	shake(0.6 if p.ammo.kind != AmmoType.Kind.HE else 1.0)
 
 
-func _on_rocket_exploded(pos: Vector3, m: Missile) -> void:
+func _on_rocket_exploded(pos: Vector3, m: Node3D) -> void:
 	if m != _target or not visible:
 		return
 	_hold_at(pos)

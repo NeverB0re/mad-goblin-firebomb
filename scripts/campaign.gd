@@ -6,8 +6,11 @@ extends RefCounted
 ## - 1월드 점령당한 목책 마을: 기본 설계를 모두 배운다 (나무·짚 태우기, 금 간 석벽 부수기, 강철, 매달린 쇳덩이, 화약통, 바람, 지원).
 ## - 2월드 비 내리는 광산 도시: 늘 비가 와서 나무와 짚이 젖어 있다. 기름병을 먼저 부어야 탄다.
 ## - 3월드 밤의 철벽 관문: 늘 밤이다. 조명탄으로 비춰 보며 던진다.
-## - 4월드 대공 요새: 높은 고지대에서 아주 먼 표적. 투척 구역 옆 발사대에 로켓이 대기하고, 조명탄이 떨어진 자리로 날아간다.
-##   로켓은 아주 크게 터져 근처 지휘관을 한꺼번에 쓰러뜨리지만, 발리스타가 하나라도 서 있으면 요격당한다 → 발리스타부터 치운다.
+## - 4월드 대공 요새: 높은 고지대에서 아주 먼 표적. 투척 구역 옆에 글라이더 폭격대가 대기하고, 조명탄이 떨어진 자리로 날아가
+##   고블린이 폭탄을 안고 뛰어내린다. 아주 크게 터져 근처 지휘관을 한꺼번에 쓰러뜨리지만, 발리스타가 하나라도 서 있으면
+##   글라이더가 격추되어 불시착한다(불발) → 발리스타부터 치운다.
+## - 5월드 일반 진지는 앞 월드의 특성(비, 밤, 발리스타 폭격) 중 하나 이상이 섞인다. 밤과 발리스타는 같이 두지 않는다.
+## - 최종 진지: 거대 로켓 한 발 (궁극기). 발리스타를 다 치운 뒤 옆의 빨간 발사 버튼을 누르면 남은 지휘관을 모두 날린다.
 ## - 5월드 왕국 성채: 지금까지 나온 기믹을 모두 섞고 지휘관 수를 늘린다.
 ## 난이도 기준: 거리, 쓰러뜨릴 지휘관 수, 노려야 할 표적의 크기, 궤도의 정확함 (높이 띄워 담 너머 좁은 곳에 떨어뜨리기 등).
 ## 바람은 월드 기믹이 아니라 난이도 조절 요소다: 1월드 후반(1-7)부터 모든 진지에 바람자루가 서고, 펴진 마디 수(0~5단계)가 세기다.
@@ -25,7 +28,7 @@ const FLARE := preload("res://ammo/flare.tres")
 const PAINT := preload("res://ammo/paint.tres")
 const K := AmmoType.Kind
 const HILL := 6.0
-## 로켓 한 발이 맡는 거리: 첫 벙커에서 이만큼 안의 부품은 로켓으로 끝낸다 (설계상 풀이에서 따로 던지지 않는다)
+## 폭격 한 번이 맡는 거리: 첫 벙커에서 이만큼 안의 부품은 폭격으로 끝낸다 (설계상 풀이에서 따로 던지지 않는다)
 const ROCKET_CLUSTER := 14.0
 
 const WORLDS := ["점령당한 목책 마을", "비 내리는 광산 도시", "밤의 철벽 관문", "대공 요새", "왕국 성채"]
@@ -36,7 +39,7 @@ const WORLD_NIGHT := [false, false, true, false, false]
 
 ## parts: [[부품, 위치, {선택}], ...]. 부품 이름은 _part_<이름> 함수.
 ## wind: [단계 0~5, 방향 x, 방향 z] (방향은 바람이 불어 가는 쪽. +x = 오른쪽, +z = 고블린 쪽 = 맞바람).
-## rockets: 발사대에 대기하는 로켓 수 (조명탄 하나에 한 발).
+## bombers: 대기 중인 글라이더 폭격 고블린 수 (조명탄 하나에 한 번). launch_button: 최종 진지의 거대 로켓 발사 버튼.
 const STAGES := [
 	# ---------- 1월드: 점령당한 목책 마을 (기본 설계 익히기) ----------
 	{"name": "마을 어귀 망루", "ammo": {"fire": 2}, "villagers": 3,
@@ -133,40 +136,40 @@ const STAGES := [
 		"parts": [["fortress", Vector3(0, 0, -62)], ["windowpost", Vector3(-14, 0, -50)], ["crane", Vector3(14, 0, -52)]],
 		"story": "클라이맥스: 밤의 관문 본루. 안뜰 공성탑의 지휘관, 석벽 초소의 부관, 기중기 밑의 공병대장."},
 
-	# ---------- 4월드: 대공 요새 (장거리, 조명탄을 보고 날아가는 로켓, 발리스타) ----------
-	{"name": "먼 강철 벙커", "ammo": {"flare": 2}, "rockets": 2, "perch": 16.0, "wind": [2, 1, 0],
+	# ---------- 4월드: 대공 요새 (장거리, 조명탄을 보고 날아오는 글라이더 폭격, 발리스타) ----------
+	{"name": "먼 강철 벙커", "ammo": {"flare": 2}, "bombers": 2, "perch": 16.0, "wind": [2, 1, 0],
 		"parts": [["bunker", Vector3(0, 0, -82)]],
-		"story": "골짜기 건너 강철 벙커. 폭탄이 닿지도 않고 닿아도 안 부서진다. 동료가 세워 둔 로켓이 발사대에서 기다린다. 조명탄을 벙커 근처에 떨어뜨리면 로켓이 그 불빛을 보고 날아간다."},
+		"story": "골짜기 건너 강철 벙커. 폭탄이 닿지도 않고 닿아도 안 부서진다. 글라이더를 멘 동료 고블린이 옆에서 기다린다. 조명탄을 벙커 근처에 떨어뜨리면 그 불빛을 보고 날아가 폭탄을 안고 뛰어내린다."},
 	{"name": "골짜기 건너 망루", "ammo": {"fire": 3}, "perch": 20.0, "wind": [4, 1, 0],
 		"parts": [["tower", Vector3(0, 0, -66), {"legs": 5.0}]],
 		"story": "바람 부는 골짜기 건너 나무 망루. 화염탄이 겨우 닿는 거리다. 페인트탄으로 먼저 재 본다."},
-	{"name": "나무 발리스타", "ammo": {"fire": 2, "flare": 2}, "rockets": 2, "perch": 18.0, "wind": [3, -1, 0],
+	{"name": "나무 발리스타", "ammo": {"fire": 2, "flare": 2}, "bombers": 2, "perch": 18.0, "wind": [3, -1, 0],
 		"ballistas": [[Vector3(-8, 0, -56), "wood"]],
 		"parts": [["bunker", Vector3(0, 0, -92)], ["tent", Vector3(7, 0, -95)]],
-		"story": "벙커와 옆 천막의 지휘관 둘은 로켓 한 발이면 끝난다. 하지만 발리스타가 서 있으면 로켓을 쏘아 떨어뜨린다. 나무 발리스타 탑부터 태운다."},
-	{"name": "석재 발리스타", "ammo": {"he": 2, "flare": 2}, "rockets": 2, "perch": 18.0, "wind": [3, 1, 0],
+		"story": "벙커와 옆 천막의 지휘관 둘은 폭격 한 번이면 끝난다. 하지만 발리스타가 서 있으면 글라이더를 쏘아 떨어뜨린다. 나무 발리스타 탑부터 태운다."},
+	{"name": "석재 발리스타", "ammo": {"he": 2, "flare": 2}, "bombers": 2, "perch": 18.0, "wind": [3, 1, 0],
 		"ballistas": [[Vector3(9, 0, -52), "stone"]],
 		"parts": [["bunker", Vector3(-6, 0, -96)], ["hut", Vector3(2, 0, -101)]],
 		"story": "금 간 석재 기둥 위의 발리스타. 고폭탄으로 금 간 기둥을 부순 뒤 벙커와 오두막 사이에 조명탄을 떨어뜨린다."},
 	{"name": "골짜기 오두막과 종탑", "ammo": {"fire": 3}, "perch": 20.0, "wind": [4, -1, 0],
 		"parts": [["hut", Vector3(-10, 0, -62)], ["bell", Vector3(12, 0, -66)]],
-		"story": "요새 아래 골짜기 마을. 오두막 안의 지휘관과 종탑 초소 안의 부관. 둘 다 사거리 끝이다. 로켓은 여기까지 오지 않는다."},
-	{"name": "두 벙커", "ammo": {"fire": 3, "flare": 2}, "rockets": 2, "perch": 20.0, "wind": [3, 1, 1],
+		"story": "요새 아래 골짜기 마을. 오두막 안의 지휘관과 종탑 초소 안의 부관. 둘 다 사거리 끝이다. 폭격대는 여기까지 오지 않는다."},
+	{"name": "두 벙커", "ammo": {"fire": 3, "flare": 2}, "bombers": 2, "perch": 20.0, "wind": [3, 1, 1],
 		"ballistas": [[Vector3(-7, 0, -56), "wood"], [Vector3(8, 0, -60), "wood"]],
 		"parts": [["bunker", Vector3(-6, 0, -98)], ["bunker", Vector3(6, 0, -94)]],
 		"story": "나란히 선 벙커 둘을 나무 발리스타 둘이 지킨다. 발리스타를 모두 태우고 두 벙커 사이에 조명탄을 떨어뜨린다."},
 	{"name": "망대와 풍차", "ammo": {"he": 2, "fire": 3}, "perch": 22.0, "wind": [3, -1, 0],
 		"parts": [["pillars", Vector3(-14, 0, -58)], ["windmill", Vector3(8, 0, -66)]],
 		"story": "옆바람이 부는 요새 앞 들판. 석재 망대의 지휘관과 풍차 회랑의 부관."},
-	{"name": "요새 포대", "ammo": {"fire": 3, "he": 2, "flare": 2}, "rockets": 2, "perch": 20.0, "wind": [4, 1, 0],
+	{"name": "요새 포대", "ammo": {"fire": 3, "he": 2, "flare": 2}, "bombers": 2, "perch": 20.0, "wind": [4, 1, 0],
 		"ballistas": [[Vector3(-10, 0, -58), "wood"], [Vector3(10, 0, -56), "stone"]],
 		"parts": [["bunker", Vector3(0, 0, -104)], ["tower", Vector3(9, 0, -100)]],
 		"story": "나무와 석재 발리스타가 지키는 먼 벙커와 그 옆 망루의 포대장."},
-	{"name": "절벽 굴과 벙커", "ammo": {"he": 3, "flare": 2}, "rockets": 2, "perch": 18.0, "wind": [4, -1, 0],
+	{"name": "절벽 굴과 벙커", "ammo": {"he": 3, "flare": 2}, "bombers": 2, "perch": 18.0, "wind": [4, -1, 0],
 		"ballistas": [[Vector3(-14, 0, -52), "stone"]],
 		"parts": [["cave", Vector3(-5, 0, -98)], ["bunker", Vector3(6, 0, -92)]],
 		"story": "절벽 밑 감시굴과 그 옆 벙커. 석재 발리스타 하나가 지킨다."},
-	{"name": "대공 요새 본루", "ammo": {"fire": 4, "he": 2, "flare": 2}, "rockets": 2, "perch": 25.0, "wind": [4, 1, 0],
+	{"name": "대공 요새 본루", "ammo": {"fire": 4, "he": 2, "flare": 2}, "bombers": 2, "perch": 25.0, "wind": [4, 1, 0],
 		"ballistas": [[Vector3(-12, 0, -62), "wood"], [Vector3(12, 0, -60), "stone"], [Vector3(0, 0, -70), "wood"]],
 		"parts": [["bunker", Vector3(0, 0, -110)], ["tower", Vector3(-9, 0, -106), {"legs": 5.0}]],
 		"story": "클라이맥스: 발리스타 셋이 지키는 대공 요새 본루 벙커와 그 옆 망루의 포대장."},
@@ -178,33 +181,33 @@ const STAGES := [
 	{"name": "빗속 왕실 창고", "ammo": {"he": 3, "oil": 2, "fire": 2}, "rain": true, "wind": [3, -1, 0],
 		"parts": [["barn", Vector3(-12, 0, -44)], ["hopper", Vector3(12, 0, -48)], ["windowpost", Vector3(0, 0, -40)]],
 		"story": "비 오는 왕실 창고 거리. 젖은 창고, 석탄 호퍼, 석벽 초소에 지휘관 셋."},
-	{"name": "왕실 마구간 마당", "ammo": {"he": 2, "fire": 4}, "wind": [4, -1, 0],
+	{"name": "밤의 왕실 마구간 마당", "ammo": {"he": 2, "fire": 4, "flare": 1}, "night": true, "wind": [4, -1, 0],
 		"parts": [["courtyard", Vector3(0, 0, -48)], ["powder", Vector3(-17, 0, -42)], ["hut", Vector3(14, 0, -44)]],
-		"story": "바람 부는 왕실 마구간 마당. 석벽 마당 막사, 화약 창고 옆 망대, 마부 오두막."},
+		"story": "바람 부는 밤의 왕실 마구간 마당. 석벽 마당 막사, 화약 창고 옆 망대, 마부 오두막."},
 	{"name": "빗속 밤의 채석장", "ammo": {"he": 2, "oil": 2, "fire": 5, "flare": 2}, "night": true, "rain": true, "wind": [4, 1, 0],
 		"parts": [["cave", Vector3(0, 0, -50)], ["kegyard", Vector3(-15, 0, -44)], ["tower", Vector3(15, 0, -52), {"parapet": true}]],
 		"story": "비 오는 밤의 성채 채석장. 감시굴, 화약통을 숨긴 강철 방벽 뒤의 둘(도화선은 기름 먹인 밧줄이라 비에도 탄다), 젖은 감시탑. 지휘관 넷."},
-	{"name": "성채 포대", "ammo": {"he": 5, "fire": 2, "flare": 2}, "rockets": 2, "perch": 20.0, "wind": [4, -1, 0],
+	{"name": "빗속 성채 포대", "ammo": {"he": 5, "oil": 1, "fire": 2, "flare": 2}, "bombers": 2, "rain": true, "perch": 20.0, "wind": [4, -1, 0],
 		"ballistas": [[Vector3(0, 0, -64), "wood"], [Vector3(-12, 0, -56), "stone"], [Vector3(12, 0, -56), "stone"]],
 		"parts": [["bunker", Vector3(-7, 0, -96)], ["bunker", Vector3(7, 0, -100)], ["pillars", Vector3(0, 0, -104)]],
-		"story": "발리스타 셋이 지키는 벙커 둘과 그 뒤 석재 망대. 발리스타만 다 치우면 로켓 한 발로 끝난다."},
-	{"name": "바람 부는 종루 광장", "ammo": {"fire": 3, "he": 2}, "perch": 10.0, "wind": [5, 1, 0],
+		"story": "비 오는 성채 포대. 발리스타 셋(나무 탑은 젖어 기름이 필요하다)이 지키는 벙커 둘과 그 뒤 석재 망대. 발리스타만 다 치우면 폭격 한 번으로 끝난다."},
+	{"name": "밤바람 부는 종루 광장", "ammo": {"fire": 3, "he": 2, "flare": 1}, "night": true, "perch": 10.0, "wind": [5, 1, 0],
 		"parts": [["rampart", Vector3(-12, 0, -48)], ["windmill", Vector3(12, 0, -52)], ["bell", Vector3(0, 0, -58)]],
-		"story": "강풍 부는 성채 광장. 바람자루가 끝까지 펴졌다. 성벽 보행로, 풍차 회랑, 종루 초소에 지휘관 셋."},
+		"story": "강풍 부는 밤의 성채 광장. 바람자루가 끝까지 펴졌다. 성벽 보행로, 풍차 회랑, 종루 초소에 지휘관 셋."},
 	{"name": "밤의 근위대 막사", "ammo": {"fire": 6, "flare": 2}, "night": true, "wind": [4, -1, 0],
 		"parts": [["tent", Vector3(-12, 0, -40)], ["tent", Vector3(-4, 0, -48)], ["steelhut", Vector3(12, 0, -44)], ["crane", Vector3(5, 0, -52)]],
 		"story": "밤, 근위대 막사 구역. 천막 둘, 강철 성벽 뒤 막사, 기중기 밑. 지휘관 넷."},
 	{"name": "빗속 정련 골목", "ammo": {"oil": 4, "fire": 4}, "rain": true, "wind": [4, 1, 0],
 		"parts": [["oilhouse", Vector3(-12, 0, -42)], ["hopper", Vector3(10, 0, -46)], ["tower", Vector3(0, 0, -58), {"parapet": true}]],
 		"story": "비바람 부는 성채 정련 골목. 연료 창고, 석탄 호퍼, 젖은 감시탑."},
-	{"name": "밤의 원거리 포대", "ammo": {"fire": 3, "he": 4, "flare": 2}, "rockets": 2, "night": true, "perch": 20.0, "wind": [4, -1, 0],
+	{"name": "빗속 원거리 포대", "ammo": {"fire": 3, "he": 4, "oil": 3, "flare": 2}, "bombers": 2, "rain": true, "perch": 20.0, "wind": [4, -1, 0],
 		"ballistas": [[Vector3(-10, 0, -58), "wood"], [Vector3(10, 0, -56), "stone"]],
 		"parts": [["bunker", Vector3(0, 0, -100)], ["windowpost", Vector3(-16, 0, -50)], ["tower", Vector3(16, 0, -54)]],
-		"story": "밤의 성채 포대. 발리스타 둘이 지키는 먼 벙커는 로켓으로, 가까운 석벽 초소와 망루는 직접. 조명탄은 불을 밝히기도 하지만 로켓도 부른다."},
-	{"name": "왕국 성채 본진", "ammo": {"fire": 4, "he": 4, "flare": 2}, "rockets": 2, "perch": 20.0, "final": true, "wind": [5, 1, 0],
+		"story": "비 오는 성채 포대. 발리스타 둘이 지키는 먼 벙커는 폭격으로, 가까운 석벽 초소와 젖은 망루는 직접."},
+	{"name": "왕국 성채 본진", "ammo": {"fire": 4, "he": 4}, "launch_button": true, "perch": 20.0, "final": true, "wind": [5, 1, 0],
 		"ballistas": [[Vector3(-12, 0, -56), "wood"], [Vector3(12, 0, -54), "stone"]],
 		"parts": [["bunker", Vector3(0, 0, -96)], ["fortress", Vector3(-16, 0, -66)], ["pillars", Vector3(15, 0, -57)]],
-		"story": "최종: 부족장이 갇힌 성채. 발리스타를 무너뜨리고 왕의 벙커에 로켓을 부른다. 공성탑과 석재 망대의 장군들도 (부족장이 휘말려도 고블린은 개의치 않는다)."},
+		"story": "최종: 부족장이 갇힌 성채. 고블린들의 비장의 거대 로켓이 딱 한 발 있다. 발리스타를 모두 무너뜨린 뒤 옆의 크고 빨간 발사 버튼을 누르면, 성채에 남은 장군을 모두 한꺼번에 날려 버린다 (부족장이 휘말려도 고블린은 개의치 않는다)."},
 ]
 const COUNT := 50
 
@@ -247,31 +250,9 @@ static func commander_count(i: int) -> int:
 	return n
 
 
-## 페인트탄 수: 목표 하나에 하나씩 (로켓 진지는 발리스타마다 + 로켓 표적 하나),
-## 그리고 바람이 셀수록(3단계 이상), 멀수록(55m 이상), 높이 띄워야 할수록 하나씩 더.
+## 페인트탄 수: 기본 하나 + 지휘관 하나에 하나씩.
 static func paint_count(i: int) -> int:
-	var d: Dictionary = STAGES[i]
-	var n := commander_count(i)
-	if d.get("rockets", 0) > 0:
-		n = d.get("ballistas", []).size() + 1
-		for part in d.parts:
-			if part[0] != "bunker" and not _in_rocket_cluster(d, part[1]):
-				n += COMMANDERS_OF.get(part[0], 1)
-	var w: Array = d.get("wind", [0, 1, 0])
-	if w[0] >= 3:
-		n += 1
-	var far := 0.0
-	for part in d.get("parts", []):
-		far = maxf(far, -part[1].z)
-	for b in d.get("ballistas", []):
-		far = maxf(far, -b[0].z)
-	if far >= 55.0 and d.get("rockets", 0) == 0:
-		n += 1
-	for step in plan(i):
-		if step.size() > 2 and step[2]:
-			n += 1
-			break
-	return n
+	return 1 + commander_count(i)
 
 
 static func build(i: int, s: Stage) -> void:
@@ -286,16 +267,39 @@ static func build(i: int, s: Stage) -> void:
 			_ballista(s, b[0], b[1])
 		for part in d.parts:
 			var opts: Dictionary = part[2] if part.size() > 2 else {}
+			var c0 := s.commanders.size()
+			var st0 := s.structures.size()
 			Callable(Campaign, "_part_" + part[0]).call(s, part[1], opts)
+			var blocks := []
+			for k in range(st0, s.structures.size()):
+				blocks.append_array(s.structures[k].blocks)
+			var alts := _needs(part[0], blocks, is_rain(i))
+			# 폭격 무리 안의 지휘관은 폭격으로도, 최종 진지는 발사 버튼으로도 쓰러뜨릴 수 있다
+			var extra := []
+			if d.get("bombers", 0) > 0 and (part[0] == "bunker" or _in_rocket_cluster(d, part[1])):
+				extra.append(Stage.NEED_BOMBER)
+			if d.get("launch_button", false):
+				extra.append(Stage.NEED_BUTTON)
+			for kind in extra:
+				var alt := [{"kinds": [kind]}]
+				for b in s.ballistas:
+					var wood: bool = b.mat == M.WOOD_BEAM and b.structure.blocks.any(func(x): return x.mat == M.WOOD_BEAM and x.size.y > 4.0)
+					alt.append({"kinds": [K.FIRE, K.HE] if wood else [K.HE], "blocks": [b], "mode": "gone"})
+				alts.append(alt)
+			for k in range(c0, s.commanders.size()):
+				s.set_needs(s.commanders[k], alts)
 		if d.get("final", false):
 			_cage(s, d.parts[0][1] + Vector3(-6.5, 0, 1.0))
+		_extras(s, d, world_of(i))
 	s.ammo_slots.clear()
 	var ammo_of := {"fire": FIRE, "he": HE, "oil": OIL, "flare": FLARE}
 	for key in ["fire", "he", "oil", "flare"]:
 		if d.ammo.has(key):
 			s.add_ammo(ammo_of[key], d.ammo[key])
 	s.add_ammo(PAINT, paint_count(i))
-	s.add_rockets(d.get("rockets", 0))
+	s.add_bombers(d.get("bombers", 0))
+	if d.get("launch_button", false):
+		s.add_launch_button()
 	s.wind = wind_of(i)
 	if d.has("wind"):
 		var pp := s.player.position
@@ -316,13 +320,72 @@ static func build(i: int, s: Stage) -> void:
 	s.title = "%s · %s" % [label(i), d.name]
 
 
+## 배경 고블린 (판정과 무관). 화약통·폭발통 곁에서는 "여기야!" 하고 손짓하는 고블린 (휘말려도 개의치 않는다),
+## 1월드에서는 인간 건물 앞에서 병사와 싸우거나 돌멩이를 던지는 마을 고블린.
+static func _extras(s: Stage, d: Dictionary, world: int) -> void:
+	var GE := GoblinExtra.Mode
+	var n := 0
+	for part in d.parts:
+		var c: Vector3 = part[1]
+		var opts: Dictionary = part[2] if part.size() > 2 else {}
+		match part[0]:
+			"powder":
+				s.add_extra(c + Vector3(5.6, 0, 2.2), 200.0, GE.WAVE, c + Vector3(3.6, 0.5, -0.6))
+			"fortress":
+				if not opts.get("wet", false):
+					# 성벽 위에 올라서서 안뜰의 화약통을 가리킨다
+					s.add_extra(c + Vector3(2.25, 4.5, 6.0), 180.0, GE.WAVE, c + Vector3(0, 0.4, 2.3))
+			"kegyard":
+				s.add_extra(c + Vector3(KEG_FUSE_X + 1.0, 0, 5.0), 200.0, GE.WAVE, c + Vector3(KEG_FUSE_X, 0, 5.4))
+			"hopper":
+				s.add_extra(c + Vector3(2.7, 0, 1.8), 210.0, GE.WAVE, c + Vector3(0, 4.4, 0))
+		if world == 0 and n < 2:
+			var side := -1.0 if c.x > 0.0 else 1.0
+			s.add_extra(c + Vector3(side * 4.5, 0, 6.0), 90.0 * side, GE.FIGHT)
+			s.add_extra(c + Vector3(-side * 3.0, 0, 7.5), 0.0, GE.THROW)
+			n += 1
+
+
+## 부품의 지휘관을 쓰러뜨릴 수 있는 길들 (클리어 불가 판정용). 길 = 조건 묶음, 조건 = {kinds, blocks, mode}:
+## kinds 중 하나라도 남아 있으면 되고, mode "gone"은 blocks가 다 없어졌으면, "oiled"는 하나라도 기름이 묻었거나 탔으면 이미 된 것.
+## 일부러 너그럽게 잡는다: 정말 방법이 없을 때만 실패시킨다 (예: 금 간 석벽 초소에 고폭탄이 다 떨어짐, 비 오는데 기름이 다 떨어짐).
+static func _needs(kind: String, blocks: Array, rain: bool) -> Array:
+	var cracked := blocks.filter(func(b): return b.mat == M.CRACKED)
+	var wet := blocks.filter(func(b): return b.mat in [M.WOOD_THIN, M.WOOD_BEAM, M.STRAW] or (b.mat == M.KEG and b.has_meta("rain_wets")))
+	# 불로 태우는 길 (비가 오면 젖은 것에 기름부터)
+	var burn := [{"kinds": [K.FIRE]}]
+	if rain and not wet.is_empty():
+		burn = [{"kinds": [K.OIL], "blocks": wet, "mode": "oiled"}, {"kinds": [K.FIRE]}]
+	var he := [{"kinds": [K.HE]}]
+	var any_bomb := [{"kinds": [K.HE, K.FIRE]}]
+	var break_wall := {"kinds": [K.HE], "blocks": cracked, "mode": "gone"}
+	match kind:
+		"windowpost":
+			# 금 간 앞벽을 고폭탄으로 날린 뒤에야 맞힐 수 있다
+			return [[break_wall, any_bomb[0]]]
+		"pillars", "rampart":
+			return [any_bomb]
+		"oilhouse":
+			var trough := blocks.filter(func(b): return b.mat == M.WOOD_WET)
+			return [[{"kinds": [K.OIL], "blocks": trough, "mode": "oiled"}, {"kinds": [K.FIRE]}]]
+		"cave":
+			var props := blocks.filter(func(b): return b.mat in [M.WOOD_BEAM, M.WOOD_WET])
+			var by_he := [break_wall, {"kinds": [K.HE], "blocks": props, "mode": "gone"}]
+			var by_fire := [break_wall] + burn
+			return [by_he, by_fire]
+		"bunker":
+			# 강철 벙커는 폭격(또는 최종 로켓)으로만
+			return []
+	return [burn, he]
+
+
 ## 부품마다 세우는 지휘관 수 (풀이에서 지휘관 번호를 셀 때 쓴다).
 const COMMANDERS_OF := {"kegyard": 2}
 
 
-## 로켓 진지에서 첫 벙커 둘레 ROCKET_CLUSTER 안의 부품인지 (로켓 한 발로 끝나는 무리).
+## 폭격 진지에서 첫 벙커 둘레 ROCKET_CLUSTER 안의 부품인지 (폭격 한 번으로 끝나는 무리).
 static func _in_rocket_cluster(d: Dictionary, pos: Vector3) -> bool:
-	if d.get("rockets", 0) <= 0:
+	if d.get("bombers", 0) <= 0:
 		return false
 	for part in d.parts:
 		if part[0] == "bunker":
@@ -332,7 +395,8 @@ static func _in_rocket_cluster(d: Dictionary, pos: Vector3) -> bool:
 
 ## 설계상 풀이: [[탄종, 목표, 높이 띄우기, 던진 뒤 기다림(초)], ...] (테스트가 실제로 던져 본다).
 ## 목표가 정수면 그 번호 지휘관의 지금 자리. ["ally"]는 지원형 풀이.
-## 순서: 발리스타 → 로켓 무리 밖의 부품 → 로켓 무리 한가운데에 조명탄 한 발 (발리스타가 다 쓰러진 뒤).
+## 순서: 발리스타 → 폭격 무리 밖의 부품 → 폭격 무리 한가운데에 조명탄 한 발 (발리스타가 다 쓰러진 뒤).
+## 최종 진지: 발리스타 → ["button"] (발사 버튼을 누른다).
 static func plan(i: int) -> Array:
 	var d: Dictionary = STAGES[i]
 	if d.get("fixed", "") == "ally":
@@ -342,12 +406,17 @@ static func plan(i: int) -> Array:
 	for b in d.get("ballistas", []):
 		var bp: Vector3 = b[0]
 		if b[1] == "wood":
+			if rain:
+				out.append([K.OIL, bp + Vector3(0, 1.5, 1.4), false, 0.3])
 			out.append([K.FIRE, bp + Vector3(0, 1.5, 1.4), false, 0.0])
 		else:
 			out.append([K.HE, bp + Vector3(-1.2, 1.0, 1.7), false, 0.0])
 	if not out.is_empty():
 		# 발리스타 탑이 다 타서 무너질 때까지 기다린다
 		out[out.size() - 1][3] = 10.0
+	if d.get("launch_button", false):
+		out.append(["button"])
+		return out
 	var ci := 0
 	var cluster := []
 	for part in d.parts:
@@ -413,8 +482,11 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 			out.append([K.FIRE, c + Vector3(0, 1.0, 2.15), false, 0.0])
 		"hopper":
 			if rain:
-				out.append([K.OIL, c + Vector3(0, 1.5, 1.8), false, 0.3])
-			out.append([K.FIRE, c + Vector3(0, 1.5, 1.8), false, 0.0])
+				# 젖은 화약통에 기름을 붓고 불
+				out.append([K.OIL, c + Vector3(0, 4.4, 0.75), false, 0.3])
+				out.append([K.FIRE, c + Vector3(0, 4.4, 0.75), false, 0.0])
+			else:
+				out.append([K.FIRE, c + Vector3(0, 1.5, 1.8), false, 0.0])
 		"cave":
 			out.append([K.HE, c + Vector3(-3.2, 2.2, 2.05), false, 2.0])
 			if rain:
@@ -451,6 +523,8 @@ static func _part_tower(s: Stage, c: Vector3, o: Dictionary) -> void:
 				var pos: Vector3 = b.position
 				b.free()
 				st.add_block(M.STONE, pos, size)
+	# 나무 다리 넷 중 둘 이상을 잃으면 그쪽으로 기울어 넘어간다
+	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - legs) < 0.01, 1)
 	s.add_commander(c + Vector3(0, legs + 0.3, 0), 180.0, Vector3(0.9, 0, 0.6))
 	s.add_guard(c + Vector3(-4, 0, 3), 180.0)
 
@@ -545,6 +619,7 @@ static func _part_powder(s: Stage, c: Vector3, _o: Dictionary) -> void:
 		for sz in [-1, 1]:
 			st.add_block(M.STONE, c + Vector3(sx * 1.6, h + 1.5, sz * 1.6), Vector3(0.3, 2.2, 0.3))
 	st.add_block(M.STONE, c + Vector3(0, h + 2.75, 0), Vector3(3.6, 0.3, 3.6))
+	_legs(st, func(b): return b.start_low < 0.05, 0)
 	var shed := s.add_structure()
 	StageDefs.hut(shed, c + Vector3(3.6, 0, 0.2), 1.4, 2.0)
 	for k in 3:
@@ -573,6 +648,7 @@ static func _part_windmill(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	for sx in [-1, 1]:
 		st.add_block(M.WOOD_THIN, c + Vector3(sx * 1.45, floor_y + 0.24 + 1.1, -1.45), Vector3(0.2, 2.2, 0.2))
 	st.add_block(M.STRAW, c + Vector3(0, roof_y + 0.15, -0.8), Vector3(3.6, 0.3, 2.0))
+	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - post_h) < 0.01, 1)
 	# 날개 (장식)
 	var sail := Node3D.new()
 	sail.position = c + Vector3(0, roof_y - 0.6, -1.9)
@@ -607,6 +683,7 @@ static func _part_pillars(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	deck.support_ratio = 1.0
 	for sz in [-1, 1]:
 		st.add_block(M.STONE, c + Vector3(0, h + 0.8, sz * 1.65), Vector3(3.6, 0.8, 0.3))
+	_legs(st, func(b): return b.start_low < 0.05, 0)
 	s.add_commander(c + Vector3(0, h + 0.4, 0), 180.0, Vector3(1.0, 0, 0.9))
 	s.add_guard(c + Vector3(4, 0, 3), 180.0)
 
@@ -679,8 +756,10 @@ static func _part_barn(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	s.add_guard(c + Vector3(4, 0, 3), 180.0)
 
 
-## 석탄 호퍼: 나무 다리 넷 위 판자 바닥에 석탄을 채운 쇠 통. 지휘관은 그 밑 돌 칸막이 안 (폭탄과 불이 직접 안 닿는다).
-## 다리가 타면 쇠 통이 떨어져 깔린다.
+## 석탄 호퍼: 나무 다리 넷 위 판자 바닥, 가운데는 석탄을 쏟는 구멍이 뚫렸고 그 위에 큰 화약통(발파용)이 걸쳐 있다.
+## 지휘관은 그 밑 돌 칸막이 안 (폭탄과 불이 옆에서 직접 안 닿는다).
+## 판자나 다리가 타서 불이 화약통에 옮겨 붙으면 머리 위에서 터진다 (구멍으로 그대로 내려친다).
+## 비가 오면 화약통도 젖어 기름을 부어야 탄다. 다리를 둘 이상 잃으면 기울어 넘어간다.
 static func _part_hopper(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var st := s.add_structure()
 	var legs := 3.6
@@ -691,11 +770,13 @@ static func _part_hopper(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	for sz in [-1, 1]:
 		st.add_block(M.WOOD_BEAM, c + Vector3(0, 1.5, sz * (half - 0.2)), Vector3(half * 2.0 - 0.8, 0.25, 0.25))
 	for i in 5:
+		if i == 2:
+			continue
 		var x := -half + (i + 0.5) * half * 2.0 / 5
 		st.add_block(M.WOOD_THIN, c + Vector3(x, legs + 0.15, 0), Vector3(half * 2.0 / 5, 0.3, half * 2.0))
-	var bin := st.add_block(M.WEIGHT, c + Vector3(0, legs + 0.3 + 0.6, 0), Vector3(1.8, 1.2, 1.8))
-	# 쇠 통 위로 솟은 석탄 (장식)
-	Models.box(bin, Vector3(1.5, 0.3, 1.5), Vector3(0, 0.7, 0), Models.mat(Color(0.08, 0.08, 0.09)), Vector3(0.1, 0.3, 0.05))
+	var keg := st.add_block(M.KEG, c + Vector3(0, legs + 0.3 + 0.5, 0), Vector3(1.4, 1.0, 1.4))
+	keg.set_meta("rain_wets", true)
+	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - legs) < 0.01, 1)
 	var booth := s.add_structure()
 	# 돌 칸막이 (지휘관 키보다 높아 바깥 불길이 넘어오지 않는다. 쇠 통은 그 안으로 떨어진다)
 	var bh := 1.9
@@ -852,7 +933,7 @@ static func _torches(s: Stage) -> void:
 		center /= s.commanders.size()
 	for o in [Vector3(-12, 0, 8), Vector3(12, 0, -6)]:
 		s.add_torch(center + o)
-	# 발리스타 탑 발치에도 (로켓을 부르기 전에 어디를 먼저 치워야 할지 보이게)
+	# 발리스타 탑 발치에도 (폭격대를 부르기 전에 어디를 먼저 치워야 할지 보이게)
 	for b in s.ballistas:
 		var p := b.global_position if b.is_inside_tree() else b.position
 		s.add_torch(Vector3(p.x + 2.0, 0, p.z + 2.0))
@@ -875,3 +956,10 @@ static func _ballista(s: Stage, pos: Vector3, kind: String) -> void:
 		deck.support_ratio = 1.0
 	var b := st.add_block(M.WOOD_BEAM, pos + Vector3(0, legs + 0.55, 0), Vector3(0.6, 0.5, 0.6))
 	s.add_ballista(b)
+	# 나무 탑은 다리 둘을 잃으면, 석재 탑은 금 간 기둥 하나만 잃어도 그쪽으로 기운다
+	_legs(st, func(x): return x.start_low < 0.05, 1 if wood else 0)
+
+
+## 부품의 다리 묶음 등록 (filter에 맞는 블록이 다리).
+static func _legs(st: Structure, filter: Callable, max_lost: int) -> void:
+	st.add_leg_group(st.blocks.filter(filter), max_lost)

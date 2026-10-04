@@ -87,7 +87,11 @@ func _play(i: int) -> void:
 		if s.state != Stage.State.PLAYING:
 			break
 		if step[0] is String:
-			await _ally(s)
+			if step[0] == "button":
+				_to_button(s)
+				s.press_button()
+			else:
+				await _ally(s)
 			continue
 		var target: Vector3
 		if step[1] is int:
@@ -108,6 +112,11 @@ func _play(i: int) -> void:
 		for k in left:
 			print("    지휘관 %d 위치 %s" % [k, s.commanders[k].global_position.snapped(Vector3.ONE * 0.1)])
 		print("    남은 지휘관 번호: ", left, "  남은 탄: ", s.ammo_slots.map(func(x): return "%s %d" % [x.type.display_name, x.count]))
+
+
+## 최종 진지: 고블린을 발사 버튼 곁(투척 구역 왼쪽 끝)으로 옮긴다.
+func _to_button(s: Stage) -> void:
+	s.player.global_position = Vector3(s.player.zone_min.x, s.player.global_position.y, s._button.global_position.z)
 
 
 ## 지원형 풀이 (E11 배치): 방패병(화염) → 바리케이드(고폭) → 울타리(고폭) → 성문 앞 폭발통(화염).
@@ -174,19 +183,22 @@ func _run() -> void:
 		await _wait(s, 6.0)
 		var stone_fell := 0
 		for st in s.structures:
+			# 다리 묶음이 있는 건물(금 간 기둥이 부러지면 통째로 기우는 망대)은 빼고 본다
+			if not st.leg_groups.is_empty():
+				continue
 			for blk in st.blocks:
 				if blk.mat == Block.Mat.STONE and blk.fallen and blk.start_low < 0.1:
 					stone_fell += 1
 		_check(stone_fell == 0, "1-10 화약통이 터져도 땅에 선 흰 석재는 그대로 (%d개 넘어짐)" % stone_fell)
-	# 발리스타가 남아 있으면 로켓이 요격당한다 (4-3). 로켓은 한 발 준다
+	# 발리스타가 남아 있으면 글라이더가 격추되어 불시착한다 (4-3). 폭격대 한 명을 잃는다
 	if _only <= 0 or _only == 4:
 		var s := _campaign(32)
 		await physics_frame
-		var rockets := s.rockets_left()
+		var bombers := s.bombers_left()
 		await _throw_plan(s, AmmoType.Kind.FLARE, Campaign.STAGES[32].parts[0][1] + Vector3(0, 2.7, 0), false)
-		await _wait(s, 5.0)
-		_check(s.state == Stage.State.PLAYING and s.commanders_left() == 2 and s.rockets_left() == rockets - 1, "4-3 발리스타가 서 있으면 로켓이 요격당한다 (로켓 %d → %d)" % [rockets, s.rockets_left()])
-	# 로켓은 조명탄이 조금 빗나가도(무리 한가운데에서 5m) 무리 전체를 끝낸다 (4-6, 발리스타를 다 치운 뒤)
+		await _wait(s, 7.0)
+		_check(s.state == Stage.State.PLAYING and s.commanders_left() == 2 and s.bombers_left() == bombers - 1, "4-3 발리스타가 서 있으면 글라이더가 격추된다 (폭격대 %d → %d)" % [bombers, s.bombers_left()])
+	# 폭격은 조명탄이 조금 빗나가도(무리 한가운데에서 5m) 무리 전체를 끝낸다 (4-6, 발리스타를 다 치운 뒤)
 	if _only <= 0 or _only == 4:
 		var s := _campaign(35)
 		await physics_frame
@@ -198,7 +210,14 @@ func _run() -> void:
 					await _wait(s, step[3])
 		var aim: Vector3 = steps[steps.size() - 1][1] + Vector3(-2.0, 0.0, 4.5)
 		await _throw_plan(s, AmmoType.Kind.FLARE, aim, false)
-		await _expect(s, Stage.State.CLEARED, "4-6 조명탄이 5m 빗나가도 로켓 한 발로 끝난다", 12.0)
+		await _expect(s, Stage.State.CLEARED, "4-6 조명탄이 5m 빗나가도 폭격 한 번으로 끝난다", 14.0)
+	# 최종 진지: 발리스타가 서 있으면 발사 버튼 안전장치가 걸리고, 다 치우면 로켓 한 발로 남은 지휘관이 모두 쓰러진다
+	if _only <= 0 or _only == 5:
+		var s := _campaign(49)
+		await physics_frame
+		_to_button(s)
+		var fired := s.press_button()
+		_check(not fired and s.button_ready(), "5-10 발리스타가 서 있으면 발사 버튼이 안 눌린다")
 	# 페인트탄은 아무것도 부수지 않고 물감 자국만 남기며, 페인트탄·조명탄만 남으면 실패한다 (3-6)
 	if _only <= 0 or _only == 3:
 		var s := _campaign(25)
@@ -210,11 +229,59 @@ func _run() -> void:
 		var marks := s.find_children("*", "Decal", false, false).filter(func(d): return d.texture_emission != null).size()
 		_check(not s.commanders[0].dead and marks > 0, "3-6 페인트탄을 맞아도 지휘관은 멀쩡하고 물감 자국만 남는다 (자국 %d)" % marks)
 		await _expect(s, Stage.State.FAILED, "3-6 폭탄을 다 쓰고 페인트탄·조명탄만 남으면 실패", 20.0, "fail_ammo")
-	# 모든 진지에 페인트탄이 목표 수 이상 있고, 1-7부터는 모든 진지에 바람자루가 선다
+	# 남은 탄으로 더는 깰 수 없으면 실패: 2-1 연료 창고에서 기름병을 다 버리면 화염탄이 남아도 실패
+	if _only <= 0 or _only == 2:
+		var s := _campaign(10)
+		await physics_frame
+		for k in 2:
+			await _throw_plan(s, AmmoType.Kind.OIL, Vector3(-30, 0, -20), false)
+		await _expect(s, Stage.State.FAILED, "2-1 기름병을 다 버리면 화염탄이 남아도 실패", 20.0, "fail_stuck")
+	# 3-3 금 간 석재 망대: 금 간 기둥 하나가 부러지면 망대가 그쪽으로 기울어 넘어간다 (밑으로 꺼지지 않는다)
+	if _only <= 0 or _only == 3:
+		var s := _campaign(22)
+		await physics_frame
+		var c: Vector3 = Campaign.STAGES[22].parts[0][1]
+		var deck: Block
+		for b in s.structures[0].blocks:
+			if b.mat == Block.Mat.STONE and b.size.x > 3.0 and b.size.y < 0.5:
+				deck = b
+		await _throw_plan(s, AmmoType.Kind.HE, c + Vector3(-1.4, 1.0, 1.9), false)
+		await _wait(s, 3.0)
+		var moved := Vector3.ZERO if not is_instance_valid(deck) else deck.global_position - (c + Vector3(0, 4.7, 0))
+		_check(moved.x < -0.8 and moved.z > 0.5, "3-3 금 간 앞 왼쪽 기둥이 부러지면 망대가 앞 왼쪽으로 기운다 (바닥 이동 %s)" % str(moved.snapped(Vector3.ONE * 0.1)))
+	# 1-1 나무 망루: 한쪽 다리 둘이 타 없어지면 그쪽으로 넘어가 지휘관이 떨어진다
+	if _only <= 0 or _only == 1:
+		var s := _campaign(0)
+		await physics_frame
+		var c: Vector3 = Campaign.STAGES[0].parts[0][1]
+		var legs: Array = s.structures[0].leg_groups[0].legs
+		for b in legs:
+			if b.position.x > c.x:
+				b.ignite(4.0)
+		await _wait(s, 12.0)
+		_check(s.commanders[0].dead, "1-1 망루 오른쪽 다리 둘이 타면 넘어가 지휘관이 떨어진다 (%s)" % s.commanders[0].defeat_cause)
+	# 데이터 규칙
 	for i in Campaign.COUNT:
+		var d: Dictionary = Campaign.STAGES[i]
 		var paint := Campaign.paint_count(i)
-		var need := 1 if Campaign.STAGES[i].has("rockets") else Campaign.commander_count(i)
-		_check(paint >= need and (i < 6 or Campaign.STAGES[i].has("wind")),
-			"%s 페인트탄 %d (지휘관 %d), 바람 %d단계" % [Campaign.label(i), paint, Campaign.commander_count(i), Campaign.STAGES[i].get("wind", [0])[0]])
+		_check(paint == 1 + Campaign.commander_count(i) and (i < 6 or d.has("wind")),
+			"%s 페인트탄 %d (지휘관 %d), 바람 %d단계" % [Campaign.label(i), paint, Campaign.commander_count(i), d.get("wind", [0])[0]])
+		if Campaign.is_night(i) and not d.get("ballistas", []).is_empty():
+			_check(false, "%s 밤 진지에 발리스타가 있다" % Campaign.label(i))
+		if Campaign.world_of(i) == 4 and not d.get("final", false):
+			var feature: bool = Campaign.is_night(i) or Campaign.is_rain(i) or not d.get("ballistas", []).is_empty()
+			_check(feature, "%s 5월드 진지에 앞 월드 특성(비·밤·발리스타)이 있다" % Campaign.label(i))
+	# 시작 조망: 한 바퀴 돌고 투척 시점으로 내려오며, 건너뛸 수 있다
+	if _only <= 0 or _only == 1:
+		var s := _campaign(2)
+		await physics_frame
+		var cam := IntroCam.new()
+		s.add_child(cam)
+		cam.setup(s)
+		var locked := s.player.input_locked
+		await _wait(s, 1.0)
+		cam.skip()
+		await _wait(s, 1.0)
+		_check(locked and not s.player.input_locked and not is_instance_valid(cam), "시작 조망 중엔 조작이 잠기고, 건너뛰면 투척 시점으로 돌아온다")
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

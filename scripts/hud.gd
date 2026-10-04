@@ -15,6 +15,10 @@ var follow_cam: FollowCam
 var _dot: Control
 ## 남은 지휘관 표시 (빨간 깃발 = 남음, 쓰러진 깃발 = 쓰러뜨림). 지휘관이 둘 이상일 때만
 var _targets: HBoxContainer
+## 이미 쓰러진 것으로 표시한 지휘관 (새로 쓰러진 것만 튀게)
+var _seen_dead := {}
+## 발사 버튼 곁에서 뜨는 안내 (최종 진지)
+var _prompt: Label
 
 
 func _ready() -> void:
@@ -74,6 +78,13 @@ func _ready() -> void:
 	follow_cam = FollowCam.new()
 	root.add_child(follow_cam)
 
+	_prompt = _label(root, 26)
+	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_prompt.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_prompt.text = Texts.t("press_button")
+	_prompt.visible = false
+	_place(_prompt, Vector4(0, 0.5, 1, 0.5), Vector4(0, 110, 0, 150))
+
 	_toast = _label(root, 26)
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_place(_toast, Vector4(0, 0.5, 1, 0.5), Vector4(0, 50, 0, 95))
@@ -103,6 +114,7 @@ func _label(parent: Control, font_size: int) -> Label:
 
 func bind(stage: Stage) -> void:
 	_stage = stage
+	_seen_dead.clear()
 	_title.text = stage.stage_id
 	_help.visible = true
 	stage.projectile_thrown.connect(func(_p): _help.visible = false)
@@ -118,6 +130,7 @@ func bind(stage: Stage) -> void:
 	follow_cam.reset()
 	stage.projectile_thrown.connect(follow_cam.track)
 	stage.rocket_launched.connect(follow_cam.track_rocket)
+	stage.bomber_launched.connect(follow_cam.track_bomber)
 	stage.shake_requested.connect(follow_cam.shake)
 	_refresh_ammo()
 
@@ -136,8 +149,10 @@ func _refresh_ammo() -> void:
 		var slot: Dictionary = _stage.ammo_slots[i]
 		var mark := "▶ " if i == _stage.current_slot else "   "
 		lines.append("%s%d  %s  × %d" % [mark, i + 1, slot.type.display_name, slot.count])
-	if _stage.rockets_total > 0:
-		lines.append("%s  × %d" % [Texts.t("rockets_left"), _stage.rockets_left()])
+	if _stage.bombers_total > 0:
+		lines.append("%s  × %d" % [Texts.t("bombers_left"), _stage.bombers_left()])
+	if _stage.button_ready():
+		lines.append("%s  × 1" % Texts.t("rocket_ready"))
 	_ammo.text = "\n".join(lines)
 
 
@@ -145,9 +160,39 @@ func _refresh_targets() -> void:
 	for c in _targets.get_children():
 		c.queue_free()
 	if not is_instance_valid(_stage) or _stage.commanders.size() < 2:
+		_seen_dead.clear()
 		return
 	for c in _stage.commanders:
-		_targets.add_child(_flag_icon(not c.dead))
+		var icon := _flag_icon(not c.dead)
+		_targets.add_child(icon)
+		if c.dead and not _seen_dead.has(c):
+			# 방금 쓰러뜨린 지휘관: 깃발 표시가 크게 튀었다가 자리에 눕고, 붉은 X가 그어진다
+			_seen_dead[c] = true
+			var x := Label.new()
+			x.text = "X"
+			x.add_theme_font_size_override("font_size", 30)
+			x.add_theme_color_override("font_color", Color(1, 0.2, 0.1))
+			x.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+			x.add_theme_constant_override("outline_size", 6)
+			x.position = Vector2(-2, -8)
+			icon.add_child(x)
+			var base_rot := icon.rotation
+			icon.scale = Vector2.ONE * 2.4
+			icon.rotation = 0.0
+			var tw := icon.create_tween().set_parallel(true)
+			tw.tween_property(icon, "scale", Vector2.ONE, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_property(icon, "rotation", base_rot, 0.5).set_delay(0.25)
+		elif c.dead:
+			icon.add_child(_x_mark())
+
+
+func _x_mark() -> Label:
+	var x := Label.new()
+	x.text = "X"
+	x.add_theme_font_size_override("font_size", 30)
+	x.add_theme_color_override("font_color", Color(1, 0.2, 0.1, 0.8))
+	x.position = Vector2(-2, -8)
+	return x
 
 
 ## 작은 깃발 그림 (깃대 + 천). 쓰러뜨린 지휘관은 어둡게 눕힌다.
@@ -187,6 +232,7 @@ func set_gameplay_visible(on: bool) -> void:
 		follow_cam.reset()
 
 func _process(delta: float) -> void:
+	_prompt.visible = is_instance_valid(_stage) and _title.visible and _stage.near_button()
 	if _toast_time > 0.0:
 		_toast_time -= delta
 		_toast.modulate.a = clampf(_toast_time / 0.6, 0.0, 1.0)

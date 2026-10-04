@@ -15,8 +15,10 @@ signal shake_requested(amount: float)
 signal target_down(target: Actor, cause: String, focus: Vector3)
 ## 지휘관 하나가 쓰러짐 (남은 표적 표시용)
 signal targets_changed
-## 조명탄을 보고 로켓이 발사대를 떠남 (추적 화면용)
+## 최종 로켓이 발사대를 떠남 (추적 화면용)
 signal rocket_launched(missile: Missile)
+## 조명탄을 보고 글라이더 폭격 고블린이 날아오름 (추적 화면용)
+signal bomber_launched(bomber: Bomber)
 
 enum State { PLAYING, CLEARED, FAILED }
 ## 승리 조건: 지휘관 쓰러뜨리기, 또는 전령 멈추기 (전령을 쓰러뜨리거나 건너야 할 다리를 끊음)
@@ -64,9 +66,20 @@ var _quiet := 0.0
 var _last_collapse_sound := -10.0
 var _flags: Array[Node3D] = []
 var _last_shot_warned := false
-## 발사대에서 대기 중인 로켓 모델들 (조명탄이 떨어지면 하나씩 날아간다)
-var _rockets: Array[Node3D] = []
-var rockets_total := 0
+## 대기 중인 글라이더 폭격 고블린 모델들 (조명탄이 떨어지면 하나씩 날아간다)
+var _bombers: Array[Node3D] = []
+var bombers_total := 0
+## 최종 진지의 발사 버튼과 거대 로켓
+var _button: Node3D
+var _button_cap: Node3D
+var _button_used := false
+var _final_rocket: Node3D
+## 지휘관마다 쓰러뜨릴 길 (클리어 불가 판정용, Campaign._needs). 없으면 판정하지 않는다
+var _needs := {}
+
+## 클리어 불가 판정의 특수 "탄종": 폭격(조명탄 + 대기 중인 폭격대), 최종 로켓 발사 버튼
+const NEED_BOMBER := -1
+const NEED_BUTTON := -2
 
 
 # ---------- 구성 ----------
@@ -352,7 +365,7 @@ func _ammo_for_throw() -> AmmoType:
 
 
 ## 남은 폭탄 수 (페인트탄과 조명탄은 치지 않는다: 그것만 남으면 더 할 수 있는 게 없다).
-## 단, 로켓이 대기 중이면 조명탄은 로켓을 부르는 폭탄이다 (남은 로켓 수까지).
+## 단, 폭격대가 대기 중이면 조명탄은 폭격을 부르는 폭탄이다 (남은 폭격 수까지). 최종 로켓도 한 발로 친다.
 func total_ammo() -> int:
 	var n := 0
 	for s in ammo_slots:
@@ -360,50 +373,175 @@ func total_ammo() -> int:
 			AmmoType.Kind.PAINT:
 				pass
 			AmmoType.Kind.FLARE:
-				n += mini(s.count, rockets_left())
+				n += mini(s.count, bombers_left())
 			_:
 				n += s.count
+	if button_ready():
+		n += 1
 	return n
 
 
-func rockets_left() -> int:
-	return _rockets.size()
+## 이 탄종이 몇 발 남았는지.
+func ammo_count(kind: int) -> int:
+	var n := 0
+	for s in ammo_slots:
+		if s.type.kind == kind:
+			n += s.count
+	return n
 
 
-## 로켓 발사대: 투척 구역 왼쪽 앞 바위 기둥 위에 로켓 n개가 비스듬히 서서 대기한다 (플레이어 시야 왼쪽에 보인다).
-func add_rockets(n: int) -> void:
-	if player == null or n <= 0:
-		return
-	rockets_total = n
+func bombers_left() -> int:
+	return _bombers.size()
+
+
+## 투척 구역 왼쪽 앞 바위 기둥 (폭격대 대기 자리, 최종 로켓 발사대).
+func _side_rock(depth: float) -> Vector3:
 	var zone := player.position
 	var h := zone.y
 	var base := Vector3(zone.x - 7.5, h, zone.z - 4.5)
 	if h > 0.1:
-		add_prop(Vector3(base.x, h * 0.5, base.z), Vector3(3.6, h, 2.2 + n * 1.3), Color(0.3, 0.29, 0.28))
-	var wood := Models.mat(Color(0.4, 0.27, 0.15))
+		add_prop(Vector3(base.x, h * 0.5, base.z), Vector3(3.6, h, depth), Color(0.3, 0.29, 0.28))
+	return base
+
+
+## 글라이더 폭격대: 투척 구역 왼쪽 앞 바위 기둥 위에 글라이더를 멘 고블린 n명이 폭탄을 안고 대기한다 (플레이어 시야 왼쪽).
+## 조명탄이 떨어지면 한 명씩 날아올라 그 불빛 위에서 폭탄을 안고 뛰어내린다.
+func add_bombers(n: int) -> void:
+	if player == null or n <= 0:
+		return
+	bombers_total = n
+	var base := _side_rock(2.2 + n * 1.6)
 	for k in n:
-		var at := base + Vector3(0, 0, -(k - (n - 1) * 0.5) * 1.4)
-		# 받침 나무틀
-		Models.box(self, Vector3(1.6, 0.25, 1.1), at + Vector3(0, 0.12, 0), wood)
-		for sx in [-0.6, 0.6]:
-			Models.box(self, Vector3(0.15, 3.2, 0.15), at + Vector3(sx, 1.6, 0.3), wood, Vector3(-0.25, 0, 0))
-		var r := Models.rocket()
-		add_child(r)
-		# 표적 쪽(-Z)으로 조금 기울어 선다
-		r.position = at + Vector3(0, 2.9, -0.3)
-		r.rotation = Vector3(-0.22, 0, 0)
-		_rockets.append(r)
+		var g := Models.glider_goblin()
+		add_child(g)
+		g.position = base + Vector3(0, 0, -(k - (n - 1) * 0.5) * 1.8)
+		_bombers.append(g)
 
 
-## 조명탄이 떨어진 자리로 대기 중인 로켓을 하나 보낸다.
-func _launch_rocket(target: Vector3) -> void:
-	var r: Node3D = _rockets.pop_back()
-	var from := r.global_position
+## 조명탄이 떨어진 자리로 대기 중인 폭격 고블린을 하나 보낸다.
+func _launch_bomber(target: Vector3) -> void:
+	var g: Node3D = _bombers.pop_back()
+	var bomber := Bomber.new()
+	add_child(bomber)
+	bomber.setup(self, target, g.global_position, g)
+	bomber_launched.emit(bomber)
+	ammo_changed.emit()
+
+
+## 최종 진지: 바위 기둥 위 거대 로켓과 투척 구역 왼쪽 가장자리의 크고 빨간 발사 버튼 (가까이 가서 E).
+func add_launch_button() -> void:
+	if player == null:
+		return
+	var base := _side_rock(4.0)
+	var wood := Models.mat(Color(0.4, 0.27, 0.15))
+	Models.box(self, Vector3(2.6, 0.3, 2.6), base + Vector3(0, 0.15, 0), wood)
+	for sx in [-1.0, 1.0]:
+		Models.box(self, Vector3(0.2, 5.5, 0.2), base + Vector3(sx * 1.0, 2.75, 0.4), wood, Vector3(-0.15, 0, 0))
+	_final_rocket = Models.rocket()
+	add_child(_final_rocket)
+	_final_rocket.scale = Vector3.ONE * 1.5
+	_final_rocket.position = base + Vector3(0, 4.6, -0.3)
+	_final_rocket.rotation = Vector3(-0.2, 0, 0)
+	# 발사 버튼: 노랑·검정 줄무늬 받침 기둥 위의 커다란 빨간 버섯 단추
+	var zone := player.position
+	_button = Node3D.new()
+	add_child(_button)
+	_button.position = Vector3(zone.x - 3.9, zone.y, zone.z - 0.5)
+	var post := Models.mat(Color(0.95, 0.8, 0.1))
+	var dark := Models.mat(Color(0.1, 0.1, 0.1))
+	Models.box(_button, Vector3(0.7, 1.0, 0.7), Vector3(0, 0.5, 0), post)
+	for y in [0.2, 0.6]:
+		Models.box(_button, Vector3(0.72, 0.15, 0.72), Vector3(0, y, 0), dark, Vector3(0, 0, 0.0))
+	Models.cyl(_button, 0.45, 0.45, 0.12, Vector3(0, 1.06, 0), dark, Vector3.ZERO, 16)
+	_button_cap = Models.cyl(_button, 0.38, 0.42, 0.22, Vector3(0, 1.22, 0), Models.mat(Color(0.95, 0.08, 0.05), 0.4, 0.0, 0.6), Vector3.ZERO, 16)
+	# 버튼과 로켓을 잇는 전선
+	var wire := Models.mat(Color(0.12, 0.12, 0.12))
+	var from := _button.position + Vector3(0, 0.1, 0)
+	var to := base + Vector3(1.2, 0.2, 0.0)
+	var mid := (from + to) * 0.5
+	var seg := to - from
+	Models.box(self, Vector3(0.06, 0.06, seg.length()), Vector3(mid.x, maxf(from.y, to.y) + 0.05, mid.z), wire, Vector3(0, atan2(seg.x, seg.z), 0))
+
+
+## 발사 버튼을 누를 수 있는지 (아직 안 썼고, 진행 중).
+func button_ready() -> bool:
+	return _button != null and not _button_used
+
+
+## 플레이어가 발사 버튼 곁에 있는지.
+func near_button() -> bool:
+	if not button_ready() or player == null or state != State.PLAYING:
+		return false
+	var d := player.global_position - _button.global_position
+	return Vector2(d.x, d.z).length() < 2.4
+
+
+## 발사 버튼을 누른다. 발리스타가 하나라도 서 있으면 안전장치가 걸려 눌리지 않는다 (한 발뿐인 궁극기를 헛되이 날리지 않게).
+func press_button() -> bool:
+	if not near_button():
+		return false
+	var tw := _button_cap.create_tween()
+	tw.tween_property(_button_cap, "position:y", 1.12, 0.06)
+	tw.tween_property(_button_cap, "position:y", 1.22, 0.15)
+	if aa_alive():
+		Sfx.play(self, "fizzle", _button.global_position, 0.0)
+		toast.emit(Texts.t("button_locked"))
+		return false
+	_button_used = true
+	Sfx.play(self, "win", _button.global_position, 2.0)
+	toast.emit(Texts.t("button_fire"))
+	var center := Vector3.ZERO
+	var n := 0
+	for c in commanders:
+		if not c.dead:
+			center += c.global_position
+			n += 1
+	center = center / n if n > 0 else Vector3(0, 0, -60)
 	var missile := Missile.new()
 	add_child(missile)
-	missile.setup(self, target, from, r)
+	missile.mega = true
+	missile.setup(self, Vector3(center.x, 0.3, center.z), _final_rocket.global_position, _final_rocket)
+	_final_rocket = null
 	rocket_launched.emit(missile)
 	ammo_changed.emit()
+	return true
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("interact") and near_button():
+		press_button()
+		get_viewport().set_input_as_handled()
+
+
+## 최종 로켓 착탄: 성채에 남은 지휘관을 모두 한꺼번에 날린다. 착탄점의 초대형 폭발 뒤로 지휘관 자리마다 연쇄 폭발.
+func mega_strike(pos: Vector3) -> void:
+	if not is_inside_tree():
+		return
+	var reach := 20.0
+	var targets: Array[Commander] = []
+	for c in commanders:
+		if not c.dead:
+			targets.append(c)
+			reach = maxf(reach, Vector2(c.global_position.x - pos.x, c.global_position.z - pos.z).length() + 8.0)
+	rocket_strike(pos, 16.0, 2000.0, 14.0)
+	Fx.blast_rings(self, pos, reach, reach - 6.0)
+	Fx.flash(self, pos + Vector3(0, 12, 0), 30.0, reach * 4.0, 1.5)
+	var k := 0
+	for c in targets:
+		k += 1
+		var at := c.global_position
+		get_tree().create_timer(0.12 * k, false, true).timeout.connect(func():
+			if not is_inside_tree():
+				return
+			explode(at, 9.0, 1200.0, false, false)
+			var b := Fx.burst(90, 14.0, 1.5, Fx.FLAME_COLORS)
+			add_child(b)
+			b.global_position = at + Vector3(0, 1, 0)
+			b.emitting = true
+			Fx.free_after(b, 2.5))
+	# 남은 지휘관은 모두 쓰러진다 (판정은 지금 확정, 날아가는 건 연출)
+	for c in targets:
+		c.defeat("blast")
 
 
 ## 로켓 착탄: 아주 큰 폭발 + 근처 인물은 엄폐와 상관없이 쓰러진다.
@@ -578,9 +716,9 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			add_child(flare)
 			flare.global_position = pos
 			flare.setup(pos, ammo.flare_height, ammo.flare_duration)
-			# 로켓이 대기 중이면 그 불빛을 보고 날아간다
-			if rockets_left() > 0 and state == State.PLAYING:
-				_launch_rocket(pos)
+			# 폭격대가 대기 중이면 그 불빛을 보고 날아간다
+			if bombers_left() > 0 and state == State.PLAYING:
+				_launch_bomber(pos)
 			# 조명탄은 연기 기둥을 남기지 않는다 (꺼진 뒤 시야를 가리지 않게)
 			return
 	# 빗나가도 연기 기둥이 남아 다음 투척의 기준이 된다
@@ -606,6 +744,78 @@ func _shards(pos: Vector3, color: Color) -> void:
 func _blast_actors(pos: Vector3, radius: float) -> void:
 	for a in get_tree().get_nodes_in_group("actors"):
 		a.on_blast(pos, radius)
+	# 배경 고블린(과 같이 싸우던 병사)은 휘말리면 날아간다
+	for e in get_tree().get_nodes_in_group("goblin_extras"):
+		e.on_blast(pos, maxf(radius, 2.5))
+
+
+## 배경 고블린 (판정과 무관). point_at: 손짓해 가리킬 곳 (화약통).
+func add_extra(pos: Vector3, yaw_deg: float, mode: int, point_at := Vector3.INF) -> GoblinExtra:
+	var e := GoblinExtra.new()
+	e.position = pos
+	e.rotation.y = deg_to_rad(yaw_deg)
+	add_child(e)
+	e.setup(mode, point_at)
+	return e
+
+
+# ---------- 클리어 불가 판정 ----------
+
+func set_needs(c: Commander, alternatives: Array) -> void:
+	if not alternatives.is_empty():
+		_needs[c] = alternatives
+
+
+func _term_ok(t: Dictionary) -> bool:
+	var blocks: Array = t.get("blocks", [])
+	match t.get("mode", ""):
+		"gone":
+			var all_gone := true
+			for b in blocks:
+				if is_instance_valid(b) and not b.fallen and not b.burnt:
+					all_gone = false
+					break
+			if all_gone:
+				return true
+		"oiled":
+			for b in blocks:
+				if not is_instance_valid(b) or b.oiled or b.burning or b.burnt or b.fallen:
+					return true
+	for kind in t.kinds:
+		match kind:
+			NEED_BOMBER:
+				if bombers_left() > 0 and ammo_count(AmmoType.Kind.FLARE) > 0:
+					return true
+			NEED_BUTTON:
+				if button_ready():
+					return true
+			_:
+				if ammo_count(kind) > 0:
+					return true
+	return false
+
+
+## 이 지휘관을 아직 쓰러뜨릴 길이 하나라도 남았는지 (판정 정보가 없으면 남은 것으로 본다).
+func can_still_defeat(c: Commander) -> bool:
+	if not _needs.has(c):
+		return true
+	for alt in _needs[c]:
+		var ok := true
+		for t in alt:
+			if not _term_ok(t):
+				ok = false
+				break
+		if ok:
+			return true
+	return false
+
+
+## 남은 지휘관 중 하나라도 이제 쓰러뜨릴 방법이 없는지 (예: 금 간 석벽을 부숴야 하는데 고폭탄이 다 떨어짐).
+func stuck() -> bool:
+	for c in commanders:
+		if not c.dead and not can_still_defeat(c):
+			return true
+	return false
 
 
 ## 폭발이 화약통에 닿으면 0.15초 간격으로 연쇄 폭발한다 (쾅, 쾅, 쾅).
@@ -817,10 +1027,25 @@ func _on_commander_defeated(c: Commander, cause: String) -> void:
 	_win(c, cause, c.chest())
 
 
-## 지휘관 하나를 쓰러뜨렸을 때 (아직 남은 지휘관이 있을 때): 잠깐 느린 화면과 묵직한 소리로 손맛을 준다.
+## 지휘관 하나를 쓰러뜨렸을 때 (아직 남은 지휘관이 있을 때): 확실히 쓰러졌다는 걸 보여 준다.
+## 지휘관이 만화처럼 날아가거나(불이면 불타며 허둥댐), 머리 위에서 별 폭죽이 터지고, 남은 수가 뜬다.
+## 잠깐 느린 화면과 묵직한 소리로 손맛도 준다.
 func _kill_beat(c: Commander) -> void:
 	Sfx.play(self, "collapse", c.global_position, 4.0)
+	Sfx.play(self, "win", c.global_position, -2.0)
 	shake_requested.emit(0.6)
+	if c.defeat_cause == "fire":
+		c.burn_panic()
+	else:
+		var away := c.global_position - (player.global_position if player else Vector3.ZERO)
+		c.launch(Vector3(away.x, 0, away.z), commanders.find(c) + 1, 0.9)
+	var stars := Fx.burst(40, 7.0, 0.35, [Color(1, 0.95, 0.4), Color(1, 0.6, 0.15), Color(1, 1, 1, 0)])
+	add_child(stars)
+	stars.global_position = c.chest() + Vector3.UP * 1.0
+	stars.emitting = true
+	Fx.free_after(stars, 2.0)
+	Fx.flash(self, c.chest(), 5.0, 8.0, 0.4)
+	toast.emit(Texts.t("kill_one") % commanders_left())
 	if Engine.time_scale != 1.0 and Engine.time_scale != 0.05:
 		return
 	Engine.time_scale = 0.3
@@ -940,10 +1165,14 @@ func _physics_process(delta: float) -> void:
 						m.strand()
 						_win(m, "bridge", m.chest())
 						return
-	if total_ammo() == 0:
+	# 폭탄이 다 떨어졌거나, 남은 탄으로는 더 이상 깰 수 없으면 (모든 게 멈춘 뒤) 실패
+	var empty := total_ammo() == 0
+	if empty or stuck():
 		if is_active():
 			_quiet = 0.0
 		else:
 			_quiet += delta
 			if _quiet >= FAIL_QUIET_TIME:
-				_fail("fail_ammo")
+				_fail("fail_ammo" if empty else "fail_stuck")
+	else:
+		_quiet = 0.0

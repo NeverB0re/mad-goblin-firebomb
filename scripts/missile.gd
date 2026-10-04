@@ -1,9 +1,8 @@
 class_name Missile
 extends Node3D
-## 고블린 로켓. 투척 구역 옆 발사대에서 대기하다가, 조명탄이 떨어진 자리(불빛)를 보고 날아간다.
-## 대공 발리스타가 하나라도 남아 있으면 날아가는 도중 발리스타 화살에 맞아 공중에서 터진다 (피해 없음).
-## 떨어지면 아주 크게 터져 근처 지휘관을 엄폐와 상관없이 모두 쓰러뜨린다: 발리스타만 치우면 거의 한 방에 끝난다.
-## 시간은 물리 틱으로 세서 언제나 같다.
+## 최종 진지의 거대 로켓 (mega). 발사 버튼을 누르면 바위 기둥 위 발사대에서 점화해 높이 치솟았다가,
+## 성채에 남은 지휘관 한가운데로 내리꽂혀 남은 지휘관을 모두 한꺼번에 날려 버린다 (Stage.mega_strike).
+## mega가 아니면 보통 로켓 (발리스타가 남아 있으면 공중에서 요격당한다). 시간은 물리 틱으로 세서 언제나 같다.
 
 signal exploded(pos: Vector3)
 
@@ -18,6 +17,8 @@ const STRENGTH := 1400.0
 const KILL_RADIUS := 12.0
 
 var done := false
+## 최종 로켓 (더 높이 치솟고, 착탄하면 남은 지휘관을 모두 날린다)
+var mega := false
 var _stage: Stage
 var _target := Vector3.ZERO
 var _from := Vector3.ZERO
@@ -32,13 +33,15 @@ func setup(stage: Stage, target: Vector3, from: Vector3, model: Node3D = null) -
 	_stage = stage
 	_target = target
 	_from = from
-	_intercept = stage.aa_alive()
+	_intercept = stage.aa_alive() and not mega
 	if model:
 		model.get_parent().remove_child(model)
 		_model = model
 	else:
 		_model = Models.rocket()
 	_model.transform = Transform3D.IDENTITY
+	if mega:
+		_model.scale = Vector3.ONE * 1.5
 	add_child(_model)
 	_trail = Fx.fire(Vector3(0.3, 0.3, 0.3), 60, 1.0)
 	_trail.local_coords = false
@@ -60,7 +63,7 @@ func target_pos() -> Vector3:
 
 
 func _pos(k: float) -> Vector3:
-	return _from.lerp(_target, k) + Vector3.UP * ARC * sin(PI * k)
+	return _from.lerp(_target, k) + Vector3.UP * (ARC * 2.0 if mega else ARC) * sin(PI * k)
 
 
 func _physics_process(_delta: float) -> void:
@@ -98,6 +101,9 @@ func _physics_process(_delta: float) -> void:
 		return
 	if k >= 1.0:
 		done = true
-		_stage.rocket_strike(_target, RADIUS, STRENGTH, KILL_RADIUS)
+		if mega:
+			_stage.mega_strike(_target)
+		else:
+			_stage.rocket_strike(_target, RADIUS, STRENGTH, KILL_RADIUS)
 		exploded.emit(_target)
 		queue_free()

@@ -53,24 +53,74 @@ func _run() -> void:
 	await _real_wait(main, 0.2)
 	_save("feat_paint")
 
-	# 4-1: 조명탄 → 로켓 비행 (추적 화면) → 폭발
+	# 4-1: 조명탄 → 글라이더 비행 (추적 화면) → 뛰어내림 → 폭발
 	main.load_stage(30)
 	await _frames(10)
 	s = main.stage
 	s.wind = Vector3.ZERO
 	c = s.commanders[0].global_position
+	_look(s, s.player.global_position + Vector3(-6.5, 0.5, -9.0))
+	await _real_wait(main, 0.4)
+	_save("feat_bomber_wait")
 	_throw(s, AmmoType.Kind.FLARE, c + Vector3(0, 2.7, 0))
-	await _real_wait(main, 4.2)
+	await _real_wait(main, 4.5)
 	_look(s, c)
 	await _real_wait(main, 0.4)
-	_save("feat_rocket_flight")
+	_save("feat_bomber_flight")
 	var boomed := [false]
 	for m in s.get_tree().get_nodes_in_group("missile"):
 		m.exploded.connect(func(_p): boomed[0] = true)
 	while not boomed[0]:
 		await process_frame
 	await _real_wait(main, 0.35)
-	_save("feat_rocket_boom")
+	_save("feat_bomber_boom")
+
+	# 5-10: 발리스타를 치운 셈 치고 발사 버튼 → 거대 로켓
+	main.load_stage(49)
+	await _frames(10)
+	s = main.stage
+	_look(s, s.player.global_position + Vector3(-6.0, 1.0, -6.0))
+	await _real_wait(main, 0.4)
+	_save("feat_final_button")
+	for bl in s.ballistas:
+		bl.drop()
+	await _real_wait(main, 0.5)
+	s.player.global_position = Vector3(s.player.zone_min.x, s.player.global_position.y, s._button.global_position.z)
+	await _real_wait(main, 0.2)
+	s.press_button()
+	_look(s, s.commanders[0].global_position)
+	await _real_wait(main, 2.2)
+	_save("feat_final_flight")
+	var hit := [false]
+	for m in s.get_tree().get_nodes_in_group("missile"):
+		m.exploded.connect(func(_p): hit[0] = true)
+	while not hit[0]:
+		await process_frame
+	await _real_wait(main, 0.6)
+	_save("feat_final_boom")
+
+	# 1-6: 화약 창고 곁에서 손짓하는 고블린, 1월드 배경 싸움
+	main.load_stage(5)
+	await _frames(10)
+	s = main.stage
+	_look(s, Campaign.STAGES[5].parts[0][1] + Vector3(2.0, 1.0, 2.0))
+	await _real_wait(main, 0.8)
+	_save("feat_extras")
+
+	# 2-3 호퍼: 구멍 위 화약통
+	main.load_stage(12)
+	await _frames(10)
+	s = main.stage
+	_look(s, Campaign.STAGES[12].parts[0][1] + Vector3(0, 3.0, 0))
+	await _real_wait(main, 0.5)
+	_save("feat_hopper")
+
+	# 시작 조망 (한 바퀴 도는 중)
+	main.load_stage(2)
+	await _frames(10)
+	main.play_intro()
+	await _real_wait(main, 2.0)
+	_save("feat_intro")
 
 	# 3-5: 도화선에 불 → 타 들어가는 중 → 폭발 뒤
 	main.load_stage(24)

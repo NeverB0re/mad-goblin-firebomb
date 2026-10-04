@@ -282,6 +282,44 @@ static func rocket() -> Node3D:
 	return root
 
 
+## 글라이더 폭격 고블린: 엉성한 나무 살에 천을 덧댄 삼각 글라이더(Wing) 밑에 매달린 고블린(Pilot)이
+## 자기 몸통만 한 폭탄(Bomb)을 끌어안고 있다. 원점은 발바닥, -Z가 앞.
+static func glider_goblin() -> Node3D:
+	var root := Node3D.new()
+	var pilot := goblin()
+	pilot.name = "Pilot"
+	root.add_child(pilot)
+	for arm_name in ["ArmL", "ArmR"]:
+		var arm: Node3D = pilot.get_node(arm_name)
+		arm.rotation = Vector3(-1.2, 0, 0.5 if arm_name == "ArmL" else -0.5)
+	var bomb := Node3D.new()
+	bomb.name = "Bomb"
+	bomb.position = Vector3(0, 0.85, -0.45)
+	pilot.add_child(bomb)
+	var iron := mat(Color(0.1, 0.1, 0.11), 0.5, 0.5)
+	ball(bomb, 0.38, Vector3.ZERO, iron, 10)
+	cyl(bomb, 0.4, 0.4, 0.08, Vector3.ZERO, mat(Color(0.75, 0.6, 0.25), 0.4, 0.6), Vector3(0.3, 0, 0), 10)
+	cyl(bomb, 0.03, 0.03, 0.3, Vector3(0.1, 0.45, 0), mat(Color(0.85, 0.8, 0.65)), Vector3(0, 0, -0.5))
+	var wing := Node3D.new()
+	wing.name = "Wing"
+	wing.position = Vector3(0, 2.4, 0.1)
+	root.add_child(wing)
+	var spar := mat(Color(0.42, 0.28, 0.15))
+	var cloth := mat(Color(0.86, 0.3, 0.18), 0.9)
+	var patch := mat(Color(0.9, 0.82, 0.62), 0.9)
+	# 삼각 날개: 가운데 용골 + 양 날개 살 + 천 두 장 (조각을 덧댄 자국)
+	box(wing, Vector3(0.08, 0.08, 2.6), Vector3(0, 0, 0.2), spar)
+	for sx in [-1.0, 1.0]:
+		box(wing, Vector3(0.07, 0.07, 2.9), Vector3(sx * 1.1, -0.05, 0.6), spar, Vector3(0, sx * 0.75, 0))
+		box(wing, Vector3(1.9, 0.03, 1.9), Vector3(sx * 0.95, 0.0, 0.75), cloth, Vector3(0, sx * 0.78, sx * 0.08))
+		box(wing, Vector3(0.5, 0.035, 0.4), Vector3(sx * 0.9, 0.01, 0.9), patch, Vector3(0, sx * 0.4, sx * 0.08))
+	# 매달린 줄과 손잡이 막대
+	for sx in [-0.4, 0.4]:
+		cyl(wing, 0.015, 0.015, 1.0, Vector3(sx * 0.6, -0.5, -0.1), spar, Vector3(0, 0, sx))
+	box(wing, Vector3(0.9, 0.06, 0.06), Vector3(0, -1.0, -0.1), spar)
+	return root
+
+
 ## 고블린 부족장: 깃털 머리장식과 뼈 목걸이.
 static func chief() -> Node3D:
 	var root := goblin()
