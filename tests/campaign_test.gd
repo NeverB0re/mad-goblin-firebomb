@@ -277,6 +277,8 @@ func _run() -> void:
 			"%s 페인트탄 %d (지휘관 %d), 바람 %d단계" % [Campaign.label(i), paint, Campaign.commander_count(i), d.get("wind", [0])[0]])
 		if Campaign.world_of(i) == 3 and (d.get("ballistas", []).is_empty() or d.get("bombers", 0) <= 0):
 			_check(false, "%s 4월드 진지에 발리스타와 공수부대가 없다" % Campaign.label(i))
+		if d.get("bombers", 0) > 0 and d.ammo.get("flare", 0) != d.bombers:
+			_check(false, "%s 조명탄 수가 글라이더 수와 다르다 (하늘쾅 칸 하나 = 글라이더 한 번)" % Campaign.label(i))
 		if Campaign.bonus_text(i) == "":
 			_check(false, "%s 보조 목표 문구가 없다" % Campaign.label(i))
 		if Campaign.is_night(i) and not d.get("ballistas", []).is_empty():

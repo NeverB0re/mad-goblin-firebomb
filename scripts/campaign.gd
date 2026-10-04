@@ -170,7 +170,7 @@ const STAGES := [
 		"ballistas": [[Vector3(-10, 0, -58), "wood"], [Vector3(10, 0, -56), "stone"]],
 		"parts": [["bunker", Vector3(0, 0, -104)], ["tower", Vector3(9, 0, -100)], ["cave", Vector3(-8, 0, -100)]],
 		"story": "나무와 석재 발리스타가 지키는 먼 벙커와 그 양옆 망루·감시굴. 셋이 한 무리라 폭격 한 번이면 끝난다."},
-	{"name": "절벽 굴과 벙커", "ammo": {"he": 4, "flare": 3}, "bombers": 2, "perch": 18.0, "wind": [4, -1, 0],
+	{"name": "절벽 굴과 벙커", "ammo": {"he": 4, "flare": 2}, "bombers": 2, "perch": 18.0, "wind": [4, -1, 0],
 		"ballistas": [[Vector3(-14, 0, -52), "stone"], [Vector3(14, 0, -66), "stone"]],
 		"parts": [["cave", Vector3(-5, 0, -98)], ["bunker", Vector3(6, 0, -92)], ["rampart", Vector3(-2, 0, -62)]],
 		"story": "절벽 밑 감시굴과 그 옆 벙커를 석재 발리스타 둘이 지킨다. 앞 성벽 보행로의 감시대장은 직접."},
