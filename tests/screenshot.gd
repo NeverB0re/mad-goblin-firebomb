@@ -60,14 +60,14 @@ func _run() -> void:
 	var shots := [
 		[0, K.FIRE, C[0] + Vector3(0, 2.9, 0), 2.5],
 		[1, K.FIRE, Vector3(C[1].x, 1.5, C[1].z + 1.5), 5.0],
-		[2, K.FIRE, StageDefs.E3_RUN[1] + Vector3(2, 3.6, -0.9), 3.0],
+		[2, K.FIRE, StageDefs.E3_BEACON + Vector3(0, 3.6, 0.6), 1.5],
 		[3, K.HE, C[3] + Vector3(0, 1.5, 2.8), 2.0],
 		[4, K.FIRE, C[4] + Vector3(0, 2.0, 4.7), 2.0],
 		[5, K.HE, C[5] + Vector3(-2.4, 1.4, 2.0), 2.0],
 		[6, K.OIL, C[6] + Vector3(0.3, 0.3, 5.0), 2.0],
-		[7, K.FLARE, C[7] + Vector3(0, 0, 2), 2.5],
+		[7, K.FLARE, C[7] + Vector3(0, 0, 2), 1.8],
 		[8, K.FIRE, C[8] + Vector3(0, 2.9, 0), 3.0],
-		[9, K.HE, C[9] + Vector3(0, 1.5, 4.7), 2.0],
+		[9, K.FIRE, Vector3(-26.5, 0.8, -80.0), 2.0],
 		[10, K.FIRE, StageDefs._along(StageDefs.E11_PATH, 12.0) + Vector3(0, 0.5, 0), 3.0],
 	]
 	for shot in shots:
@@ -86,21 +86,28 @@ func _run() -> void:
 		await _real_wait(main, shot[3])
 		_save("E%d_b" % (shot[0] + 1))
 
-	# 승리 연출 (E1: 차양을 태우고 직격)
-	main.load_stage(0)
-	await _frames(10)
-	var s1: Stage = main.stage
-	_throw(s1, K.FIRE, C[0] + Vector3(0, 2.9, 0))
-	_look(s1, C[0])
-	await _real_wait(main, 6.0)
-	_throw(s1, K.FIRE, C[0] + Vector3(0, 1.8, 0))
-	while s1.state == Stage.State.PLAYING:
-		await process_frame
-	await _real_wait(main, 0.5)
-	_save("victory_slowmo")
-	await _real_wait(main, 1.2)
-	_save("victory_smash")
-
+	# 승리 연출: 쓰러진 방식별 (날아감 / 불탐 / 깔림 / 봉화대)
+	var wins := [
+		["fly", 0, [[K.FIRE, C[0] + Vector3(0, 2.9, 0), 6.0], [K.FIRE, C[0] + Vector3(0, 1.8, 0), 0.0]]],
+		["burn", 1, [[K.FIRE, Vector3(C[1].x, 1.5, C[1].z + 1.5), 0.0]]],
+		["crush", 5, [[K.HE, C[5] + Vector3(-2.4, 1.4, 2.0), 2.0], [K.FIRE, C[5] + Vector3(2.4, 1.4, 1.85), 0.0]]],
+		["beacon", 2, [[K.FIRE, StageDefs.E3_BEACON + Vector3(0, 3.6, 0.6), 0.0]]],
+	]
+	for w in wins:
+		main.load_stage(w[1])
+		await _frames(10)
+		var sw: Stage = main.stage
+		for t in w[2]:
+			_throw(sw, t[0], t[1])
+			_look(sw, t[1])
+			await _real_wait(main, t[2])
+		while sw.state == Stage.State.PLAYING:
+			await process_frame
+		await _real_wait(main, 0.9)
+		_save("victory_%s_1" % w[0])
+		while main.result and not main.result._ready_for_input:
+			await process_frame
+		_save("victory_%s_2" % w[0])
 	# 실패 그림 (E1: 전부 빗나감)
 	main.load_stage(0)
 	await _frames(10)

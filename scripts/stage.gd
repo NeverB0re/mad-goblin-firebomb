@@ -10,10 +10,12 @@ signal toast(text: String)
 signal projectile_thrown(projectile: Projectile)
 ## 착탄·폭발의 화면 흔들림 (세기 0~1, 추적 화면용)
 signal shake_requested(amount: float)
-## 지휘관 판정 확정 (승리 연출 시작)
-signal commander_down(commander: Commander, cause: String)
+## 승리 판정 확정 (승리 연출 시작). target: 쓰러진 인물 (봉화대를 태운 경우 null), focus: 연출이 비출 곳
+signal target_down(target: Actor, cause: String, focus: Vector3)
 
 enum State { PLAYING, CLEARED, FAILED }
+## 승리 조건: 지휘관 쓰러뜨리기, 또는 전령 멈추기 (전령을 쓰러뜨리거나 봉화대를 먼저 태움)
+enum Goal { COMMANDER, MESSENGER }
 
 const TRACE_TIME := 30.0
 const FAIL_QUIET_TIME := 4.0
@@ -25,6 +27,7 @@ var stage_id := ""
 var title := ""
 var objective := ""
 var night := false
+var goal: int = Goal.COMMANDER
 var state: int = State.PLAYING
 var fail_cause := ""
 var player: Player
@@ -34,6 +37,8 @@ var messengers: Array[Messenger] = []
 var allies: Array[Ally] = []
 ## 전령의 목적지 (봉화대). 다 타거나 무너지면 전령이 도착해도 지원을 부르지 못한다
 var beacon: Structure
+## 봉화대 위치 (다 타 없어졌을 때 연출이 비출 곳)
+var beacon_center := Vector3.ZERO
 ## 승리 연출 카메라 (스테이지마다 정해 둔 위치, 없으면 자동)
 var cine_cam_pos := Vector3.INF
 ## [{type: AmmoType, count: int}]
@@ -50,7 +55,8 @@ var _last_shot_warned := false
 
 # ---------- 구성 ----------
 
-func begin(p_id: String, p_title: String, p_objective: String, p_night := false) -> void:
+func begin(p_id: String, p_title: String, p_objective: String, p_night := false, p_goal := Goal.COMMANDER) -> void:
+	goal = p_goal
 	stage_id = p_id
 	title = p_title
 	objective = p_objective
@@ -78,8 +84,8 @@ func _make_ground() -> void:
 	add_child(ground)
 
 
-## 투척 구역. floors가 있으면 그 높이들 중 하나를 골라 오를 수 있다 (첫 층이 바위 턱 높이).
-func set_zone(center: Vector3, half_extents: Vector2, floors: Array = [], yaw_deg := 0.0) -> void:
+## 투척 구역 (center.y가 바위 턱 높이).
+func set_zone(center: Vector3, half_extents: Vector2, yaw_deg := 0.0) -> void:
 	player = Player.new()
 	player.name = "Player"
 	# 바위 턱 끝 가까이에서 시작해 아래가 잘 보이게 한다
@@ -94,11 +100,7 @@ func set_zone(center: Vector3, half_extents: Vector2, floors: Array = [], yaw_de
 	player.windup_started.connect(func(): Sfx.play(self, "windup", player.global_position, -10.0))
 	if center.y > 0.1:
 		_make_perch(center, half_extents)
-	if floors.size() > 1:
-		for h in floors:
-			player.floors.append(float(h))
-		for i in range(1, floors.size()):
-			_make_scaffold_floor(center, half_extents, float(floors[i]), float(floors[i - 1]))
+
 	_zone_outline(center, half_extents)
 
 
@@ -129,34 +131,6 @@ func _make_perch(center: Vector3, half_extents: Vector2) -> void:
 	for sx in [-1.0, 1.0]:
 		add_prop(Vector3(center.x + sx * (wide - 0.6), h + 0.6, center.z + 1.0), Vector3(1.2, 1.2, half_extents.y * 2.0 + 4.0), rock_dark)
 	add_prop(Vector3(center.x, h + 0.9, back - 0.8), Vector3(wide * 2.0, 1.8, 1.6), rock_dark)
-
-
-## 고블린식 비계 한 층. 바닥은 플레이어만 밟고(레이어 8) 투척체는 통과한다.
-func _make_scaffold_floor(center: Vector3, half_extents: Vector2, h: float, below: float) -> void:
-	var body := StaticBody3D.new()
-	body.collision_layer = 8
-	body.collision_mask = 0
-	var shape := CollisionShape3D.new()
-	var box := BoxShape3D.new()
-	var size := Vector3(half_extents.x * 2.0 + 0.8, 0.2, half_extents.y * 2.0 + 0.8)
-	box.size = size
-	shape.shape = box
-	body.add_child(shape)
-	body.position = Vector3(center.x, h - 0.1, center.z)
-	add_child(body)
-	# 삐뚤빼뚤한 판자 바닥과 기둥 (고블린 솜씨)
-	var wood := Models.mat(Color(0.42, 0.28, 0.16))
-	var n := int(size.x / 0.5)
-	for i in n:
-		var x := center.x - size.x * 0.5 + (i + 0.5) * size.x / n
-		Models.box(self, Vector3(size.x / n * 0.92, 0.12, size.z), Vector3(x, h - 0.06 + (i % 3) * 0.015, center.z), wood, Vector3(0, (i % 2) * 0.03 - 0.015, 0))
-	for sx in [-1.0, 1.0]:
-		for sz in [-1.0, 1.0]:
-			var post_h := h - below
-			Models.box(self, Vector3(0.18, post_h, 0.18), Vector3(center.x + sx * size.x * 0.5, below + post_h * 0.5, center.z + sz * size.z * 0.5), wood, Vector3(sz * 0.02, 0, sx * 0.03))
-	# 사다리 (뒤쪽)
-	for k in int((h - below) / 0.5):
-		Models.box(self, Vector3(0.6, 0.06, 0.06), Vector3(center.x, below + 0.4 + k * 0.5, center.z + size.z * 0.5 + 0.1), wood)
 
 
 func add_structure() -> Structure:
@@ -208,24 +182,30 @@ func _path(points: Array) -> PathFollow3D:
 	return follow
 
 
-## 전령: 첫 투척과 함께 목적지(봉화대)로 달린다. 길에는 일정한 간격의 울타리 기둥.
-func add_messenger(from: Vector3, to: Vector3, speed: float, torch := false) -> Messenger:
+## 전령: 첫 투척과 함께 목적지(봉화대)로 정해진 경로를 달린다 (구불구불한 꺾은선).
+## 길에는 일정한 간격으로 울타리 기둥을 세워 "몇 칸 앞에 던질지"의 단서로 쓴다.
+func add_messenger(points: Array, speed: float, torch := false) -> Messenger:
 	var m := Messenger.new()
 	m.speed = speed
-	m.follow = _path([from, to])
+	m.follow = _path(points)
 	m.follow.add_child(m)
 	if torch:
 		m.carry_torch()
 	messengers.append(m)
 	m.arrived.connect(_on_messenger_arrived.bind(m))
-	var dir := (to - from).normalized()
-	var side := dir.cross(Vector3.UP).normalized()
-	var d := 0.0
-	while d <= from.distance_to(to) + 0.01:
-		add_prop(from + dir * d + side * 1.6 + Vector3(0, 0.6, 0), Vector3(0.2, 1.2, 0.2), Color(0.35, 0.33, 0.3))
-		d += 8.0
+	m.defeated.connect(_on_messenger_defeated)
+	var carry := 0.0
+	for i in range(1, points.size()):
+		var a: Vector3 = points[i - 1]
+		var b: Vector3 = points[i]
+		var dir := (b - a).normalized()
+		var side := dir.cross(Vector3.UP).normalized()
+		var d := carry
+		while d <= a.distance_to(b):
+			add_prop(a + dir * d + side * 1.6 + Vector3(0, 0.6, 0), Vector3(0.2, 1.2, 0.2), Color(0.35, 0.33, 0.3))
+			d += 8.0
+		carry = d - a.distance_to(b)
 	return m
-
 
 ## 지원형 동료 고블린. obstacles: [{distance: float, cleared: Callable}]
 func add_ally(points: Array, speed: float, obstacles: Array) -> Ally:
@@ -407,7 +387,7 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			var flare := Flare.new()
 			add_child(flare)
 			flare.global_position = pos
-			flare.setup(ammo.flare_height, ammo.flare_duration)
+			flare.setup(pos, ammo.flare_height, ammo.flare_duration)
 	# 빗나가도 연기 기둥이 남아 다음 투척의 기준이 된다
 	var smoke := Fx.smoke_column()
 	add_child(smoke)
@@ -442,7 +422,8 @@ func _detonate_kegs(pos: Vector3, radius: float) -> void:
 
 
 ## 화약통·폭발통 폭발: 석재 벽에도 통하는 큰 충격, 주변 점화, 기름 점화, 인물 판정.
-func explode(pos: Vector3, radius: float, strength: float) -> void:
+## forced: 플레이어 투척으로는 안 부서지는 구조(성문)에도 통하는 폭발 (동료의 폭발통).
+func explode(pos: Vector3, radius: float, strength: float, forced := false) -> void:
 	Sfx.play_delayed(self, "boom", pos, 8.0, _listener())
 	var fireball := Fx.burst(60, 9.0, 0.9, Fx.FLAME_COLORS)
 	add_child(fireball)
@@ -455,7 +436,7 @@ func explode(pos: Vector3, radius: float, strength: float) -> void:
 	Fx.free_after(smoke, 20.0)
 	_impact_juice(pos, 4.0)
 	for s in structures:
-		s.apply_impact(pos, radius, strength)
+		s.apply_impact(pos, radius, strength, forced)
 	for b in get_tree().get_nodes_in_group("flammable"):
 		if b.distance_to_point(pos) <= radius * 0.6:
 			b.ignite()
@@ -539,7 +520,7 @@ func _on_collapsed(pos: Vector3, count: int) -> void:
 
 
 func _on_barrel_exploded(pos: Vector3, ally: Ally) -> void:
-	explode(pos, 6.5, 500.0)
+	explode(pos, 6.5, 500.0, true)
 	# 그을린 동료가 웃으며 날아간다 (연출)
 	ally.launch(Vector3(0.3, 0, 1.0), 3, 0.9)
 
@@ -547,10 +528,23 @@ func _on_barrel_exploded(pos: Vector3, ally: Ally) -> void:
 # ---------- 판정 ----------
 
 func _on_commander_defeated(c: Commander, cause: String) -> void:
-	if state != State.PLAYING:
+	if state != State.PLAYING or goal != Goal.COMMANDER:
 		return
+	_win(c, cause, c.chest())
+
+
+func _on_messenger_defeated(m: Actor, cause: String) -> void:
+	if state != State.PLAYING or goal != Goal.MESSENGER:
+		return
+	for other in messengers:
+		if not other.dead:
+			return
+	_win(m, cause, m.chest())
+
+
+func _win(target: Actor, cause: String, focus: Vector3) -> void:
 	_set_state(State.CLEARED, Texts.t("win"))
-	commander_down.emit(c, cause)
+	target_down.emit(target, cause, focus)
 
 
 ## 봉화대가 남아 있는지 (가연 블록의 절반 이상이 타거나 무너지면 못 쓴다).
@@ -605,6 +599,10 @@ func _physics_process(delta: float) -> void:
 		cloth.rotation.y = sin(elapsed * 3.0) * 0.25
 		cloth.rotation.x = sin(elapsed * 5.0) * 0.06
 	if state != State.PLAYING:
+		return
+	# 봉화대를 먼저 태우면 전령이 지원을 부를 수 없다 → 전령 멈추기 성공
+	if goal == Goal.MESSENGER and beacon and not beacon_alive():
+		_win(null, "beacon", beacon_center)
 		return
 	if total_ammo() == 0:
 		if is_active():

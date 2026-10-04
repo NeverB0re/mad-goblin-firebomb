@@ -48,6 +48,18 @@ static func flight_time(origin: Vector3, target: Vector3, dir: Vector3, v: float
 	return x / (v * Vector2(dir.x, dir.z).length()) / Projectile.FLIGHT_TIME_SCALE
 
 
+## 전령이 지금(첫 투척 직전)부터 비행 시간 뒤에 있을 경로 위 지점. extra: 추가로 지난 시간.
+func _lead_on_path(s: Stage, m: Messenger, extra: float) -> Vector3:
+	var curve: Curve3D = (m.follow.get_parent() as Path3D).curve
+	var t := 2.0
+	var p := curve.sample_baked(0.0)
+	for i in 8:
+		p = curve.sample_baked(m.follow.progress + m.speed * (t + extra))
+		var dir := aim(s.player.throw_origin(), p + Vector3(0, 0.9, 0), 30.0)
+		t = flight_time(s.player.throw_origin(), p, dir, 30.0)
+	return p
+
+
 func _select(s: Stage, kind: int) -> void:
 	for i in s.ammo_slots.size():
 		if s.ammo_slots[i].type.kind == kind:
@@ -109,7 +121,14 @@ func _expect(s: Stage, want: int, label: String, limit := MAX_TIME, cause := "")
 	Engine.time_scale = 1.0
 	var names := ["진행 중", "승리", "실패"]
 	var ok := s.state == want and (cause == "" or s.fail_cause == cause)
-	var why: String = s.fail_cause if s.state != Stage.State.CLEARED else ("지휘관: " + s.commander.defeat_cause)
+	var why: String = s.fail_cause
+	if s.state == Stage.State.CLEARED:
+		if s.commander:
+			why = "지휘관: " + s.commander.defeat_cause
+		elif not s.messengers.is_empty() and s.messengers[0].dead:
+			why = "전령: " + s.messengers[0].defeat_cause
+		else:
+			why = "봉화대가 탐"
 	_check(ok, "%s → %s %s (투척 %d회, %.1f초)" % [label, names[s.state], why, s.throws, s.elapsed])
 
 
@@ -147,37 +166,23 @@ func _run() -> void:
 		await _expect(s, Stage.State.CLEARED, "E2 망루 다리 점화 후 기다리기")
 
 	if _want(2):
-		# E3: 봉화대를 먼저 태우고 지휘관 (두 번째 풀이)
-		s = _new_stage(2)
-		await physics_frame
-		var b: Vector3 = StageDefs.E3_RUN[1] + Vector3(2.0, 3.6, -1.5)
-		await _throw(s, K.FIRE, b + Vector3(0, 0, 0.6))
-		await _throw(s, K.FIRE, C[2] + Vector3(0, 2.9, 0))
-		await _wait(s, 6.0)
-		await _throw(s, K.FIRE, C[2] + Vector3(0, 1.8, 0))
-		await _expect(s, Stage.State.CLEARED, "E3 봉화대 태우고 지휘관")
-		# E3: 전령을 앞질러 맞힌다 (첫 번째 풀이)
+		# E3: 전령을 앞질러 맞힌다 (구불구불한 경로를 따라 비행 시간만큼 앞)
 		s = _new_stage(2)
 		await physics_frame
 		var m: Messenger = s.messengers[0]
-		var from: Vector3 = StageDefs.E3_RUN[0]
-		var to: Vector3 = StageDefs.E3_RUN[1]
-		var run := (to - from).normalized()
-		var lead := 2.0
-		var tgt := from
-		for i in 6:
-			tgt = from + run * m.speed * (lead + 0.75) + Vector3(0, 0.9, 0)
-			var dir := aim(s.player.throw_origin(), tgt, 30.0)
-			lead = flight_time(s.player.throw_origin(), tgt, dir, 30.0)
-		await _throw(s, K.FIRE, tgt)
-		await _wait(s, 3.0)
-		_check(m.dead, "E3 전령 예측 투척으로 쓰러뜨림")
+		await _throw(s, K.FIRE, _lead_on_path(s, m, 0.0) + Vector3(0, 0.9, 0))
+		await _expect(s, Stage.State.CLEARED, "E3 전령 예측 투척", 10.0)
+		_check(m.dead, "E3 전령이 쓰러짐 (%s)" % m.defeat_cause)
+		# E3: 봉화대를 먼저 태운다 (두 번째 풀이)
+		s = _new_stage(2)
+		await physics_frame
+		await _throw(s, K.FIRE, StageDefs.E3_BEACON + Vector3(0, 3.6, 0.6))
+		await _expect(s, Stage.State.CLEARED, "E3 봉화대 먼저 태우기")
 		# E3: 아무것도 막지 않으면 전령이 도착해 실패
 		s = _new_stage(2)
 		await physics_frame
 		await _throw(s, K.FIRE, Vector3(-30, 0, -25))
-		await _expect(s, Stage.State.FAILED, "E3 전령 방치", MAX_TIME, "fail_messenger")
-
+		await _expect(s, Stage.State.FAILED, "E3 전령 방치", 60.0, "fail_messenger")
 	if _want(3):
 		# E4: 고폭탄으로 강철벽 → 지휘관
 		s = _new_stage(3)
@@ -247,34 +252,28 @@ func _run() -> void:
 		await _expect(s, Stage.State.CLEARED, "E8 밤 진지")
 
 	if _want(8):
-		# E9: 아래층에서는 닿지 않고, 위층으로 올라가면 닿는다
+		# E9: 아주 먼 지휘관 (최대 사거리 가까이), 차양 → 직격
 		s = _new_stage(8)
 		await physics_frame
 		await physics_frame
-		_check(not reachable(s.player.throw_origin(), C[8] + Vector3(0, 2.9, 0), 30.0), "E9 아래층에서는 사거리 밖")
-		s.player.change_floor(1)
-		_check(not s.player.begin_windup(), "E9 오르는 동안 던질 수 없다")
-		await _wait(s, Player.CLIMB_TIME + 0.3)
-		_check(reachable(s.player.throw_origin(), C[8] + Vector3(0, 2.9, 0), 30.0), "E9 위층에서는 사거리 안")
+		var dist := Vector2(C[8].x, C[8].z).distance_to(Vector2(s.player.global_position.x, s.player.global_position.z))
+		_check(reachable(s.player.throw_origin(), C[8] + Vector3(0, 2.9, 0), 30.0) and dist > 100.0, "E9 %.0fm 떨어진 지휘관이 사거리 안" % dist)
 		await _throw(s, K.FIRE, C[8] + Vector3(0, 2.9, 0))
 		await _wait(s, 6.5)
 		await _throw(s, K.FIRE, C[8] + Vector3(0, 1.8, 0))
-		await _expect(s, Stage.State.CLEARED, "E9 위층에서 차양 → 직격")
+		await _expect(s, Stage.State.CLEARED, "E9 먼 지휘관")
 
 	if _want(9):
-		# E10: 기름통 줄 끝에 불 → 초소까지 (전령이 오기 전에)
+		# E10: 기름통 줄 끝에 불 → 강철벽 뒤 봉화대까지 타 들어간다
 		s = _new_stage(9)
 		await physics_frame
-		await _throw(s, K.FIRE, C[9] + Vector3(5.2, 0.8, 6.5))
-		await _expect(s, Stage.State.CLEARED, "E10 기름통 줄 점화")
-		# E10: 고폭탄으로 벽 → 화염탄으로 초소
+		await _throw(s, K.FIRE, Vector3(-26.5, 0.8, -80.0))
+		await _expect(s, Stage.State.CLEARED, "E10 기름통 줄로 봉화대 태우기")
+		# E10: 강철벽 정면 화염탄으로는 봉화대가 안 탄다 → 전령 도착
 		s = _new_stage(9)
 		await physics_frame
-		await _throw(s, K.HE, C[9] + Vector3(0, 1.5, 4.7))
-		await _wait(s, 1.5)
-		await _throw(s, K.FIRE, C[9] + Vector3(0.5, 2.9, 0))
-		await _expect(s, Stage.State.CLEARED, "E10 벽 날리고 초소")
-
+		await _throw(s, K.FIRE, Vector3(-33, 2.0, -84.6))
+		await _expect(s, Stage.State.FAILED, "E10 강철벽 정면 화염탄 → 전령 도착", 60.0, "fail_messenger")
 	if _want(10):
 		# E11: 방패병(화염) → 바리케이드(고폭) → 그물(고폭) → 성문 앞 폭발통(화염)
 		s = _new_stage(10)
@@ -291,6 +290,17 @@ func _run() -> void:
 		_check(ally.at_gate, "E11 동료가 성문 앞에 도착 (%.1f초)" % t)
 		await _throw(s, K.FIRE, ally.global_position + Vector3(0, 1.0, 0.5))
 		await _expect(s, Stage.State.CLEARED, "E11 폭발통으로 성문 붕괴")
+		# 성문은 플레이어의 고폭탄으로는 부서지지 않는다
+		s = _new_stage(10)
+		await physics_frame
+		for i in 3:
+			await _throw(s, K.HE, Vector3(0, 2.0, -59.0))
+		await _wait(s, 4.0)
+		var gate_ok := true
+		for blk in s.structures[0].blocks:
+			if blk.fallen:
+				gate_ok = false
+		_check(gate_ok and s.state == Stage.State.PLAYING, "E11 고폭탄 3발에도 성문과 초소가 버틴다")
 		# 길을 열지 않으면 동료는 방패병 앞에서 기다린다
 		s = _new_stage(10)
 		await physics_frame

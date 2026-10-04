@@ -14,17 +14,22 @@ const M := Block.Mat
 const COUNT := 11
 const NAMES := ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9", "E10", "E11"]
 
-## 스테이지별 투척 구역 높이 (중간 높이도 섞는다). E9는 두 층 중 선택
-const PERCH := [25.0, 14.0, 25.0, 20.0, 18.0, 25.0, 15.0, 22.0, 12.0, 20.0, 22.0]
-const E9_FLOORS := [12.0, 22.0]
-## 지휘관 위치
+## 스테이지별 투척 구역 높이 (중간 높이도 섞는다)
+const PERCH := [25.0, 14.0, 25.0, 20.0, 18.0, 25.0, 15.0, 22.0, 22.0, 20.0, 22.0]
+## 지휘관 위치 (E3·E10 전령 스테이지는 지휘관이 없다)
 const COMMANDER := [
 	Vector3(0, 0, -45), Vector3(0, 4.3, -40), Vector3(-6, 0, -58), Vector3(0, 0, -48), Vector3(0, 0, -52),
 	Vector3(0, 0, -57), Vector3(0, 0, -44), Vector3(0, 0, -50), Vector3(0, 0, -106), Vector3(0, 0, -60), Vector3(0, 4.3, -62),
 ]
-## 전령 경로 (E3, E10)
-const E3_RUN := [Vector3(-26, 0, -40), Vector3(30, 0, -74)]
-const E10_RUN := [Vector3(26, 0, -44), Vector3(-30, 0, -82)]
+## 전령 경로 (E3, E10): 구불구불한 꺾은선. 뒤 스테이지일수록 빠르고 많이 꺾인다
+const E3_RUN := [Vector3(-26, 0, -38), Vector3(-14, 0, -46), Vector3(-18, 0, -56), Vector3(-2, 0, -62),
+	Vector3(6, 0, -54), Vector3(18, 0, -64), Vector3(28, 0, -72)]
+const E3_SPEED := 2.6
+const E3_BEACON := Vector3(31, 0, -75)
+const E10_RUN := [Vector3(26, 0, -40), Vector3(14, 0, -46), Vector3(22, 0, -54), Vector3(8, 0, -60), Vector3(14, 0, -70),
+	Vector3(-2, 0, -74), Vector3(-10, 0, -66), Vector3(-20, 0, -78), Vector3(-29, 0, -84)]
+const E10_SPEED := 3.4
+const E10_BEACON := Vector3(-33, 0, -88)
 ## 지원형 동료 경로 (E11): 투척 구역 아래에서 성문까지
 const E11_PATH := [Vector3(-14, 0, -18), Vector3(-6, 0, -34), Vector3(0, 0, -58.3)]
 
@@ -158,18 +163,16 @@ static func _e2(s: Stage) -> void:
 	s.add_guard(Vector3(-4, 0, c.z + 3), 180.0)
 
 
-## E3 전령형: 옆으로 달리는 전령과 끝의 나무 봉화대. 전령을 맞히거나 봉화대를 먼저 태운다.
+## E3 전령형: 지원을 부르러 봉화대로 달리는 전령을 멈춘다 (지휘관 없음).
+## 전령을 앞질러 맞히거나, 봉화대를 먼저 태운다. 첫 전령 스테이지라 느리고 완만하게 꺾인다.
 static func _e3(s: Stage) -> void:
-	s.begin("E3", "E3 · 봉화대로 달리는 전령", "지휘관을 쓰러뜨려라. 전령이 봉화대에 닿으면 실패 (첫 투척과 함께 달린다)")
+	s.begin("E3", "E3 · 봉화대로 달리는 전령", "전령을 멈춰라: 쓰러뜨리거나 봉화대를 먼저 태운다 (첫 투척과 함께 달린다)", false, Stage.Goal.MESSENGER)
 	_zone(s, 2)
 	s.add_ammo(FIRE, 6)
-	var c: Vector3 = COMMANDER[2]
-	shelter(s.add_structure(), c)
-	s.add_commander(c)
-	s.add_messenger(E3_RUN[0], E3_RUN[1], 3.6)
+	s.add_messenger(E3_RUN, E3_SPEED)
 	s.beacon = s.add_structure()
-	beacon(s.beacon, E3_RUN[1] + Vector3(2.0, 0, -1.5))
-
+	s.beacon_center = E3_BEACON
+	beacon(s.beacon, E3_BEACON)
 
 ## E4 직격형: 강철벽 뒤 지휘관. 고폭탄으로 벽을 날리고 직격한다 (강철 지붕이 높은 포물선을 막는다).
 static func _e4(s: Stage) -> void:
@@ -271,36 +274,38 @@ static func _e8(s: Stage) -> void:
 	s.add_guard(c + Vector3(9.5, 0, -5), 180.0)
 
 
-## E9 높이 선택: 비계 2층(12m, 22m) 중 선택. 지휘관은 아래층 최대 사거리보다 조금 멀다.
+## E9 원거리: 아주 먼 지휘관 (거의 최대 사거리). 거리를 격해 맞히는 쾌감 확인용.
+## 이후 본편에서는 이 정도 거리를 뒤 스테이지의 난이도 요소로 쓴다.
 static func _e9(s: Stage) -> void:
-	s.begin("E9", "E9 · 높이 고르기", "E/Q 키로 비계를 오르내린다 (2.5초, 그동안 못 던진다)")
-	s.set_zone(Vector3(0, E9_FLOORS[0], 0), Vector2(3.0, 3.0), E9_FLOORS)
+	s.begin("E9", "E9 · 먼 진지", "아주 멀리 있는 지휘관을 쓰러뜨려라 (차양을 태우고 직격)")
+	_zone(s, 8)
 	s.add_ammo(FIRE, 5)
 	var c: Vector3 = COMMANDER[8]
 	shelter(s.add_structure(), c)
 	s.add_commander(c)
 
-
-## E10 종합: 강철벽, 기름통 줄, 전령이 함께. 고폭탄으로 벽을 날리거나 기름통 줄에 불을 붙여 초소까지.
+## E10 종합 (전령형 응용): 더 빠르고 많이 꺾이는 전령, 경로 일부를 가리는 강철벽,
+## 강철벽 뒤에 숨은 봉화대와 그 앞까지 이어진 기름통 줄. 고폭탄으로 벽을 날리거나 기름통 줄에 불을 붙인다.
 static func _e10(s: Stage) -> void:
-	s.begin("E10", "E10 · 강철 관문 앞 초소", "지휘관을 쓰러뜨려라. 전령이 봉화대에 닿으면 실패 (1~2 키로 탄종 교체)")
+	s.begin("E10", "E10 · 강철벽 뒤의 봉화대", "전령을 멈춰라: 쓰러뜨리거나 봉화대를 먼저 태운다 (1~2 키로 탄종 교체)", false, Stage.Goal.MESSENGER)
 	_zone(s, 9)
 	s.add_ammo(HE, 3)
 	s.add_ammo(FIRE, 4)
-	var c: Vector3 = COMMANDER[9]
 	var st := s.add_structure()
-	steel_wall(st, c + Vector3(0, 0, 4.5), 9.0, 4.0)
-	hut(st, c, 2.0, 2.6)
-	# 벽 옆으로 돌아 초소까지 이어진 기름통 줄 (검정에 흰 띠)
-	for i in 6:
-		st.add_block(M.FUEL, c + Vector3(5.2, 0.4, 6.0 - i * 1.0), Vector3(0.8, 0.8, 1.0))
-	for i in 2:
-		st.add_block(M.FUEL, c + Vector3(4.0 - i * 1.0, 0.4, 0.5), Vector3(1.0, 0.8, 0.8))
-	s.add_commander(c + Vector3(1.0, 0, 0.3), 180.0, Vector3(2.0, 0, -1.9))
-	s.add_messenger(E10_RUN[0], E10_RUN[1], 3.4)
+	# 경로 일부를 가리는 강철벽 둘
+	steel_wall(st, Vector3(18, 0, -49), 9.0, 3.0)
+	steel_wall(st, Vector3(4, 0, -69), 9.0, 3.0)
+	# 봉화대 앞을 막는 강철벽
+	steel_wall(st, Vector3(-33, 0, -85), 9.0, 4.0)
+	# 벽 옆으로 돌아 봉화대 곁까지 이어진 기름통 줄 (검정에 흰 띠)
+	for i in 8:
+		st.add_block(M.FUEL, Vector3(-26.5, 0.4, -80.5 - i * 1.0), Vector3(0.8, 0.8, 1.0))
+	for i in 4:
+		st.add_block(M.FUEL, Vector3(-27.5 - i * 1.0, 0.4, -88.3), Vector3(1.0, 0.8, 0.8))
+	s.add_messenger(E10_RUN, E10_SPEED)
 	s.beacon = s.add_structure()
-	beacon(s.beacon, E10_RUN[1] + Vector3(-2.0, 0, -1.5))
-
+	s.beacon_center = E10_BEACON
+	beacon(s.beacon, E10_BEACON)
 
 ## E11 지원형: 폭발통을 진 동료 고블린이 성문까지 걷는다. 방패병, 바리케이드, 쇠사슬 그물을 치워 길을 연다.
 ## 성문 앞에 닿으면 화염탄으로 폭발통을 터뜨린다. 지휘관은 성문 위에 서 있다.
@@ -311,6 +316,8 @@ static func _e11(s: Stage) -> void:
 	s.add_ammo(FIRE, 3)
 	var gate := Vector3(0, 0, -60)
 	var st := s.add_structure()
+	# 성문은 동료의 폭발통으로만 부서진다 (플레이어의 투척과 떨어지는 잔해는 통하지 않는다)
+	st.player_proof = true
 	# 성문: 석재 기둥 둘 + 강철 문짝 + 위의 석재 보행로 (지휘관이 그 위에 선다)
 	for sx in [-1, 1]:
 		st.add_block(M.STONE, gate + Vector3(sx * 2.5, 2.0, 0), Vector3(1.4, 4.0, 1.6))
@@ -318,6 +325,11 @@ static func _e11(s: Stage) -> void:
 			st.add_block(M.STONE, gate + Vector3(sx * (4.0 + k * 1.6), 2.0, 0), Vector3(1.6, 4.0, 1.6))
 	st.add_block(M.STEEL, gate + Vector3(0, 1.75, 0.3), Vector3(3.6, 3.5, 0.3))
 	st.add_block(M.STONE, gate + Vector3(0, 4.15, 0), Vector3(6.4, 0.3, 1.6))
+	# 보행로 위 석재 초소: 앞벽 + 양옆 벽 + 지붕 (뒤는 트임). 지휘관을 직접 맞힐 수 없다
+	st.add_block(M.STONE, gate + Vector3(0, 5.4, 0.65), Vector3(2.7, 2.2, 0.3))
+	for sx in [-1, 1]:
+		st.add_block(M.STONE, gate + Vector3(sx * 1.5, 5.4, 0), Vector3(0.3, 2.2, 1.6))
+	st.add_block(M.STONE, gate + Vector3(0, 6.65, 0), Vector3(3.3, 0.3, 1.6))
 	var pts: Array = E11_PATH
 	# 길 위의 장애물: 방패병 둘 → 목재 바리케이드 → 쇠사슬 그물 (강철)
 	var g1 := s.add_guard(_along(pts, 12.0) + Vector3(-0.5, 0, 0), 20.0, true)
@@ -339,7 +351,7 @@ static func _e11(s: Stage) -> void:
 		{"distance": 32.0, "cleared": func(): return _cleared(net)},
 	]
 	s.add_ally(pts, 1.8, obstacles)
-	s.add_commander(Vector3(0, 4.3, -60), 180.0, Vector3(1.8, 0, 0))
+	s.add_commander(Vector3(0, 4.3, -60.2), 180.0, Vector3(2.2, 0, 0))
 
 
 ## 경로를 따라 거리 d인 지점.
