@@ -1,54 +1,53 @@
 class_name Texts
 extends RefCounted
 ## 화면 문구 모음 (나중에 번역하기 쉽게 한 파일에 모은다).
-## 고블린 외침은 짧게, 설정·탄 이름은 평범하고 정확하게, 실패 문구는 원인을 정확히 가리킨다.
+## 화면 글자는 최소로: 탄종·남은 탄·폭격대는 그림(UiIcon)으로 보여 주고, 꼭 글로 적어야 하는 것(메뉴, 조작, 실패 원인)은
+## 고블린 말투로 짧게 적는다. 실패 문구는 원인을 정확히 가리킨다.
 
 const T := {
 	# 고블린 외침
-	"start": "공격!",
-	"continue": "계속 공격!",
-	"quit": "후퇴!",
-	"retry": "다시 공격!",
+	"start": "부숴라!",
+	"continue": "계속 부숴라!",
+	"quit": "튀어!",
+	"retry": "다시 던져!",
 	"next": "다음 진지로!",
-	"last_shot": "마지막 한 방!",
+	"last_shot": "마지막 한 방이다!",
 	"win": "박살!",
 	"fail_ammo": "폭탄을 다 썼잖아!!",
 	"fail_messenger": "전령이 도착했잖아!!",
 	"fail_stuck": "이 폭탄으로는 더 못 깨잖아!!",
-	"kill_one": "하나 박살! 남은 지휘관 %d",
+	"kill_one": "하나 박살!",
 	"button_fire": "발사!!!",
-	"button_locked": "발리스타가 남아 있다! 안전장치가 안 풀린다",
-	# 메뉴
+	"button_locked": "꼬챙이 쏘는 놈(발리스타)부터 부숴! 단추가 꿈쩍 안 해",
+	# 메뉴 (그림으로 바꾸기 애매한 것은 고블린 말투로)
 	"game_title": "미친 고블린",
-	"game_subtitle": "부족장을 돌려받을 때까지, 펑!",
-	"menu_start": "시작",
-	"menu_continue": "이어서 공격",
-	"menu_select": "진지 고르기",
-	"menu_opening": "처음 이야기",
-	"menu_settings": "설정",
-	"menu_quit": "그만하기",
-	"menu_back": "돌아가기",
-	"menu_resume": "계속",
-	"menu_restart": "다시 공격",
-	"menu_title": "처음 화면으로",
-	"paused": "잠깐!",
-	"locked": "잠김",
-	"best_left": "최고: 탄 %d발 남김",
-	"set_sens": "마우스 감도",
-	"set_volume": "소리 크기",
-	"set_fullscreen": "전체 화면",
-	# 평범한 안내
-	"empty_slot": "이 탄은 다 썼다",
-	"rocket_shot_down": "글라이더가 발리스타에 맞았다!!",
-	"bombers_left": "대기 중인 폭격대",
-	"rocket_ready": "최종 로켓",
-	"press_button": "E  발사 버튼 누르기",
-	"skip_intro": "아무 키나 누르면 건너뛰기",
-	"ammo_left": "남은 탄",
-	"any_key": "아무 키나 누르면 계속",
-	"help": "WASD 이동 · 마우스 시점 · 좌클릭 누름 와인드업 / 뗌 투척 · 우클릭 4배 줌 / 투척 취소 · 1~5·휠 탄종 · R 재시작 · Esc 잠깐",
+	"game_subtitle": "부족장 내놔! 안 내놓으면, 펑!",
+	"menu_start": "부수러 가자!",
+	"menu_continue": "계속 부수자!",
+	"menu_select": "어디 부술까?",
+	"menu_opening": "어쩌다 이리 됐더라",
+	"menu_settings": "이것저것 만지기",
+	"menu_quit": "그만 잘래",
+	"menu_back": "뒤로!",
+	"menu_resume": "다시 던지자!",
+	"menu_restart": "처음부터 다시!",
+	"menu_title": "첫 화면으로 도망!",
+	"paused": "잠깐! 숨 좀 돌리자",
+	"locked": "아직 꽁꽁",
+	"best_left": "제일 잘했을 때 %d발 남김",
+	"set_sens": "눈알 굴리는 빠르기",
+	"set_volume": "쾅! 소리 크기",
+	"set_fullscreen": "화면 꽉 채우기",
+	# 짧은 알림
+	"empty_slot": "그건 다 던졌어!",
+	"rocket_shot_down": "으악! 글라이더가 꼬챙이에 맞았다!!",
+	"press_button": "E  빨간 단추 꾸욱!",
+	"skip_intro": "아무거나 누르면 건너뛰기",
+	"any_key": "아무거나 눌러!",
+	"help": "WASD 걷기 · 마우스 두리번 · 왼쪽 꾹 = 힘 모으기, 떼면 휙! · 오른쪽 = 눈 크게 / 그만 · 1~5·휠 폭탄 바꾸기 · R 다시 · Esc 잠깐",
 	"opening_hint": "클릭 / 스페이스 ▶     Esc 건너뛰기",
 }
+
 
 
 static func t(key: String) -> String:

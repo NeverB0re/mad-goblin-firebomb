@@ -249,8 +249,15 @@ func _smash(stage: Stage) -> void:
 	smash.scale = Vector2.ONE * 2.6
 	_tween().tween_property(smash, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await _wait_real(0.45)
-	var left := _label("%s  %d" % [Texts.t("ammo_left"), stage.total_ammo()], 26, Color(1, 1, 1))
+	# 남은 탄: 폭탄 그림 + 개수
+	var left := HBoxContainer.new()
+	left.alignment = BoxContainer.ALIGNMENT_CENTER
+	left.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(left)
 	_place(left, Vector4(0, 0.62, 1, 0.7))
+	left.add_child(UiIcon.make("he", 40.0))
+	var n := _label("×%d" % stage.total_ammo(), 30, Color(1, 1, 1))
+	n.reparent(left)
 	_buttons([Texts.t("next"), Texts.t("retry") + " (R)"])
 	_ready_for_input = true
 

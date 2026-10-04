@@ -1,10 +1,11 @@
 class_name Hud
 extends CanvasLayer
-## 화면 중앙의 작은 점, 스테이지 번호, 탄약. 목표 문구·포물선·낙하 지점은 보여 주지 않는다
+## 화면 중앙의 작은 점, 스테이지 번호, 탄약(그림 + 개수). 목표 문구·포물선·낙하 지점은 보여 주지 않는다
 ## (무엇을 해야 할지는 재질과 직접 던져 보며 알아낸다). 조작 안내는 첫 투척 뒤 사라진다.
 
 var _title: Label
-var _ammo: Label
+## 탄약 줄: 탄종 그림, 숫자 키, 남은 개수 (글자 대신 그림)
+var _ammo: HBoxContainer
 var _banner: Label
 var _sub: Label
 var _toast: Label
@@ -57,10 +58,12 @@ func _ready() -> void:
 	root.add_child(_targets)
 	_place(_targets, Vector4(0, 0, 0, 0), Vector4(26, 56, 400, 90))
 
-	_ammo = _label(root, 22)
-	_ammo.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_ammo.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	_place(_ammo, Vector4(1, 1, 1, 1), Vector4(-600, -140, -24, -20))
+	_ammo = HBoxContainer.new()
+	_ammo.alignment = BoxContainer.ALIGNMENT_END
+	_ammo.add_theme_constant_override("separation", 6)
+	_ammo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_ammo)
+	_place(_ammo, Vector4(1, 1, 1, 1), Vector4(-700, -112, -24, -20))
 
 	_help = _label(root, 15)
 	_help.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
@@ -144,16 +147,46 @@ func show_toast(text: String) -> void:
 func _refresh_ammo() -> void:
 	if not is_instance_valid(_stage):
 		return
-	var lines := PackedStringArray()
+	for c in _ammo.get_children():
+		c.queue_free()
 	for i in _stage.ammo_slots.size():
 		var slot: Dictionary = _stage.ammo_slots[i]
-		var mark := "▶ " if i == _stage.current_slot else "   "
-		lines.append("%s%d  %s  × %d" % [mark, i + 1, slot.type.display_name, slot.count])
+		_ammo.add_child(_ammo_cell(UiIcon.of_ammo(slot.type.kind), slot.count, str(i + 1), i == _stage.current_slot))
 	if _stage.bombers_total > 0:
-		lines.append("%s  × %d" % [Texts.t("bombers_left"), _stage.bombers_left()])
+		_ammo.add_child(_ammo_cell("bomber", _stage.bombers_left(), "", false))
 	if _stage.button_ready():
-		lines.append("%s  × 1" % Texts.t("rocket_ready"))
-	_ammo.text = "\n".join(lines)
+		_ammo.add_child(_ammo_cell("rocket", 1, "E", false))
+
+
+## 탄약 한 칸: 위에 숫자 키, 가운데 그림, 아래 ×개수. 고른 칸은 밝은 판 위에 크게, 다 쓴 칸은 흐리게.
+func _ammo_cell(icon_kind: String, count: int, key: String, selected: bool) -> Control:
+	var cell := PanelContainer.new()
+	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := StyleBoxFlat.new()
+	bg.bg_color = Color(1.0, 0.85, 0.35, 0.35) if selected else Color(0, 0, 0, 0.25)
+	bg.border_color = Color(1.0, 0.85, 0.35) if selected else Color(0, 0, 0, 0)
+	bg.set_border_width_all(3 if selected else 0)
+	bg.set_corner_radius_all(10)
+	bg.set_content_margin_all(4)
+	cell.add_theme_stylebox_override("panel", bg)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", -4)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(col)
+	var top := _label(col, 14)
+	top.text = key
+	top.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	top.modulate = Color(1, 1, 1, 0.7)
+	var icon := UiIcon.make(icon_kind, 56.0 if selected else 44.0)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(icon)
+	var n := _label(col, 22 if selected else 18)
+	n.text = "×%d" % count
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if count <= 0:
+		cell.modulate = Color(1, 1, 1, 0.35)
+	cell.size_flags_vertical = Control.SIZE_SHRINK_END
+	return cell
 
 
 func _refresh_targets() -> void:

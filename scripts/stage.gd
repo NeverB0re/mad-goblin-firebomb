@@ -1077,7 +1077,7 @@ func _kill_beat(c: Commander) -> void:
 	stars.emitting = true
 	Fx.free_after(stars, 2.0)
 	Fx.flash(self, c.chest(), 5.0, 8.0, 0.4)
-	toast.emit(Texts.t("kill_one") % commanders_left())
+	toast.emit(Texts.t("kill_one"))
 	if Engine.time_scale != 1.0 and Engine.time_scale != 0.05:
 		return
 	Engine.time_scale = 0.3
