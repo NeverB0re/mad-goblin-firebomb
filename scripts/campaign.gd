@@ -320,7 +320,7 @@ static func build(i: int, s: Stage) -> void:
 	s.title = "%s · %s" % [label(i), d.name]
 
 
-## 배경 고블린 (판정과 무관). 화약통·폭발통 곁에서는 "여기야!" 하고 손짓하는 고블린 (휘말려도 개의치 않는다),
+## 배경 고블린 (판정과 무관). 1월드의 화약통·폭발통 곁에서는 "여기야!" 하고 손짓하는 고블린 (휘말려도 개의치 않는다),
 ## 1월드에서는 인간 건물 앞에서 병사와 싸우거나 돌멩이를 던지는 마을 고블린.
 static func _extras(s: Stage, d: Dictionary, world: int) -> void:
 	var GE := GoblinExtra.Mode
@@ -328,7 +328,8 @@ static func _extras(s: Stage, d: Dictionary, world: int) -> void:
 	for part in d.parts:
 		var c: Vector3 = part[1]
 		var opts: Dictionary = part[2] if part.size() > 2 else {}
-		match part[0]:
+		# 통을 가리켜 주는 고블린은 1월드에만 (그 뒤로는 스스로 찾는다)
+		match part[0] if world == 0 else "":
 			"powder":
 				s.add_extra(c + Vector3(5.6, 0, 2.2), 200.0, GE.WAVE, c + Vector3(3.6, 0.5, -0.6))
 			"fortress":
@@ -472,7 +473,8 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 				out.append([K.OIL, c + Vector3(0, 1.5, 1.5), true, 0.3])
 				out.append([K.FIRE, c + Vector3(0, 1.5, 1.5), true, 0.0])
 			else:
-				out.append([K.FIRE, c + Vector3(0, 0.7, 2.3), true, 0.0])
+				# 성벽 앞으로 빠져나온 도화선 끝에 불 → 탑 발치 화약통이 터진다
+				out.append([K.FIRE, c + Vector3(0, 0.1, FORT_FUSE_Z - 0.4), false, 0.0])
 		"oilhouse":
 			out.append([K.OIL, c + Vector3(0.3, 0.3, 5.0), false, 0.3])
 			out.append([K.FIRE, c + Vector3(0.3, 1.0, 7.6), false, 0.0])
@@ -688,8 +690,12 @@ static func _part_pillars(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	s.add_guard(c + Vector3(4, 0, 3), 180.0)
 
 
+## 공성탑 요새의 도화선이 성벽 앞으로 뻗어 나온 끝 z (부품 중심 기준, 성벽은 +6)
+const FORT_FUSE_Z := 8.2
+
+
 ## 공성탑 요새: 앞 성벽(반듯한 석재, 강철 문) 너머 안뜰의 나무 탑.
-## 기본은 탑 발치에 화약통 (높이 띄워 넣는다). wet: 화약통 없이 돌 난간 두른 탑 (기름과 불을 높이 띄워 넣는다).
+## 기본은 탑 발치에 화약통: 강철 문 밑으로 빠져나온 도화선 끝에 불을 붙이거나, 높이 띄워 넣는다. wet: 화약통 없이 돌 난간 두른 탑 (기름과 불을 높이 띄워 넣는다).
 static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	var wall := s.add_structure()
 	var wz := c.z + 6.0
@@ -700,7 +706,8 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 		wall.add_block(M.STONE, Vector3(x, 2.25, wz), Vector3(2.25, 4.5, 1.0))
 		if k % 2 == 0:
 			wall.add_block(M.STONE, Vector3(x, 5.0, wz), Vector3(1.2, 1.0, 1.0))
-	wall.add_block(M.STEEL, Vector3(c.x, 1.6, wz), Vector3(2.25, 3.2, 0.5))
+	# 강철 문은 땅에서 살짝 떠 있다 (그 틈으로 도화선이 빠져나온다)
+	wall.add_block(M.STEEL, Vector3(c.x, 1.675, wz), Vector3(2.25, 3.05, 0.5))
 	wall.add_block(M.STONE, Vector3(c.x, 3.85, wz), Vector3(2.25, 1.3, 1.0))
 	var wet: bool = o.get("wet", false)
 	_part_tower(s, c, {"legs": 6.0, "parapet": wet})
@@ -708,6 +715,13 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 		var tower: Structure = s.structures[s.structures.size() - 1]
 		for k in 3:
 			tower.add_block(M.KEG, c + Vector3(-0.75 + k * 0.75, 0.375, 2.3), Vector3(0.75, 0.75, 0.75))
+		# 도화선: 가운데 화약통에서 강철 문 밑 틈을 지나 성벽 앞까지 (끝에 불을 붙이면 타 들어가 화약통이 터진다)
+		var h := 0.1
+		var z0 := 2.675
+		var n := 8
+		var zseg := (FORT_FUSE_Z - z0) / n
+		for k in n:
+			tower.add_block(M.ROPE, c + Vector3(0, h * 0.5, z0 + (k + 0.5) * zseg), Vector3(0.12, h, zseg))
 	s.add_guard(c + Vector3(5, 0, 2), 180.0)
 
 
