@@ -26,6 +26,8 @@ enum Kind { FIRE, HE, OIL, FLARE, FLAREGUN, STONE }
 ## 조명탄: 착탄 지점에서 솟아오르는 높이와 밝히는 시간 (0이면 없음).
 @export var flare_height := 0.0
 @export var flare_duration := 0.0
+## 바람을 타는 정도 (가벼울수록 크다). 1 = 화염탄.
+@export var wind_factor := 1.0
 ## 지휘관을 쓰러뜨리는 폭발 반경 (착탄점 기준). 0이면 직격만.
 @export var kill_radius := 1.2
 ## 모델 크기 배수.

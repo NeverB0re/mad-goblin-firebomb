@@ -26,6 +26,7 @@ var _model: Node3D
 func launch(origin: Vector3, direction: Vector3, ammo_type: AmmoType, excluded: Array[RID] = []) -> void:
 	ammo = ammo_type
 	exclude = excluded
+	wind *= ammo.wind_factor
 	global_position = origin
 	velocity = direction.normalized() * ammo.throw_speed
 	_model = Fx.ammo_model(ammo.kind, ammo.model_scale)

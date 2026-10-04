@@ -220,9 +220,18 @@ static func flag(height := 4.0) -> Node3D:
 	return root
 
 
-## 횃불 (밤 스테이지). 실제 광원 대신 발광 재질과 밝은 원뿔 메시로 흉내 낸다.
+## 횃불 (밤 스테이지). 둘레 몇 m만 밝히는 작은 불빛 (그림자 없음) + 발광 재질과 빛 웅덩이.
+## 대략의 위치만 알려 주고, 건물 재질까지 알아보려면 조명탄이 필요하다.
 static func torch(height := 1.8) -> Node3D:
 	var root := Node3D.new()
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.25)
+	light.light_energy = 1.4
+	light.omni_range = 6.0
+	light.omni_attenuation = 1.6
+	light.shadow_enabled = false
+	light.position = Vector3(0, height + 0.3, 0)
+	root.add_child(light)
 	cyl(root, 0.04, 0.05, height, Vector3(0, height * 0.5, 0), mat(Color(0.3, 0.2, 0.1)))
 	var flame := mat(Color(1.0, 0.6, 0.15), 0.5, 0.0, 4.0)
 	cyl(root, 0.0, 0.12, 0.3, Vector3(0, height + 0.15, 0), flame, Vector3.ZERO, 6)

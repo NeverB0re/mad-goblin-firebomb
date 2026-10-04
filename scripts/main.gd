@@ -161,17 +161,21 @@ func _setup_environment() -> void:
 	_apply_time_of_day(false)
 
 
-## 밤은 안개 대신 시야를 제한한다. 적의 횃불과 조명탄이 단서다.
+## 밤은 거의 캄캄하다. 적의 횃불이 지휘관 둘레만 어렴풋이 밝혀 대략 어디쯤인지만 알 수 있고,
+## 무엇이 나무고 무엇이 강철인지는 조명탄으로 비춰 봐야 구분된다.
 func _apply_time_of_day(night: bool, rain := false) -> void:
+	_env.fog_depth_begin = 25.0 if night else 70.0
+	_env.fog_depth_end = 110.0 if night else 400.0
+	_env.fog_density = 0.9 if night else 0.35
 	if night:
-		_sky_mat.sky_top_color = Color(0.02, 0.03, 0.07)
-		_sky_mat.sky_horizon_color = Color(0.06, 0.07, 0.12)
-		_sky_mat.ground_horizon_color = Color(0.04, 0.04, 0.06)
-		_sky_mat.ground_bottom_color = Color(0.01, 0.01, 0.02)
-		_env.ambient_light_energy = 0.12
-		_env.fog_light_color = Color(0.03, 0.04, 0.07)
+		_sky_mat.sky_top_color = Color(0.004, 0.006, 0.016)
+		_sky_mat.sky_horizon_color = Color(0.012, 0.014, 0.03)
+		_sky_mat.ground_horizon_color = Color(0.008, 0.008, 0.014)
+		_sky_mat.ground_bottom_color = Color(0.0, 0.0, 0.0)
+		_env.ambient_light_energy = 0.015
+		_env.fog_light_color = Color(0.004, 0.005, 0.01)
 		_sun.light_color = Color(0.55, 0.65, 0.9)
-		_sun.light_energy = 0.06
+		_sun.light_energy = 0.012
 	else:
 		_sky_mat.sky_top_color = Color(0.52, 0.66, 0.86)
 		_sky_mat.sky_horizon_color = Color(0.86, 0.88, 0.9)
