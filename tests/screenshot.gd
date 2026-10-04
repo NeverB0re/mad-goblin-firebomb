@@ -7,6 +7,9 @@ const C := StageDefs.COMMANDER
 
 
 func _initialize() -> void:
+	# 사용자가 하던 작업을 가리거나 포커스를 빼앗지 않게 창을 화면 밖에 두고 포커스를 받지 않는다
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true)
+	DisplayServer.window_set_position(Vector2i(-10000, -10000))
 	_run()
 
 
