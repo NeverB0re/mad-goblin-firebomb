@@ -202,7 +202,7 @@ func _run() -> void:
 		# E4: 살짝 빗나간 고폭탄도 가까운 석벽에 금을 키운다 (끊기지는 않아도 약해진다)
 		s = _new_stage(3)
 		await physics_frame
-		await _throw(s, K.HE, C[3] + Vector3(5.0, 0.0, 4.6))
+		await _throw(s, K.HE, C[3] + Vector3(5.8, 0.0, 4.6))
 		await _wait(s, 1.0)
 		var worn := 0
 		var fell := 0

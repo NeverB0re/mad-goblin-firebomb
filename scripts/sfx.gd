@@ -22,6 +22,7 @@ static func _make(kind: String) -> AudioStreamWAV:
 		"win": dur = 1.2
 		"fizzle": dur = 0.9
 		"click": dur = 0.08
+		"splat": dur = 0.3
 	var n := int(dur * RATE)
 	var data := PackedByteArray()
 	data.resize(n * 2)
@@ -83,6 +84,11 @@ static func _make(kind: String) -> AudioStreamWAV:
 			"click":
 				# 메뉴 버튼: 짧은 나무 딱 소리
 				s = sin(TAU * 900.0 * t) * exp(-t * 60.0) * 0.5 + noise * exp(-t * 90.0) * 0.3
+			"splat":
+				# 페인트탄: 물감 주머니가 철퍽 터지는 소리 (낮고 짧은 퍽 + 젖은 잡음)
+				lp += (noise - lp) * 0.2
+				var thud := sin(TAU * (160.0 - 220.0 * t) * t) * exp(-t * 28.0)
+				s = (thud * 0.7 + lp * 1.2 * exp(-t * 14.0)) * minf(t * 300.0, 1.0)
 			"fizzle":
 				# 강철에 닿은 불이 피식 꺼지는 소리
 				lp += (noise - lp) * 0.7

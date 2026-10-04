@@ -123,7 +123,7 @@ static func register_input() -> void:
 	var keys := {
 		"move_forward": [KEY_W], "move_back": [KEY_S], "move_left": [KEY_A], "move_right": [KEY_D],
 		"restart": [KEY_R], "next_stage": [KEY_ENTER, KEY_KP_ENTER],
-		"ammo_1": [KEY_1], "ammo_2": [KEY_2], "ammo_3": [KEY_3], "ammo_4": [KEY_4],
+		"ammo_1": [KEY_1], "ammo_2": [KEY_2], "ammo_3": [KEY_3], "ammo_4": [KEY_4], "ammo_5": [KEY_5],
 	}
 	for action in keys:
 		if InputMap.has_action(action):

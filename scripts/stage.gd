@@ -15,6 +15,8 @@ signal shake_requested(amount: float)
 signal target_down(target: Actor, cause: String, focus: Vector3)
 ## 지휘관 하나가 쓰러짐 (남은 표적 표시용)
 signal targets_changed
+## 조명탄을 보고 로켓이 발사대를 떠남 (추적 화면용)
+signal rocket_launched(missile: Missile)
 
 enum State { PLAYING, CLEARED, FAILED }
 ## 승리 조건: 지휘관 쓰러뜨리기, 또는 전령 멈추기 (전령을 쓰러뜨리거나 건너야 할 다리를 끊음)
@@ -62,6 +64,9 @@ var _quiet := 0.0
 var _last_collapse_sound := -10.0
 var _flags: Array[Node3D] = []
 var _last_shot_warned := false
+## 발사대에서 대기 중인 로켓 모델들 (조명탄이 떨어지면 하나씩 날아간다)
+var _rockets: Array[Node3D] = []
+var rockets_total := 0
 
 
 # ---------- 구성 ----------
@@ -346,13 +351,104 @@ func _ammo_for_throw() -> AmmoType:
 	return current_ammo()
 
 
-## 남은 폭탄 수 (영점 돌과 조명탄은 치지 않는다: 그것만 남으면 더 할 수 있는 게 없다).
+## 남은 폭탄 수 (페인트탄과 조명탄은 치지 않는다: 그것만 남으면 더 할 수 있는 게 없다).
+## 단, 로켓이 대기 중이면 조명탄은 로켓을 부르는 폭탄이다 (남은 로켓 수까지).
 func total_ammo() -> int:
 	var n := 0
 	for s in ammo_slots:
-		if not (s.type.kind in [AmmoType.Kind.STONE, AmmoType.Kind.FLARE]):
-			n += s.count
+		match s.type.kind:
+			AmmoType.Kind.PAINT:
+				pass
+			AmmoType.Kind.FLARE:
+				n += mini(s.count, rockets_left())
+			_:
+				n += s.count
 	return n
+
+
+func rockets_left() -> int:
+	return _rockets.size()
+
+
+## 로켓 발사대: 투척 구역 왼쪽 앞 바위 기둥 위에 로켓 n개가 비스듬히 서서 대기한다 (플레이어 시야 왼쪽에 보인다).
+func add_rockets(n: int) -> void:
+	if player == null or n <= 0:
+		return
+	rockets_total = n
+	var zone := player.position
+	var h := zone.y
+	var base := Vector3(zone.x - 7.5, h, zone.z - 4.5)
+	if h > 0.1:
+		add_prop(Vector3(base.x, h * 0.5, base.z), Vector3(3.6, h, 2.2 + n * 1.3), Color(0.3, 0.29, 0.28))
+	var wood := Models.mat(Color(0.4, 0.27, 0.15))
+	for k in n:
+		var at := base + Vector3(0, 0, -(k - (n - 1) * 0.5) * 1.4)
+		# 받침 나무틀
+		Models.box(self, Vector3(1.6, 0.25, 1.1), at + Vector3(0, 0.12, 0), wood)
+		for sx in [-0.6, 0.6]:
+			Models.box(self, Vector3(0.15, 3.2, 0.15), at + Vector3(sx, 1.6, 0.3), wood, Vector3(-0.25, 0, 0))
+		var r := Models.rocket()
+		add_child(r)
+		# 표적 쪽(-Z)으로 조금 기울어 선다
+		r.position = at + Vector3(0, 2.9, -0.3)
+		r.rotation = Vector3(-0.22, 0, 0)
+		_rockets.append(r)
+
+
+## 조명탄이 떨어진 자리로 대기 중인 로켓을 하나 보낸다.
+func _launch_rocket(target: Vector3) -> void:
+	var r: Node3D = _rockets.pop_back()
+	var from := r.global_position
+	var missile := Missile.new()
+	add_child(missile)
+	missile.setup(self, target, from, r)
+	rocket_launched.emit(missile)
+	ammo_changed.emit()
+
+
+## 로켓 착탄: 아주 큰 폭발 + 근처 인물은 엄폐와 상관없이 쓰러진다.
+func rocket_strike(pos: Vector3, radius: float, strength: float, kill_radius: float) -> void:
+	if not is_inside_tree():
+		return
+	# 동심원은 로켓의 실제 판정 반경(엄폐 무시 kill_radius)으로 따로 그린다
+	explode(pos, radius, strength, false, false)
+	Fx.blast_rings(self, pos, radius, kill_radius)
+	Fx.flash(self, pos + Vector3(0, 4, 0), 16.0, radius * 4.0, 0.8)
+	Fx.chunks(self, pos, [Color(0.3, 0.25, 0.2), Color(0.45, 0.35, 0.25), Color(0.15, 0.12, 0.1)], 16, 16.0)
+	# 버섯구름: 큰 불덩이 + 사방으로 터지는 작은 폭발 + 솟는 연기
+	var core := Fx.burst(140, 18.0, 1.8, Fx.FLAME_COLORS)
+	core.lifetime = 1.4
+	add_child(core)
+	core.global_position = pos + Vector3(0, 1, 0)
+	core.emitting = true
+	Fx.free_after(core, 3.0)
+	for k in 6:
+		var a := k * TAU / 6.0
+		var at := pos + Vector3(cos(a), 0.3, sin(a)) * radius * 0.45
+		get_tree().create_timer(0.08 + 0.07 * k, false, true).timeout.connect(func():
+			if not is_inside_tree():
+				return
+			var b := Fx.burst(40, 10.0, 1.1, Fx.FLAME_COLORS)
+			add_child(b)
+			b.global_position = at
+			b.emitting = true
+			Fx.free_after(b, 2.0)
+			Fx.smoke_puff(self, at, 2.5))
+	var column := Fx.smoke_column(60)
+	(column.process_material as ParticleProcessMaterial).initial_velocity_max = 7.0
+	(column.process_material as ParticleProcessMaterial).scale_max = 4.0
+	add_child(column)
+	column.global_position = pos
+	get_tree().create_timer(3.0, false, true).timeout.connect(Callable(column, "set").bind("emitting", false))
+	Fx.free_after(column, 12.0)
+	for a in get_tree().get_nodes_in_group("actors"):
+		if not a.dead and a.chest().distance_to(pos) < kill_radius:
+			a.defeat("blast")
+	Sfx.play_delayed(self, "boom", pos, 12.0, _listener())
+	shake_requested.emit(1.0)
+	if player:
+		player.add_shake(1.0)
+	hitstop(0.15)
 
 
 func _update_held() -> void:
@@ -404,7 +500,7 @@ func try_throw(origin: Vector3, direction: Vector3) -> bool:
 			m.start()
 		for a in allies:
 			a.start()
-	if total_ammo() == 1 and not (slot.type.kind in [AmmoType.Kind.STONE, AmmoType.Kind.FLARE]) and not _last_shot_warned:
+	if total_ammo() == 1 and slot.type.kind != AmmoType.Kind.PAINT and not _last_shot_warned:
 		_last_shot_warned = true
 		toast.emit(Texts.t("last_shot"))
 	ammo_changed.emit()
@@ -423,7 +519,7 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 	match ammo.kind:
 		AmmoType.Kind.FIRE:
 			Sfx.play_delayed(self, "break", pos, 0.0, _listener())
-			_impact_juice(pos, 1.0)
+			_impact_juice(pos, 1.0, ammo.pool_radius)
 			_shards(pos, Color(0.1, 0.1, 0.1))
 			Fx.scorch(self, pos, 1.6)
 			Fx.flash(self, pos, 3.0, 9.0, 0.35)
@@ -443,7 +539,9 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 				pool.setup(ammo.pool_radius, ammo.pool_duration, ammo.burn_multiplier)
 		AmmoType.Kind.HE:
 			Sfx.play_delayed(self, "boom", pos, 4.0, _listener())
-			_impact_juice(pos, 3.0)
+			_impact_juice(pos, 3.0, 0.0)
+			# 실제 판정 반경 그대로의 동심원 (바깥 = 부서지는 끝, 안 = 쓰러지는 끝)
+			Fx.blast_rings(self, pos, ammo.impact_radius, ammo.kill_radius)
 			_shards(pos, Color(0.25, 0.25, 0.27))
 			Fx.smoke_puff(self, pos, 2.0)
 			Fx.scorch(self, pos, 2.6)
@@ -465,30 +563,26 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			slick.global_position = pos + normal * 0.02
 			slick.setup(ammo.oil_radius)
 			slick.coat_blocks()
-		AmmoType.Kind.FLAREGUN:
-			# 표적 지정: 붉은 연기 + 짧은 불빛, 잠시 뒤 후방에서 탄도미사일이 날아온다
-			var mark := Flare.new()
-			add_child(mark)
-			mark.global_position = pos
-			mark.setup(pos, 3.0, 3.0)
-			var red := Fx.smoke_column(30)
-			add_child(red)
-			red.global_position = pos
-			(red.process_material as ParticleProcessMaterial).color = Color(1.0, 0.25, 0.2)
-			Fx.free_after(red, 8.0)
-			var missile := Missile.new()
-			add_child(missile)
-			missile.setup(self, pos)
-		AmmoType.Kind.STONE:
-			# 영점 돌: 흙먼지만 튄다
-			Sfx.play_delayed(self, "collapse", pos, -14.0, _listener())
-			_shards(pos, Color(0.45, 0.4, 0.32))
-			Fx.smoke_puff(self, pos, 0.5)
+		AmmoType.Kind.PAINT:
+			# 페인트탄: 터지지 않고 철퍽, 맞은 면에 밝은 물감 자국만 남는다
+			Sfx.play_delayed(self, "splat", pos, -2.0, _listener())
+			Fx.paint_mark(self, pos, normal)
+			var drops := Fx.burst(16, 3.0, 0.14, [Fx.PAINT_COLOR, Color(Fx.PAINT_COLOR, 0.0)], false)
+			add_child(drops)
+			drops.global_position = pos + normal * 0.1
+			drops.emitting = true
+			Fx.free_after(drops, 2.0)
+			return
 		AmmoType.Kind.FLARE:
 			var flare := Flare.new()
 			add_child(flare)
 			flare.global_position = pos
 			flare.setup(pos, ammo.flare_height, ammo.flare_duration)
+			# 로켓이 대기 중이면 그 불빛을 보고 날아간다
+			if rockets_left() > 0 and state == State.PLAYING:
+				_launch_rocket(pos)
+			# 조명탄은 연기 기둥을 남기지 않는다 (꺼진 뒤 시야를 가리지 않게)
+			return
 	# 빗나가도 연기 기둥이 남아 다음 투척의 기준이 된다
 	var smoke := Fx.smoke_column()
 	add_child(smoke)
@@ -525,11 +619,13 @@ func _detonate_kegs(pos: Vector3, radius: float) -> void:
 ## 화약통·폭발통 폭발: 석재 벽에도 통하는 큰 충격, 주변 점화, 기름 점화, 인물 판정.
 ## forced: 플레이어 투척으로는 안 부서지는 구조(성문)에도 통하는 폭발 (동료의 폭발통).
 ## 큰 폭발은 강철판도 날린다 (explosive). 흰 석재는 그대로.
-func explode(pos: Vector3, radius: float, strength: float, forced := false) -> void:
+func explode(pos: Vector3, radius: float, strength: float, forced := false, rings := true) -> void:
 	if not is_inside_tree():
 		return
 	Fx.scorch(self, Vector3(pos.x, 0.05, pos.z), radius * 0.6, 40.0)
 	Fx.flash(self, pos, 9.0, radius * 3.0, 0.45)
+	if rings:
+		Fx.blast_rings(self, pos, radius, radius * 0.8)
 	Fx.chunks(self, pos, [Color(0.25, 0.2, 0.15), Color(0.4, 0.3, 0.2), Color(0.12, 0.1, 0.08)], 12, 10.0)
 	Sfx.play_delayed(self, "boom", pos, 8.0, _listener())
 	var fireball := Fx.burst(60, 9.0, 0.9, Fx.FLAME_COLORS)
@@ -541,7 +637,7 @@ func explode(pos: Vector3, radius: float, strength: float, forced := false) -> v
 	add_child(smoke)
 	smoke.global_position = pos
 	Fx.free_after(smoke, 20.0)
-	_impact_juice(pos, 4.0)
+	_impact_juice(pos, 4.0, 0.0)
 	for s in structures:
 		s.apply_impact(pos, radius, strength, forced, true)
 	for b in get_tree().get_nodes_in_group("flammable"):
@@ -555,13 +651,15 @@ func explode(pos: Vector3, radius: float, strength: float, forced := false) -> v
 
 
 ## 과장된 착탄 연출: 히트스톱, 충격파 링, 불덩이, 거리 비례 흔들림, 병사 반응 (판정과 무관).
-func _impact_juice(pos: Vector3, power: float) -> void:
+## ring: 충격파 링 반경 (실제 효과 범위에 맞춘다. 0이면 링을 따로 그린다).
+func _impact_juice(pos: Vector3, power: float, ring: float) -> void:
 	var burst := Fx.burst(int(14 * power) + 10, 5.0 + 2.0 * power, 0.35 + 0.1 * power, Fx.FLAME_COLORS)
 	add_child(burst)
 	burst.global_position = pos
 	burst.emitting = true
 	Fx.free_after(burst, 2.0)
-	Fx.shockwave(self, pos, 2.0 + power * 1.5)
+	if ring > 0.0:
+		Fx.shockwave(self, pos, ring)
 	shake_requested.emit(clampf(0.45 * power, 0.0, 1.0))
 	if player:
 		var dist := player.global_position.distance_to(pos)
@@ -592,7 +690,18 @@ func add_ballista(b: Block) -> void:
 	Models.box(b, Vector3(0.06, 0.06, 2.0), Vector3(0, b.size.y * 0.5 + 0.45, -0.1), iron, Vector3(-0.5, 0, 0))
 
 
-## 바람자루 (바람 방향과 세기를 보여 준다).
+## 바람 한 단계의 세기 (m/s²). 바람자루 마디 하나가 펴질 때마다 한 단계.
+const WIND_STEP := 0.4
+const WIND_LEVELS := 5
+
+
+## 바람 단계 (0~5).
+func wind_level() -> int:
+	return clampi(roundi(wind.length() / WIND_STEP), 0, WIND_LEVELS)
+
+
+## 바람자루: 진짜 바람자루처럼 입구가 바람을 받고 꼬리가 바람이 불어 가는 쪽으로 날린다.
+## 마디 다섯 개 중 펴진 마디 수가 바람 단계다 (0단계면 축 늘어진다).
 func add_windsock(pos: Vector3) -> void:
 	var root := Node3D.new()
 	root.position = pos
@@ -601,15 +710,22 @@ func add_windsock(pos: Vector3) -> void:
 	var sock := Node3D.new()
 	sock.position = Vector3(0, 3.9, 0)
 	root.add_child(sock)
-	var strength := clampf(wind.length() / 3.0, 0.15, 1.0)
-	var cloth := Models.mat(Color(0.95, 0.9, 0.8))
-	var stripe := Models.mat(Color(0.25, 0.25, 0.3))
-	for i in 4:
-		var c := Models.cyl(sock, 0.28 - i * 0.05, 0.3 - i * 0.05, 0.4, Vector3(0, 0, -0.2 - i * 0.4), cloth if i % 2 == 0 else stripe, Vector3(PI * 0.5, 0, 0))
-		c.position.y = -(1.0 - strength) * i * 0.3
-	if wind.length() > 0.01:
-		# 자루 입구가 바람을 받고 꼬리가 바람 가는 쪽(+Z 방향이 바람 방향)으로 날린다
-		sock.rotation.y = atan2(wind.x, wind.z)
+	var level := wind_level()
+	var cloth := Models.mat(Color(0.98, 0.45, 0.1))
+	var stripe := Models.mat(Color(0.95, 0.93, 0.88))
+	Models.cyl(sock, 0.32, 0.32, 0.05, Vector3.ZERO, Models.mat(Color(0.3, 0.3, 0.32), 0.5, 0.5), Vector3(PI * 0.5, 0, 0), 10)
+	# 마디를 입구에서 꼬리 쪽(-Z)으로 잇는다. 펴진 마디는 수평, 그 뒤 마디는 아래로 처진다
+	var at := Vector3.ZERO
+	var seg := 0.45
+	for i in WIND_LEVELS:
+		var droop := 0.0 if i < level else 1.25
+		var dir := Vector3(0, -sin(droop), -cos(droop))
+		var r := 0.3 - i * 0.04
+		Models.cyl(sock, r, r - 0.02, seg, at + dir * seg * 0.5, cloth if i % 2 == 0 else stripe, Vector3(PI * 0.5 - droop, 0, 0), 10)
+		at += dir * seg
+	if level > 0:
+		# 로컬 -Z(꼬리)가 바람이 불어 가는 방향을 향하게
+		sock.rotation.y = atan2(-wind.x, -wind.z)
 
 
 ## 히트스톱: 짧게 시간을 거의 멈춘다. 물리 틱 수로 세는 판정은 영향받지 않는다.
@@ -631,8 +747,9 @@ func on_block_burnt(b: Block) -> void:
 	Fx.free_after(embers, 2.0)
 	match b.mat:
 		Block.Mat.KEG:
-			# 화약통: 석재 벽에도 통하는 큰 충격
-			explode.call_deferred(b.global_position, 6.0, 450.0)
+			# 화약통: 석재 벽에도 통하는 큰 충격. 큰 화약통(blast 메타)은 더 크게 터진다
+			var blast: Array = b.get_meta("blast", [6.0, 450.0])
+			explode.call_deferred(b.global_position, blast[0], blast[1])
 		Block.Mat.FUEL:
 			# 연료 배관이 다 타면 그 자리에서 불길이 확 솟는다
 			var pool := FirePool.new()
@@ -804,7 +921,8 @@ func _set_state(s: int, message: String) -> void:
 
 func _physics_process(delta: float) -> void:
 	elapsed += delta
-	var wind_yaw := atan2(-wind.x, -wind.z) if wind.length() > 0.01 else 0.0
+	# 깃발 천(로컬 +X)이 바람이 불어 가는 쪽으로 날린다
+	var wind_yaw := atan2(-wind.z, wind.x) if wind.length() > 0.01 else 0.0
 	for f in _flags:
 		var cloth: Node3D = f.get_node("Cloth")
 		cloth.rotation.y = wind_yaw + sin(elapsed * (3.0 + wind.length())) * 0.25

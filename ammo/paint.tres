@@ -4,8 +4,8 @@
 
 [resource]
 script = ExtResource("1")
-kind = 5
-display_name = "영점 돌"
+kind = 4
+display_name = "페인트탄"
 throw_speed = 23.0
 windup_time = 0.5
 impact_radius = 0.0
@@ -14,4 +14,4 @@ pool_radius = 0.0
 pool_duration = 0.0
 burn_multiplier = 1.0
 kill_radius = 0.0
-model_scale = 1.0
+model_scale = 1.1

@@ -1,65 +1,89 @@
 class_name Missile
 extends Node3D
-## 후방 고블린 진지에서 쏘아 올린 탄도미사일 (가죽끈으로 묶은 거대 로켓). 플레어건이 지정한 지점에 떨어진다.
-## 대공 발리스타가 하나라도 남아 있으면 날아오는 도중 발리스타 화살에 맞아 공중에서 터진다 (피해 없음).
+## 고블린 로켓. 투척 구역 옆 발사대에서 대기하다가, 조명탄이 떨어진 자리(불빛)를 보고 날아간다.
+## 대공 발리스타가 하나라도 남아 있으면 날아가는 도중 발리스타 화살에 맞아 공중에서 터진다 (피해 없음).
+## 떨어지면 아주 크게 터져 근처 지휘관을 엄폐와 상관없이 모두 쓰러뜨린다: 발리스타만 치우면 거의 한 방에 끝난다.
 ## 시간은 물리 틱으로 세서 언제나 같다.
 
-const DELAY_TICKS := 60
-const FLIGHT_TICKS := 90
-const RADIUS := 9.0
-const STRENGTH := 900.0
-## 엄폐와 상관없이 쓰러뜨리는 거리
-const KILL_RADIUS := 6.0
+signal exploded(pos: Vector3)
 
+## 점화 뒤 발사대에서 불을 뿜는 시간
+const DELAY_TICKS := 45
+const FLIGHT_TICKS := 120
+## 포물선 꼭대기 높이 (발사대와 표적을 잇는 선 위로)
+const ARC := 35.0
+const RADIUS := 14.0
+const STRENGTH := 1400.0
+## 엄폐와 상관없이 쓰러뜨리는 거리 (조명탄이 조금 빗나가도 진지가 끝나게)
+const KILL_RADIUS := 12.0
+
+var done := false
 var _stage: Stage
 var _target := Vector3.ZERO
 var _from := Vector3.ZERO
 var _tick := 0
 var _intercept := false
-var _done := false
 var _model: Node3D
+var _trail: GPUParticles3D
 
 
-func setup(stage: Stage, target: Vector3) -> void:
+## model: 발사대에 서 있던 로켓 (그대로 들고 날아간다). 없으면 새로 만든다.
+func setup(stage: Stage, target: Vector3, from: Vector3, model: Node3D = null) -> void:
 	_stage = stage
 	_target = target
-	_from = target + Vector3(-25, 70, 30)
+	_from = from
 	_intercept = stage.aa_alive()
-	_model = Node3D.new()
+	if model:
+		model.get_parent().remove_child(model)
+		_model = model
+	else:
+		_model = Models.rocket()
+	_model.transform = Transform3D.IDENTITY
 	add_child(_model)
-	var iron := Models.mat(Color(0.12, 0.12, 0.13), 0.5, 0.5)
-	var wood := Models.mat(Color(0.42, 0.28, 0.16))
-	Models.cyl(_model, 0.5, 0.6, 4.0, Vector3.ZERO, iron, Vector3(0, 0, 0.06), 8)
-	Models.cyl(_model, 0.0, 0.55, 1.1, Vector3(0, 2.5, 0), iron, Vector3.ZERO, 8)
-	for a in [0.0, 2.1, 4.2]:
-		Models.box(_model, Vector3(0.12, 1.1, 0.8), Vector3(cos(a) * 0.6, -1.6, sin(a) * 0.6), wood, Vector3(0, -a, 0))
-	Models.box(_model, Vector3(1.3, 0.1, 1.3), Vector3(0, 0.6, 0), Models.mat(Color(0.5, 0.35, 0.2)), Vector3(0.1, 0, 0.12))
-	var trail := Fx.fire(Vector3(0.3, 0.3, 0.3), 50, 0.9)
-	trail.local_coords = false
-	trail.position = Vector3(0, -2.2, 0)
-	_model.add_child(trail)
-	_model.visible = false
+	_trail = Fx.fire(Vector3(0.3, 0.3, 0.3), 60, 1.0)
+	_trail.local_coords = false
+	_trail.position = Vector3(0, -2.6, 0)
+	_model.add_child(_trail)
 	global_position = _from
 	add_to_group("missile")
+	# 점화: 발사대에서 연기와 불을 뿜는다
+	Sfx.play(_stage, "windup", _from, 4.0)
+	var smoke := Fx.smoke_column(40)
+	_stage.add_child(smoke)
+	smoke.global_position = _from + Vector3(0, -2.5, 0)
+	_stage.get_tree().create_timer(2.5, false, true).timeout.connect(Callable(smoke, "set").bind("emitting", false))
+	Fx.free_after(smoke, 10.0)
+
+
+func target_pos() -> Vector3:
+	return _target
+
+
+func _pos(k: float) -> Vector3:
+	return _from.lerp(_target, k) + Vector3.UP * ARC * sin(PI * k)
 
 
 func _physics_process(_delta: float) -> void:
-	if _done:
+	if done:
 		return
 	_tick += 1
 	if _tick < DELAY_TICKS:
+		# 발사대 위에서 부르르 떤다
+		_model.position = Vector3(sin(_tick * 1.7), 0, cos(_tick * 2.3)) * 0.04
 		return
 	if _tick == DELAY_TICKS:
-		_model.visible = true
-		Sfx.play(_stage, "flight", _target, 6.0)
+		_model.position = Vector3.ZERO
+		Sfx.play(_stage, "flight", _from, 8.0)
+		Sfx.play(_stage, "boom", _from, -4.0)
 	var k := float(_tick - DELAY_TICKS) / FLIGHT_TICKS
-	var p := _from.lerp(_target, k)
+	var p := _pos(k)
 	global_position = p
-	if p.distance_to(_target) > 0.05:
-		_model.look_at(_target, Vector3.UP)
-		_model.rotate_object_local(Vector3.RIGHT, -PI * 0.5)
+	var ahead := _pos(minf(k + 0.02, 1.0)) - p
+	if ahead.length() > 0.05:
+		look_at(p + ahead, Vector3.UP if absf(ahead.normalized().y) < 0.99 else Vector3.FORWARD)
+		rotate_object_local(Vector3.RIGHT, -PI * 0.5)
 	if _intercept and k >= 0.5:
-		_done = true
+		done = true
 		# 발리스타 화살에 맞아 공중에서 터진다 (땅에는 피해 없음)
 		Sfx.play(_stage, "boom", p, 2.0)
 		var burst := Fx.burst(50, 9.0, 0.8, Fx.FLAME_COLORS)
@@ -68,14 +92,12 @@ func _physics_process(_delta: float) -> void:
 		burst.emitting = true
 		Fx.free_after(burst, 2.0)
 		Fx.smoke_puff(_stage, p, 3.0)
+		_stage.toast.emit(Texts.t("rocket_shot_down"))
+		exploded.emit(p)
 		queue_free()
 		return
 	if k >= 1.0:
-		_done = true
-		_stage.explode(_target, RADIUS, STRENGTH)
-		# 탄도미사일은 엄폐를 무시한다: 가까운 인물은 벽·지붕 너머라도 날아간다
-		for a in get_tree().get_nodes_in_group("actors"):
-			if not a.dead and a.chest().distance_to(_target) < KILL_RADIUS:
-				a.defeat("blast")
-		_stage.hitstop(0.12)
+		done = true
+		_stage.rocket_strike(_target, RADIUS, STRENGTH, KILL_RADIUS)
+		exploded.emit(_target)
 		queue_free()

@@ -4,6 +4,8 @@ extends RefCounted
 
 const FLAME_COLORS := [Color(1.0, 0.95, 0.6, 1.0), Color(1.0, 0.55, 0.1, 0.95), Color(0.85, 0.15, 0.05, 0.7), Color(0.1, 0.05, 0.03, 0.0)]
 const SMOKE_COLORS := [Color(0.25, 0.25, 0.25, 0.0), Color(0.3, 0.3, 0.3, 0.55), Color(0.55, 0.55, 0.55, 0.35), Color(0.7, 0.7, 0.7, 0.0)]
+## 페인트탄 물감 (어느 배경에서도 튀는 분홍, 밤에도 보이게 스스로 빛난다)
+const PAINT_COLOR := Color(1.0, 0.18, 0.72)
 
 
 static func _gradient(colors: Array) -> GradientTexture1D:
@@ -171,13 +173,19 @@ static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Nod
 	var spark_at := Vector3.ZERO
 	match kind:
 		AmmoType.Kind.HE:
+			# 화염탄보다 한눈에 크고 묵직한 쇠 폭탄 항아리: 두꺼운 쇠테 셋, 리벳, 손잡이 고리
 			var iron := Models.mat(Color(0.12, 0.12, 0.13), 0.5, 0.6)
 			var band := Models.mat(Color(0.45, 0.42, 0.38), 0.5, 0.7)
 			var pot := Models.ball(root, 0.13, Vector3.ZERO, iron, 10)
-			pot.scale = Vector3(1.0, 0.85, 1.05)
-			Models.cyl(root, 0.135, 0.135, 0.035, Vector3(0, 0.02, 0), band, Vector3(0.12, 0, -0.08), 10)
-			Models.cyl(root, 0.11, 0.11, 0.03, Vector3(0, -0.07, 0), band, Vector3(-0.1, 0, 0.1), 10)
+			pot.scale = Vector3(1.05, 0.9, 1.05)
+			Models.cyl(root, 0.14, 0.14, 0.04, Vector3(0, 0.02, 0), band, Vector3(0.12, 0, -0.08), 10)
+			Models.cyl(root, 0.12, 0.12, 0.035, Vector3(0, -0.07, 0), band, Vector3(-0.1, 0, 0.1), 10)
+			Models.cyl(root, 0.1, 0.1, 0.03, Vector3(0, 0.08, 0), band, Vector3(0.05, 0, 0.05), 10)
+			for k in 6:
+				var a := k * TAU / 6.0
+				Models.ball(root, 0.014, Vector3(cos(a) * 0.137, 0.02, sin(a) * 0.137), band, 4)
 			Models.cyl(root, 0.045, 0.05, 0.06, Vector3(0.01, 0.12, 0), iron)
+			Models.cyl(root, 0.035, 0.035, 0.012, Vector3(-0.05, 0.13, 0), band, Vector3(PI * 0.5, 0, 0), 8)
 			Models.cyl(root, 0.008, 0.008, 0.07, Vector3(0.02, 0.18, 0.01), Models.mat(Color(0.75, 0.7, 0.55)), Vector3(0, 0, -0.4))
 			spark_at = Vector3(0.035, 0.22, 0.01)
 		AmmoType.Kind.OIL:
@@ -189,19 +197,17 @@ static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Nod
 			Models.box(root, Vector3(0.11, 0.012, 0.02), Vector3(0.012, 0.15, 0.03), Models.mat(Color(0.85, 0.8, 0.65)), Vector3(0, 0.6, 0.2))
 			Models.box(root, Vector3(0.03, 0.08, 0.005), Vector3(0.06, 0.02, 0.105), oil, Vector3(0, 0, 0.15))
 			spark_at = Vector3(-1, -1, -1)
-		AmmoType.Kind.FLAREGUN:
-			# 붉은 띠를 감은 굵은 신호탄 통 (가죽끈으로 묶은 고블린 플레어)
-			var tube := Models.mat(Color(0.2, 0.18, 0.16), 0.6, 0.3)
-			var red := Models.mat(Color(0.9, 0.08, 0.06), 0.8)
-			Models.cyl(root, 0.05, 0.055, 0.36, Vector3.ZERO, tube, Vector3(0, 0, 0.1))
-			Models.cyl(root, 0.058, 0.058, 0.05, Vector3(0, 0.08, 0), red, Vector3(0, 0, 0.1))
-			spark_at = Vector3(-0.02, 0.2, 0)
-		AmmoType.Kind.STONE:
-			# 울퉁불퉁한 주먹만 한 돌 (불 없음)
-			var rock := Models.mat(Color(0.5, 0.48, 0.45), 1.0)
-			var lump := Models.ball(root, 0.12, Vector3.ZERO, rock, 6)
-			lump.scale = Vector3(1.1, 0.8, 0.95)
-			Models.ball(root, 0.07, Vector3(0.06, 0.05, 0.02), rock, 5)
+		AmmoType.Kind.PAINT:
+			# 물감을 채워 천으로 싸맨 공 (불 없음). 겉에 물감이 흘러내렸다
+			var cloth := Models.mat(Color(0.86, 0.82, 0.72), 0.95)
+			var paint := Models.mat(PAINT_COLOR, 0.6, 0.0, 0.4)
+			var ball := Models.ball(root, 0.11, Vector3.ZERO, cloth, 8)
+			ball.scale = Vector3(1.0, 0.9, 1.0)
+			Models.cyl(root, 0.03, 0.05, 0.07, Vector3(0, 0.11, 0), cloth)
+			for k in 3:
+				var a := k * 2.1
+				Models.box(root, Vector3(0.04, 0.12, 0.02), Vector3(cos(a) * 0.1, -0.01, sin(a) * 0.1), paint, Vector3(0, -a, 0))
+			Models.ball(root, 0.05, Vector3(0.0, 0.06, 0.07), paint, 6)
 			spark_at = Vector3(-1, -1, -1)
 		AmmoType.Kind.FLARE:
 			var paper := Models.mat(Color(0.93, 0.86, 0.6), 0.95)
@@ -224,26 +230,78 @@ static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Nod
 	return root
 
 ## 큼직한 충격파 링 (착탄 연출). 바닥과 평행하게 퍼지며 사라진다.
-static func shockwave(parent: Node, pos: Vector3, radius: float) -> void:
+## radius는 링 바깥 가장자리. hold: 다 퍼진 뒤 그 크기로 잠깐 머문다 (범위를 눈으로 가늠하게).
+static func shockwave(parent: Node, pos: Vector3, radius: float, color := Color(1.0, 0.95, 0.8, 0.8), hold := 0.0) -> void:
 	var ring := MeshInstance3D.new()
 	var tm := TorusMesh.new()
-	tm.inner_radius = 0.82
+	# 링 두께는 반경과 상관없이 비슷하게 (큰 링이 뭉툭해지지 않게)
+	tm.inner_radius = 1.0 - clampf(0.45 / maxf(radius, 0.5), 0.04, 0.18)
 	tm.outer_radius = 1.0
-	tm.rings = 24
+	tm.rings = 32
 	tm.ring_segments = 4
 	ring.mesh = tm
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = Color(1.0, 0.95, 0.8, 0.8)
+	# 범위 표시 링은 벽에 가려도 보인다
+	m.no_depth_test = hold > 0.0
+	m.albedo_color = color
 	ring.material_override = m
 	parent.add_child(ring)
 	ring.global_position = pos + Vector3(0, 0.2, 0)
 	ring.scale = Vector3.ONE * 0.3
-	var tw := ring.create_tween().set_parallel(true)
-	tw.tween_property(ring, "scale", Vector3(radius, radius * 0.4, radius), 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(m, "albedo_color:a", 0.0, 0.35)
-	free_after(ring, 0.5)
+	var grow := 0.3 if hold > 0.0 else 0.35
+	var tw := ring.create_tween()
+	tw.tween_property(ring, "scale", Vector3(radius, minf(radius * 0.4, 1.2), radius), grow).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	if hold > 0.0:
+		tw.tween_interval(hold)
+		tw.tween_property(m, "albedo_color:a", 0.0, 0.35)
+	else:
+		tw.parallel().tween_property(m, "albedo_color:a", 0.0, grow)
+	free_after(ring, grow + hold + 0.45)
+
+
+## 폭발 범위 동심원: 바깥 흰 링 = 구조물이 부서지는 끝, 안쪽 주황 링 = 인물이 쓰러지는 끝.
+## 실제 판정 반경과 똑같은 크기로 잠깐 머물렀다 사라진다 (연출이 아니라 정보).
+static func blast_rings(parent: Node, pos: Vector3, break_radius: float, kill_radius: float) -> void:
+	shockwave(parent, pos, break_radius, Color(1.0, 0.97, 0.85, 0.85), 0.35)
+	if kill_radius > 0.0:
+		shockwave(parent, pos, kill_radius, Color(1.0, 0.45, 0.1, 0.9), 0.35)
+
+
+static var _paint_tex: GradientTexture2D
+
+## 페인트탄 물감 자국: 맞은 면(땅, 벽, 지붕)에 그 면을 따라 붙는다. 스스로 빛나 밤에도 보이고, 진지가 끝날 때까지 남는다.
+static func paint_mark(parent: Node, pos: Vector3, normal: Vector3, radius := 1.2) -> void:
+	if _paint_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(PAINT_COLOR, 1.0))
+		g.set_color(1, Color(PAINT_COLOR, 0.0))
+		g.add_point(0.7, Color(PAINT_COLOR, 0.95))
+		g.add_point(0.78, Color(PAINT_COLOR, 0.0))
+		_paint_tex = GradientTexture2D.new()
+		_paint_tex.gradient = g
+		_paint_tex.fill = GradientTexture2D.FILL_RADIAL
+		_paint_tex.fill_from = Vector2(0.5, 0.5)
+		_paint_tex.fill_to = Vector2(1.0, 0.5)
+		_paint_tex.width = 64
+		_paint_tex.height = 64
+	# 데칼은 아래(-Y)로 비춘다: 맞은 면의 법선을 위로 세운다
+	var up := normal.normalized() if normal.length() > 0.01 else Vector3.UP
+	var side := up.cross(Vector3.FORWARD if absf(up.dot(Vector3.FORWARD)) < 0.9 else Vector3.RIGHT).normalized()
+	var basis := Basis(side, up, side.cross(up))
+	# 가운데 큰 자국 + 한쪽으로 튄 작은 물방울 둘
+	var spots := [[Vector3.ZERO, 1.0], [(side + side.cross(up) * 0.5) * 1.1, 0.28], [(-side * 0.6 + side.cross(up) * 0.9) * 1.1, 0.22]]
+	for spot in spots:
+		var d := Decal.new()
+		d.texture_albedo = _paint_tex
+		d.texture_emission = _paint_tex
+		d.emission_energy = 1.2
+		var r: float = radius * spot[1]
+		d.size = Vector3(r * 2.0, 0.8, r * 2.0)
+		d.cull_mask = 1
+		parent.add_child(d)
+		d.global_transform = Transform3D(basis, pos + spot[0] * radius)
 
 
 ## 연기 구름 (착탄 연출, 짧게).

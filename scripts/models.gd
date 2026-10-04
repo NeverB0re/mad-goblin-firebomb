@@ -254,6 +254,34 @@ static func torch(height := 1.8) -> Node3D:
 	return root
 
 
+## 고블린 로켓 (조명탄 불빛을 보고 날아가는 거대 로켓). 원점이 몸통 가운데, +Y가 머리. 길이 약 5.6m.
+## 쇠 몸통에 가죽끈과 놋쇠 테, 빨간 탄두에 노란 이빨 무늬, 아래는 나무 날개 넷과 굵은 도화선.
+static func rocket() -> Node3D:
+	var root := Node3D.new()
+	var iron := mat(Color(0.16, 0.16, 0.17), 0.5, 0.5)
+	var brass := mat(Color(0.75, 0.58, 0.25), 0.4, 0.7)
+	var leather := mat(Color(0.42, 0.26, 0.14), 0.9)
+	var red := mat(Color(0.85, 0.12, 0.08), 0.6)
+	var yellow := mat(Color(0.98, 0.82, 0.2), 0.6)
+	var wood := mat(Color(0.45, 0.3, 0.17))
+	cyl(root, 0.5, 0.55, 4.0, Vector3.ZERO, iron, Vector3.ZERO, 10)
+	cyl(root, 0.0, 0.5, 1.3, Vector3(0, 2.65, 0), red, Vector3.ZERO, 10)
+	# 탄두 아래 노란 톱니 (고블린이 그린 이빨)
+	for k in 8:
+		var a := k * TAU / 8.0
+		box(root, Vector3(0.18, 0.28, 0.04), Vector3(cos(a) * 0.5, 1.95, sin(a) * 0.5), yellow, Vector3(0, -a + PI * 0.5, PI * 0.25))
+	for y in [-1.4, 0.0, 1.4]:
+		cyl(root, 0.56, 0.56, 0.12, Vector3(0, y, 0), brass, Vector3.ZERO, 10)
+	for y in [-0.7, 0.7]:
+		cyl(root, 0.535, 0.535, 0.18, Vector3(0, y, 0), leather, Vector3(0.0, 0.0, 0.12 * y), 10)
+	for k in 4:
+		var a := k * PI * 0.5 + PI * 0.25
+		box(root, Vector3(0.1, 1.4, 0.9), Vector3(cos(a) * 0.75, -1.6, sin(a) * 0.75), wood, Vector3(0, -a, 0))
+	cyl(root, 0.3, 0.4, 0.4, Vector3(0, -2.2, 0), iron, Vector3.ZERO, 8)
+	cyl(root, 0.03, 0.03, 0.5, Vector3(0.1, -2.5, 0), mat(Color(0.85, 0.8, 0.65)), Vector3(0, 0, 0.6))
+	return root
+
+
 ## 고블린 부족장: 깃털 머리장식과 뼈 목걸이.
 static func chief() -> Node3D:
 	var root := goblin()

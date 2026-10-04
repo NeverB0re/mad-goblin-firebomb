@@ -35,9 +35,11 @@ const T := {
 	"set_fullscreen": "전체 화면",
 	# 평범한 안내
 	"empty_slot": "이 탄은 다 썼다",
+	"rocket_shot_down": "로켓이 발리스타에 맞았다!!",
+	"rockets_left": "대기 중인 로켓",
 	"ammo_left": "남은 탄",
 	"any_key": "아무 키나 누르면 계속",
-	"help": "WASD 이동 · 마우스 시점 · 좌클릭 누름 와인드업 / 뗌 투척 · 우클릭 4배 줌 / 투척 취소 · 1~4·휠 탄종 · R 재시작 · Esc 잠깐",
+	"help": "WASD 이동 · 마우스 시점 · 좌클릭 누름 와인드업 / 뗌 투척 · 우클릭 4배 줌 / 투척 취소 · 1~5·휠 탄종 · R 재시작 · Esc 잠깐",
 	"opening_hint": "클릭 / 스페이스 ▶     Esc 건너뛰기",
 }
 

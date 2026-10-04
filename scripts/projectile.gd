@@ -31,7 +31,7 @@ func launch(origin: Vector3, direction: Vector3, ammo_type: AmmoType, excluded: 
 	velocity = direction.normalized() * ammo.throw_speed
 	_model = Fx.ammo_model(ammo.kind, ammo.model_scale)
 	add_child(_model)
-	if ammo.kind == AmmoType.Kind.OIL or ammo.kind == AmmoType.Kind.STONE:
+	if ammo.kind == AmmoType.Kind.OIL or ammo.kind == AmmoType.Kind.PAINT:
 		return
 	var trail := Fx.fire(Vector3(0.02, 0.02, 0.02), 24, 0.12)
 	trail.local_coords = false
@@ -67,7 +67,8 @@ func step(dt: float) -> void:
 
 	global_position = to
 	if _model:
-		_model.rotate_x(-dt * 9.0)
+		# 무거운 고폭탄은 느리게 굴러 묵직해 보인다
+		_model.rotate_x(-dt * (3.5 if ammo.kind == AmmoType.Kind.HE else 9.0))
 	if flight_time > MAX_TIME or to.y < -100.0:
 		done = true
 		impacted.emit(self, to, Vector3.UP, null)

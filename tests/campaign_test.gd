@@ -46,7 +46,7 @@ func _point_wind(s: Stage, target: Vector3, high: bool) -> void:
 		for i in 4:
 			var dir := aim(s.player.throw_origin(), aim_at, v, high)
 			s.player.look_at_angles(atan2(-dir.x, -dir.z), asin(dir.y))
-		var hit := _land(s.player.throw_origin(), s.player.throw_direction(), v, s.wind, target.y)
+		var hit := _land(s.player.throw_origin(), s.player.throw_direction(), v, s.wind * s.current_ammo().wind_factor, target.y)
 		var err := hit - target
 		err.y = 0.0
 		if err.length() < 0.05:
@@ -150,13 +150,20 @@ func _run() -> void:
 	if _only <= 0 or _only == 3:
 		var s := _campaign(24)
 		await physics_frame
-		await _throw_plan(s, AmmoType.Kind.FIRE, Campaign.STAGES[24].parts[0][1] + Vector3(0, 0.6, 4.0), false)
-		await _wait(s, 2.0)
+		var c: Vector3 = Campaign.STAGES[24].parts[0][1]
+		await _throw_plan(s, AmmoType.Kind.FIRE, c + Vector3(-1.5, 1.0, 3.3), false)
+		await _wait(s, 6.0)
+		_check(s.commanders_left() == 2, "3-5 강철 방벽 정면에 던진 불로는 아무도 안 쓰러진다 (남은 지휘관 %d)" % s.commanders_left())
+		var walls := s.structures[0].blocks.size()
+		await _throw_plan(s, AmmoType.Kind.FIRE, c + Vector3(Campaign.KEG_FUSE_X, 0.1, 4.8), false)
+		await _wait(s, 1.0)
+		_check(s.commanders_left() == 2, "3-5 도화선이 타 들어가는 동안은 아직 안 터진다")
+		await _wait(s, 8.0)
 		var blown := 0
 		for blk in s.structures[0].blocks:
 			if blk.fallen:
 				blown += 1
-		_check(blown >= 4 and s.commanders_left() == 2, "3-5 화약 수레 폭발 → 강철 방벽 %d조각 날아감, 지휘관 %d명 남음" % [blown, s.commanders_left()])
+		_check(blown >= walls / 2 and s.commanders_left() == 0, "3-5 도화선 → 숨은 화약통 폭발 → 강철 방벽 %d/%d조각 날아감, 남은 지휘관 %d" % [blown, walls, s.commanders_left()])
 	# 흰 석재는 화약통 폭발에도 안 부서진다 (1-10 공성탑 화약통 옆 성벽)
 	if _only <= 0 or _only == 1:
 		var s := _campaign(9)
@@ -171,22 +178,43 @@ func _run() -> void:
 				if blk.mat == Block.Mat.STONE and blk.fallen and blk.start_low < 0.1:
 					stone_fell += 1
 		_check(stone_fell == 0, "1-10 화약통이 터져도 땅에 선 흰 석재는 그대로 (%d개 넘어짐)" % stone_fell)
-	# 발리스타가 남아 있으면 미사일이 요격당한다 (4-3)
+	# 발리스타가 남아 있으면 로켓이 요격당한다 (4-3). 로켓은 한 발 준다
 	if _only <= 0 or _only == 4:
 		var s := _campaign(32)
 		await physics_frame
-		await _throw_plan(s, AmmoType.Kind.FLAREGUN, Campaign.STAGES[32].parts[0][1] + Vector3(0, 2.7, 0), false)
-		await _wait(s, 4.0)
-		_check(s.state == Stage.State.PLAYING and not s.commander.dead, "4-3 발리스타가 서 있으면 미사일이 요격당한다")
-	# 영점 돌은 아무것도 부수지 않고, 돌만 남으면 실패한다 (3-6)
+		var rockets := s.rockets_left()
+		await _throw_plan(s, AmmoType.Kind.FLARE, Campaign.STAGES[32].parts[0][1] + Vector3(0, 2.7, 0), false)
+		await _wait(s, 5.0)
+		_check(s.state == Stage.State.PLAYING and s.commanders_left() == 2 and s.rockets_left() == rockets - 1, "4-3 발리스타가 서 있으면 로켓이 요격당한다 (로켓 %d → %d)" % [rockets, s.rockets_left()])
+	# 로켓은 조명탄이 조금 빗나가도(무리 한가운데에서 5m) 무리 전체를 끝낸다 (4-6, 발리스타를 다 치운 뒤)
+	if _only <= 0 or _only == 4:
+		var s := _campaign(35)
+		await physics_frame
+		var steps := Campaign.plan(35)
+		for step in steps:
+			if step[0] != AmmoType.Kind.FLARE:
+				await _throw_plan(s, step[0], step[1], step[2])
+				if step[3] > 0.0:
+					await _wait(s, step[3])
+		var aim: Vector3 = steps[steps.size() - 1][1] + Vector3(-2.0, 0.0, 4.5)
+		await _throw_plan(s, AmmoType.Kind.FLARE, aim, false)
+		await _expect(s, Stage.State.CLEARED, "4-6 조명탄이 5m 빗나가도 로켓 한 발로 끝난다", 12.0)
+	# 페인트탄은 아무것도 부수지 않고 물감 자국만 남기며, 페인트탄·조명탄만 남으면 실패한다 (3-6)
 	if _only <= 0 or _only == 3:
 		var s := _campaign(25)
 		await physics_frame
 		for k in 4:
 			await _throw_plan(s, AmmoType.Kind.FIRE, Vector3(-30, 0, -20), false)
-		await _throw_plan(s, AmmoType.Kind.STONE, s.commanders[0].global_position + Vector3(0, 1.2, 0), false)
+		await _throw_plan(s, AmmoType.Kind.PAINT, s.commanders[0].global_position + Vector3(0, 1.2, 0), false)
 		await _wait(s, 2.0)
-		_check(not s.commanders[0].dead, "3-6 영점 돌을 맞아도 지휘관은 멀쩡하다")
-		await _expect(s, Stage.State.FAILED, "3-6 폭탄을 다 쓰고 돌만 남으면 실패", 20.0, "fail_ammo")
+		var marks := s.find_children("*", "Decal", false, false).filter(func(d): return d.texture_emission != null).size()
+		_check(not s.commanders[0].dead and marks > 0, "3-6 페인트탄을 맞아도 지휘관은 멀쩡하고 물감 자국만 남는다 (자국 %d)" % marks)
+		await _expect(s, Stage.State.FAILED, "3-6 폭탄을 다 쓰고 페인트탄·조명탄만 남으면 실패", 20.0, "fail_ammo")
+	# 모든 진지에 페인트탄이 목표 수 이상 있고, 1-7부터는 모든 진지에 바람자루가 선다
+	for i in Campaign.COUNT:
+		var paint := Campaign.paint_count(i)
+		var need := 1 if Campaign.STAGES[i].has("rockets") else Campaign.commander_count(i)
+		_check(paint >= need and (i < 6 or Campaign.STAGES[i].has("wind")),
+			"%s 페인트탄 %d (지휘관 %d), 바람 %d단계" % [Campaign.label(i), paint, Campaign.commander_count(i), Campaign.STAGES[i].get("wind", [0])[0]])
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

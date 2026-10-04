@@ -235,7 +235,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				if event.pressed and not is_throwing():
 					slot_cycle_requested.emit(1)
 	elif not is_throwing():
-		for i in 4:
+		for i in 5:
 			if event.is_action_pressed("ammo_%d" % (i + 1)):
 				slot_requested.emit(i)
 

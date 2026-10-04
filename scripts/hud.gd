@@ -117,6 +117,7 @@ func bind(stage: Stage) -> void:
 	_refresh_targets()
 	follow_cam.reset()
 	stage.projectile_thrown.connect(follow_cam.track)
+	stage.rocket_launched.connect(follow_cam.track_rocket)
 	stage.shake_requested.connect(follow_cam.shake)
 	_refresh_ammo()
 
@@ -135,6 +136,8 @@ func _refresh_ammo() -> void:
 		var slot: Dictionary = _stage.ammo_slots[i]
 		var mark := "▶ " if i == _stage.current_slot else "   "
 		lines.append("%s%d  %s  × %d" % [mark, i + 1, slot.type.display_name, slot.count])
+	if _stage.rockets_total > 0:
+		lines.append("%s  × %d" % [Texts.t("rockets_left"), _stage.rockets_left()])
 	_ammo.text = "\n".join(lines)
 
 
