@@ -942,32 +942,13 @@ func wind_level() -> int:
 	return clampi(roundi(wind.length() / WIND_STEP), 0, WIND_LEVELS)
 
 
-## 바람자루: 진짜 바람자루처럼 입구가 바람을 받고 꼬리가 바람이 불어 가는 쪽으로 날린다.
-## 마디 다섯 개 중 펴진 마디 수가 바람 단계다 (0단계면 축 늘어진다).
-func add_windsock(pos: Vector3) -> void:
-	var root := Node3D.new()
-	root.position = pos
-	add_child(root)
-	Models.cyl(root, 0.06, 0.08, 4.0, Vector3(0, 2.0, 0), Models.mat(Color(0.35, 0.33, 0.3)))
-	var sock := Node3D.new()
-	sock.position = Vector3(0, 3.9, 0)
-	root.add_child(sock)
-	var level := wind_level()
-	var cloth := Models.mat(Color(0.98, 0.45, 0.1))
-	var stripe := Models.mat(Color(0.95, 0.93, 0.88))
-	Models.cyl(sock, 0.32, 0.32, 0.05, Vector3.ZERO, Models.mat(Color(0.3, 0.3, 0.32), 0.5, 0.5), Vector3(PI * 0.5, 0, 0), 10)
-	# 마디를 입구에서 꼬리 쪽(-Z)으로 잇는다. 펴진 마디는 수평, 그 뒤 마디는 아래로 처진다
-	var at := Vector3.ZERO
-	var seg := 0.45
-	for i in WIND_LEVELS:
-		var droop := 0.0 if i < level else 1.25
-		var dir := Vector3(0, -sin(droop), -cos(droop))
-		var r := 0.3 - i * 0.04
-		Models.cyl(sock, r, r - 0.02, seg, at + dir * seg * 0.5, cloth if i % 2 == 0 else stripe, Vector3(PI * 0.5 - droop, 0, 0), 10)
-		at += dir * seg
-	if level > 0:
-		# 로컬 -Z(꼬리)가 바람이 불어 가는 방향을 향하게
-		sock.rotation.y = atan2(-wind.x, -wind.z)
+## 바람 표시: 들판의 고블린 전투 깃발 (펴진 천 폭 수 = 바람 단계)과 모닥불 연기. 판정과 무관하다.
+func add_wind_banner(pos: Vector3) -> WindBanner:
+	var banner := WindBanner.new()
+	banner.position = pos
+	add_child(banner)
+	banner.setup(wind, wind_level(), night)
+	return banner
 
 
 ## 히트스톱: 짧게 시간을 거의 멈춘다. 물리 틱 수로 세는 판정은 영향받지 않는다.

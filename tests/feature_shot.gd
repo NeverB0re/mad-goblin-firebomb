@@ -15,7 +15,7 @@ func _run() -> void:
 	paused = false
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("res://tests/out"))
 
-	# 4-3: 왼쪽 앞 로켓 발사대와 오른쪽 바람자루
+	# 4-3: 왼쪽 앞 로켓 발사대와 들판의 바람 깃발
 	main.load_stage(32)
 	await _frames(10)
 	var s: Stage = main.stage
@@ -23,16 +23,16 @@ func _run() -> void:
 	_look(s, pp + Vector3(-6.5, 0.5, -9.0))
 	await _real_wait(main, 0.5)
 	_save("feat_rocket_pad")
-	_look(s, pp + Vector3(5.0, 3.0, -5.0))
+	_look(s, Campaign.banner_spot(Campaign.STAGES[32], s.player.position) + Vector3(0, 3.0, 0))
 	await _real_wait(main, 0.5)
-	_save("feat_windsock")
+	_save("feat_wind_banner")
 
-	# 1-8: 고폭탄 동심원 (터진 직후)
-	main.load_stage(7)
+	# 1-1: 고폭탄 동심원 (터진 직후)
+	main.load_stage(0)
 	await _frames(10)
 	s = main.stage
 	s.wind = Vector3.ZERO
-	var plan: Array = Campaign.plan(7)
+	var plan: Array = Campaign.plan(0)
 	var landed := [false]
 	s.projectile_thrown.connect(func(p): p.impacted.connect(func(_a, _b, _c, _d): landed[0] = true))
 	_throw(s, AmmoType.Kind.HE, plan[0][1])

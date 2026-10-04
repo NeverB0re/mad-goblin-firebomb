@@ -369,7 +369,8 @@ static func _e8(s: Stage) -> void:
 static func _e9(s: Stage) -> void:
 	s.begin("E9", "E9 · 먼 진지")
 	_zone(s, 8)
-	s.add_ammo(FIRE, 5)
+	# 멀리 나는 가벼운 폭탄으로만 닿는다 (묵직한 화염 항아리는 못 닿는다)
+	s.add_ammo(HE, 5)
 	var c: Vector3 = COMMANDER[8]
 	shelter(s.add_structure(), c)
 	s.add_commander(c)

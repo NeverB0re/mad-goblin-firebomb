@@ -309,7 +309,8 @@ func _drop(b: Block, origin: Vector3, strength: float, radius: float) -> void:
 	for j in b.joints:
 		j.broken = true
 	var impulse := Vector3.ZERO
-	if origin != Vector3.INF and radius > 0.0:
+	# 매달린 쇳덩이(종, 쇠 상자)는 밧줄이 끊기면 폭발에 밀리지 않고 곧장 아래로 떨어진다 (밑의 표적을 노리는 장치)
+	if origin != Vector3.INF and radius > 0.0 and b.mat != Block.Mat.WEIGHT:
 		# 충격으로 떨어지는 블록은 착탄점 반대쪽으로 과장되게 튕겨 나가며 위로 솟고 회전한다
 		var d := b.global_position.distance_to(origin)
 		if d < radius * 1.5:

@@ -1,7 +1,8 @@
 class_name Flare
 extends Node3D
 ## 조명탄: 착탄 지점에서 위로 솟아 몇 초간 주변을 밝힌다. 파괴력은 없다.
-## 솟는 높이와 밝기 지속 시간은 고정이다. 모바일 예산에 맞춰 광원은 하나만, 그림자는 그리지 않는다
+## 솟는 높이와 밝기 지속 시간은 고정이다. 불빛은 짧고(몇 초) 좁다: 비춘 동안에 던져야 하고, 한 발로 진지 전체를 밝힐 수 없다.
+## 밤의 인간들은 불빛이 궁금해 구경하러 나온다 (Commander.lure_path). 모바일 예산에 맞춰 광원은 하나만, 그림자는 그리지 않는다
 ## (새 조명탄이 뜨면 이전 조명탄의 빛은 꺼진다).
 
 const RISE_TIME := 0.9
@@ -28,7 +29,7 @@ func setup(at: Vector3, p_height: float, p_duration: float) -> Flare:
 	_light = OmniLight3D.new()
 	_light.light_color = Color(1.0, 0.9, 0.7)
 	_light.light_energy = 0.0
-	_light.omni_range = 45.0
+	_light.omni_range = 20.0
 	_light.omni_attenuation = 0.8
 	_light.shadow_enabled = false
 	add_child(_light)
@@ -37,6 +38,16 @@ func setup(at: Vector3, p_height: float, p_duration: float) -> Flare:
 	_sparks.local_coords = false
 	add_child(_sparks)
 	return self
+
+
+## 비추고 있는 중인지 (솟아오른 뒤부터 꺼지기 전까지).
+func is_lit() -> bool:
+	return _t >= RISE_TIME * 0.6 and _t < RISE_TIME + duration
+
+
+## 착탄 지점.
+func base() -> Vector3:
+	return _base
 
 
 func extinguish() -> void:

@@ -264,13 +264,37 @@ func _run() -> void:
 	for i in Campaign.COUNT:
 		var d: Dictionary = Campaign.STAGES[i]
 		var paint := Campaign.paint_count(i)
-		_check(paint == 1 + Campaign.commander_count(i) and (i < 6 or d.has("wind")),
+		_check(paint == 1 + Campaign.commander_count(i) and (i < 7 or d.has("wind")),
 			"%s 페인트탄 %d (지휘관 %d), 바람 %d단계" % [Campaign.label(i), paint, Campaign.commander_count(i), d.get("wind", [0])[0]])
 		if Campaign.is_night(i) and not d.get("ballistas", []).is_empty():
 			_check(false, "%s 밤 진지에 발리스타가 있다" % Campaign.label(i))
 		if Campaign.world_of(i) == 4 and not d.get("final", false):
 			var feature: bool = Campaign.is_night(i) or Campaign.is_rain(i) or not d.get("ballistas", []).is_empty()
 			_check(feature, "%s 5월드 진지에 앞 월드 특성(비·밤·발리스타)이 있다" % Campaign.label(i))
+	# 3-2 불빛 구경꾼: 조명탄이 없으면 강철 초소 안에 그대로, 문 앞에 켜지면 걸어 나와 구경하고, 꺼지면 다시 들어간다
+	if _only <= 0 or _only == 3:
+		var s := _campaign(21)
+		await physics_frame
+		var cm: Commander = s.commanders[0]
+		var home := cm.global_position
+		await _wait(s, 3.0)
+		var stayed := cm.global_position.distance_to(home) < 0.2
+		var c: Vector3 = Campaign.STAGES[21].parts[0][1]
+		var spot := c + Campaign._guard_spot(1.0)
+		await _throw_plan(s, AmmoType.Kind.FLARE, spot + Vector3(0, 0.1, 0), false)
+		await _wait(s, 7.0)
+		var out_d := Vector2(cm.global_position.x - spot.x, cm.global_position.z - spot.z).length()
+		await _wait(s, 14.0)
+		var back := cm.global_position.distance_to(home)
+		_check(stayed and out_d < 0.6 and back < 0.6, "3-2 조명탄 불빛에 지휘관이 걸어 나와 구경하고(구경 자리까지 %.1fm), 꺼지면 들어간다 (집까지 %.1fm)" % [out_d, back])
+	# 1-8 짚 지붕 줄집: 끝집 지붕 하나에 불을 붙이면 잇닿은 지붕을 타고 세 집 지휘관이 모두 쓰러진다
+	if _only <= 0 or _only == 1:
+		var s := _campaign(7)
+		s.wind = Vector3.ZERO
+		await physics_frame
+		var step: Array = Campaign.plan(7)[0]
+		await _throw_plan(s, step[0], step[1], step[2])
+		await _expect(s, Stage.State.CLEARED, "1-8 끝집에 불 한 번 → 옆집으로 번져 지휘관 셋", 40.0)
 	# 시작 조망: 한 바퀴 돌고 투척 시점으로 내려오며, 건너뛸 수 있다
 	if _only <= 0 or _only == 1:
 		var s := _campaign(2)

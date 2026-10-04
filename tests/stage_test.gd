@@ -290,10 +290,11 @@ func _run() -> void:
 		await physics_frame
 		await physics_frame
 		var dist := Vector2(C[8].x, C[8].z).distance_to(Vector2(s.player.global_position.x, s.player.global_position.z))
-		_check(reachable(s.player.throw_origin(), C[8] + Vector3(0, 2.9, 0), StageDefs.FIRE.throw_speed) and dist > 65.0, "E9 %.0fm 떨어진 지휘관이 사거리 안" % dist)
-		await _throw(s, K.FIRE, C[8] + Vector3(0, 2.9, 0))
-		await _wait(s, 6.5)
-		await _throw(s, K.FIRE, C[8] + Vector3(0, 1.8, 0))
+		_check(reachable(s.player.throw_origin(), C[8] + Vector3(0, 2.9, 0), StageDefs.HE.throw_speed) and dist > 65.0, "E9 %.0fm 떨어진 지휘관이 사거리 안" % dist)
+		await _throw(s, K.HE, C[8] + Vector3(0, 2.9, 0))
+		await _wait(s, 3.0)
+		if s.state == Stage.State.PLAYING:
+			await _throw(s, K.HE, C[8] + Vector3(0, 1.8, 0))
 		await _expect(s, Stage.State.CLEARED, "E9 먼 지휘관")
 
 	if _want(9):
