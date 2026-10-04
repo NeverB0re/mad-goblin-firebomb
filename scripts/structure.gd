@@ -33,6 +33,8 @@ var joints: Array[Joint] = []
 var stage: Node
 ## finalize 시점의 블록 수 (봉화대처럼 '절반 이상 남았는지'를 볼 때 쓴다)
 var initial_count := 0
+## 플레이어의 투척으로는 부서지지 않는다 (E11 성문: 동료의 폭발통으로만). 강제 충격만 받는다
+var player_proof := false
 
 
 func add_block(mat: int, center: Vector3, size: Vector3) -> Block:
@@ -113,7 +115,9 @@ func _count_below(b: Block) -> int:
 
 
 ## 거리 감쇠 충격. 끊긴 연결 수를 돌려준다.
-func apply_impact(pos: Vector3, radius: float, strength: float) -> int:
+func apply_impact(pos: Vector3, radius: float, strength: float, forced := false) -> int:
+	if player_proof and not forced:
+		return 0
 	# 범위 안 블록은 끊기지 않아도 번쩍이며 흔들린다
 	for b in blocks:
 		if b.fallen:

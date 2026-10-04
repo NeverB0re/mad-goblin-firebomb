@@ -40,7 +40,7 @@ func _physics_process(delta: float) -> void:
 	for a in get_tree().get_nodes_in_group("actors"):
 		var ap: Vector3 = a.global_position
 		var flat := Vector2(ap.x - p.x, ap.z - p.z).length()
-		if flat <= radius + 0.35 and ap.y > p.y - 2.0 and ap.y < p.y + 1.5:
+		if flat <= radius + 0.35 and ap.y > p.y - 2.0 and ap.y < p.y + 1.5 and FirePool.clear_line(self, p, a.chest()):
 			a.on_fire_touch()
 	if _t >= duration:
 		active = false
@@ -63,3 +63,10 @@ static func reaches(from_node: Node3D, p: Vector3, block: Block) -> bool:
 		return true
 	var col: Object = hit.collider
 	return col == block or not (col is Block)
+
+## 두 점 사이를 블록이 가리지 않는지 (지면·지형은 무시). 불이 벽 너머 인물에게 닿지 않게 한다.
+static func clear_line(from_node: Node3D, a: Vector3, b: Vector3) -> bool:
+	var start := a + Vector3.UP * 0.3
+	var q := PhysicsRayQueryParameters3D.create(start, b, 1)
+	var hit := from_node.get_world_3d().direct_space_state.intersect_ray(q)
+	return hit.is_empty() or not (hit.collider is Block)
