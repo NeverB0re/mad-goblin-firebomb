@@ -21,11 +21,16 @@ class Joint:
 		return b if x == a else a
 
 	## 불에 타는 부재는 점점 약해진다.
+	## 충격에 닳은 부재도 약해진다.
 	func effective_strength() -> float:
-		var h := a.health
+		var h := minf(a.health, a.integrity)
 		if b:
-			h = minf(h, b.health)
+			h = minf(h, minf(b.health, b.integrity))
 		return strength * maxf(h, 0.05)
+
+	## 강철이 낀 연결은 끊기지 않는다.
+	func unbreakable() -> bool:
+		return a.mat == Block.Mat.STEEL or (b != null and b.mat == Block.Mat.STEEL)
 
 
 var blocks: Array[Block] = []
@@ -115,20 +120,27 @@ func _count_below(b: Block) -> int:
 
 
 ## 거리 감쇠 충격. 끊긴 연결 수를 돌려준다.
+## 충격파는 거리에 따라 약해진다: 반경 안에서 연결 강도를 넘는 곳은 끊고, 끊기지 않은 닳는 재질(나무·금 간 석벽)은
+## 반경의 WEAR_REACH배 거리까지 금이 커져 다음 충격에 쉽게 부서진다. 살짝 빗나가도 조금은 부서진다.
+## (이번 충격의 끊김 판정이 끝난 뒤에 닳게 해서, 한 발로 끊기는 범위는 반경 그대로 예측 가능하다)
 func apply_impact(pos: Vector3, radius: float, strength: float, forced := false) -> int:
 	if player_proof and not forced:
 		return 0
-	# 범위 안 블록은 끊기지 않아도 번쩍이며 흔들린다
+	var reach := radius * WEAR_REACH
+	var wear := {}
 	for b in blocks:
 		if b.fallen:
 			continue
 		var bd := b.distance_to_point(pos)
+		# 범위 안 블록은 끊기지 않아도 번쩍이며 흔들린다
 		if bd < radius * 1.3:
 			b.hit_react(strength * (1.0 - bd / (radius * 1.3)) / 40.0, pos)
+		if bd < reach and b.mat in Block.WEARS:
+			wear[b] = strength * (1.0 - bd / reach) / b.joint_strength() * WEAR_K
 	var broken := 0
 	var hit_blocks := {}
 	for j in joints:
-		if j.broken:
+		if j.broken or j.unbreakable():
 			continue
 		var d := j.pos.distance_to(pos)
 		if d >= radius:
@@ -137,21 +149,30 @@ func apply_impact(pos: Vector3, radius: float, strength: float, forced := false)
 		if dmg >= j.effective_strength():
 			j.broken = true
 			broken += 1
-			# 블록 자체 강도 이상의 충격을 받은 블록만 부서질 후보 (불에 약해진 이웃 때문에 끊긴 건 제외)
-			if dmg >= j.a.joint_strength():
+			# 블록 자체 강도(닳은 만큼 약해짐) 이상의 충격을 받은 블록만 부서질 후보 (불에 약해진 이웃 때문에 끊긴 건 제외)
+			if dmg >= j.a.joint_strength() * j.a.integrity:
 				hit_blocks[j.a] = true
-			if j.b and dmg >= j.b.joint_strength():
+			if j.b and dmg >= j.b.joint_strength() * j.b.integrity:
 				hit_blocks[j.b] = true
 	if broken > 0:
-		# 충격에 직접 끊긴 작은 석재·강철 블록은 그 자리에서 산산조각 난다 (밀려나 끼어 버티지 않게)
+		# 충격에 직접 끊긴 작은 석재 블록은 그 자리에서 산산조각 난다 (밀려나 끼어 버티지 않게)
 		for b in hit_blocks:
 			if b.mat in SHATTER_MATS and b.size.x * b.size.y * b.size.z <= SHATTER_VOLUME and not b.fallen:
 				_shatter(b)
 		resolve(pos, strength, radius)
+	for b in wear:
+		if is_instance_valid(b) and not b.fallen:
+			var before: float = b.integrity
+			b.wear(wear[b])
+			if before - b.integrity > 0.15 and stage and stage.has_method("on_block_chipped"):
+				stage.on_block_chipped(b)
 	return broken
 
 
-const SHATTER_MATS := [Block.Mat.STONE, Block.Mat.STEEL]
+const SHATTER_MATS := [Block.Mat.STONE, Block.Mat.CRACKED]
+## 닳게 하는 충격이 닿는 거리 (충격 반경의 배수)와 닳는 정도
+const WEAR_REACH := 1.6
+const WEAR_K := 0.3
 const SHATTER_VOLUME := 3.5
 
 
