@@ -26,13 +26,15 @@ func _check(cond: bool, msg: String) -> void:
 		print("  FAIL ", msg)
 
 
-## 낮은 포물선으로 target에 닿는 방향. 닿을 수 없으면 45도.
-static func aim(origin: Vector3, target: Vector3, v: float) -> Vector3:
+## 낮은 포물선(high면 높이 띄운 포물선)으로 target에 닿는 방향. 닿을 수 없으면 45도.
+## 낮은 언덕에서 지붕 밑을 노릴 때는 높이 띄워 가파르게 떨어뜨린다.
+static func aim(origin: Vector3, target: Vector3, v: float, high := false) -> Vector3:
 	var flat := Vector2(target.x - origin.x, target.z - origin.z)
 	var x := flat.length()
 	var y := target.y - origin.y
 	var disc := v * v * v * v - G * (G * x * x + 2.0 * y * v * v)
-	var theta := atan((v * v - sqrt(maxf(disc, 0.0))) / (G * x)) if disc >= 0.0 else PI * 0.25
+	var root := sqrt(maxf(disc, 0.0)) * (-1.0 if high else 1.0)
+	var theta := atan((v * v - root) / (G * x)) if disc >= 0.0 else PI * 0.25
 	var h := flat.normalized()
 	return Vector3(h.x * cos(theta), sin(theta), h.y * cos(theta)).normalized()
 
@@ -67,17 +69,17 @@ func _select(s: Stage, kind: int) -> void:
 			return
 
 
-func _point(s: Stage, target: Vector3) -> void:
+func _point(s: Stage, target: Vector3, high := false) -> void:
 	var v := s.current_ammo().throw_speed
 	for i in 4:
-		var dir := aim(s.player.throw_origin(), target, v)
+		var dir := aim(s.player.throw_origin(), target, v, high)
 		s.player.look_at_angles(atan2(-dir.x, -dir.z), asin(dir.y))
 
 
 ## 실제 입력 경로로 던진다: 와인드업 시작 → 바로 놓기 요청 → 손을 떠날 때까지 틱 진행.
-func _throw(s: Stage, kind: int, target: Vector3) -> void:
+func _throw(s: Stage, kind: int, target: Vector3, high := false) -> void:
 	_select(s, kind)
-	_point(s, target)
+	_point(s, target, high)
 	var before := s.throws
 	if not s.player.begin_windup():
 		return
@@ -88,7 +90,10 @@ func _throw(s: Stage, kind: int, target: Vector3) -> void:
 		guard += 1
 
 
+## 날아가는 폭탄이 모두 떨어진 뒤부터 seconds 동안 기다린다.
 func _wait(s: Stage, seconds: float) -> void:
+	while not s._projectiles.is_empty() and s.state == Stage.State.PLAYING:
+		await physics_frame
 	var t := 0.0
 	while t < seconds and s.state == Stage.State.PLAYING:
 		await physics_frame
@@ -150,8 +155,8 @@ func _run() -> void:
 		await _throw(s, K.FIRE, C[0] + Vector3(0, 2.9, 0))
 		await _wait(s, 6.0)
 		_check(s.state == Stage.State.PLAYING, "E1 차양만 태워서는 끝나지 않는다 %s" % (s.commander.defeat_cause if s.commander.dead else ""))
-		await _throw(s, K.FIRE, C[0] + Vector3(0, 1.8, 0))
-		await _expect(s, Stage.State.CLEARED, "E1 차양 태우고 직격")
+		await _throw(s, K.FIRE, C[0] + Vector3(0, 1.8, 0), true)
+		await _expect(s, Stage.State.CLEARED, "E1 차양 태우고 높이 띄워 직격")
 		s = _new_stage(0)
 		await physics_frame
 		for i in 5:
@@ -184,17 +189,39 @@ func _run() -> void:
 		await _throw(s, K.FIRE, Vector3(-30, 0, -25))
 		await _expect(s, Stage.State.FAILED, "E3 전령 방치", 60.0, "fail_messenger")
 	if _want(3):
-		# E4: 고폭탄으로 강철벽 → 지휘관
+		# E4: 고폭탄으로 금 간 석벽 → 지휘관
 		s = _new_stage(3)
 		await physics_frame
 		await _throw(s, K.HE, C[3] + Vector3(0, 1.5, 2.8))
 		await _wait(s, 3.0)
 		if s.state == Stage.State.PLAYING:
 			await _throw(s, K.HE, C[3] + Vector3(0, 1.0, 0.2))
-		await _expect(s, Stage.State.CLEARED, "E4 강철벽 날리고 직격")
+		await _expect(s, Stage.State.CLEARED, "E4 석벽 날리고 직격")
+		# E4: 살짝 빗나간 고폭탄도 가까운 석벽에 금을 키운다 (끊기지는 않아도 약해진다)
+		s = _new_stage(3)
+		await physics_frame
+		await _throw(s, K.HE, C[3] + Vector3(5.0, 0.0, 4.6))
+		await _wait(s, 1.0)
+		var worn := 0
+		var fell := 0
+		for blk in s.structures[0].blocks:
+			if blk.mat == Block.Mat.CRACKED:
+				if blk.integrity < 0.9:
+					worn += 1
+				if blk.fallen:
+					fell += 1
+		_check(worn > 0 and fell == 0, "E4 빗나간 고폭탄 → 석벽 %d개에 금이 커짐, 무너진 것 %d개" % [worn, fell])
+		# 강철 지붕과 기둥은 고폭탄을 바로 맞아도 그대로다
+		await _throw(s, K.HE, C[3] + Vector3(2.6, 3.3, -2.2))
+		await _wait(s, 2.0)
+		var steel_ok := true
+		for blk in s.structures[0].blocks:
+			if blk.mat == Block.Mat.STEEL and blk.fallen:
+				steel_ok = false
+		_check(steel_ok, "E4 강철 지붕은 고폭탄 직격에도 버틴다")
 
 	if _want(4):
-		# E5: 화염탄은 강철벽에서 피식 꺼진다 → 고폭탄으로 벽 → 화염탄으로 초소
+		# E5: 화염탄으로는 금 간 석벽이 안 부서진다 → 고폭탄으로 벽 → 화염탄으로 초소
 		s = _new_stage(4)
 		await physics_frame
 		await _throw(s, K.FIRE, C[4] + Vector3(0, 2.0, 4.7))
@@ -202,30 +229,33 @@ func _run() -> void:
 		var wall_ok := true
 		for st in s.structures:
 			for blk in st.blocks:
-				if blk.mat == Block.Mat.STEEL and (blk.fallen or blk.burning):
+				if blk.mat == Block.Mat.CRACKED and (blk.fallen or blk.burning):
 					wall_ok = false
-		_check(wall_ok and s.state == Stage.State.PLAYING, "E5 화염탄은 강철벽을 못 뚫는다")
+		_check(wall_ok and s.state == Stage.State.PLAYING, "E5 화염탄은 석벽을 못 뚫는다")
 		await _throw(s, K.HE, C[4] + Vector3(0, 1.5, 4.7))
 		await _wait(s, 2.0)
-		await _throw(s, K.FIRE, C[4] + Vector3(0, 2.9, 0))
+		await _throw(s, K.FIRE, C[4] + Vector3(0, 2.9, 0), true)
 		await _expect(s, Stage.State.CLEARED, "E5 벽 날리고 초소 태우기")
 
 	if _want(5):
-		# E6: 석재 기둥(고폭) + 목재 버팀목(화염) → 덮개에 깔림
+		# E6: 금 간 석재 기둥(고폭) + 목재 버팀목(화염) → 덮개에 깔림
 		s = _new_stage(5)
 		await physics_frame
-		await _throw(s, K.HE, C[5] + Vector3(-2.4, 1.4, 2.0))
+		await _throw(s, K.HE, C[5] + Vector3(-3.2, 2.2, 2.05))
 		await _wait(s, 2.0)
 		_check(s.state == Stage.State.PLAYING, "E6 기둥 하나로는 덮개가 버틴다")
-		await _throw(s, K.FIRE, C[5] + Vector3(2.4, 1.4, 1.85))
+		await _throw(s, K.FIRE, C[5] + Vector3(3.2, 2.2, 1.9))
 		await _expect(s, Stage.State.CLEARED, "E6 덮개 떨어뜨려 깔기")
-		# 정면 난간 너머 직격은 막힌다
+		# 정면 바위턱 너머 직격·폭발은 막힌다. 가운데에 거듭 던지면 받침 둘이 조금씩 닳아 결국 덮개가 떨어질 수는 있다
 		s = _new_stage(5)
 		await physics_frame
-		for i in 3:
+		await _throw(s, K.HE, C[5] + Vector3(0, 1.6, 3.2))
+		await _wait(s, 3.0)
+		_check(s.state == Stage.State.PLAYING, "E6 바위턱 정면 고폭탄 한 발로는 지휘관이 무사 %s" % (s.commander.defeat_cause if s.commander.dead else ""))
+		for i in 2:
 			await _throw(s, K.HE, C[5] + Vector3(0, 1.6, 3.2))
 		await _wait(s, 3.0)
-		_check(s.state == Stage.State.PLAYING, "E6 바위턱 정면 고폭탄 3발로는 지휘관이 무사 %s" % (s.commander.defeat_cause if s.commander.dead else ""))
+		_check(not s.commander.dead or s.commander.defeat_cause == "crush", "E6 정면 고폭탄 3발은 지휘관에게 직접 닿지 않는다 (%s)" % s.commander.defeat_cause)
 
 	if _want(6):
 		# E7: 화염탄만으로는 젖은 홈통이 타지 않는다 → 기름을 붓고 짚에 점화
@@ -248,7 +278,7 @@ func _run() -> void:
 		_check(s.state == Stage.State.PLAYING, "E8 조명탄은 파괴력이 없다")
 		await _throw(s, K.FIRE, C[7] + Vector3(0, 2.9, 0))
 		await _wait(s, 6.0)
-		await _throw(s, K.FIRE, C[7] + Vector3(0, 1.8, 0))
+		await _throw(s, K.FIRE, C[7] + Vector3(0, 1.8, 0), true)
 		await _expect(s, Stage.State.CLEARED, "E8 밤 진지")
 
 	if _want(8):
@@ -264,24 +294,41 @@ func _run() -> void:
 		await _expect(s, Stage.State.CLEARED, "E9 먼 지휘관")
 
 	if _want(9):
-		# E10: 기름통 줄 끝에 불 → 강철벽 뒤 봉화대까지 타 들어간다
+		# E10: 기름통 줄 끝에 불 → 석벽 뒤 봉화대까지 타 들어간다
 		s = _new_stage(9)
 		await physics_frame
-		await _throw(s, K.FIRE, Vector3(-26.5, 0.8, -80.0))
+		await _throw(s, K.FIRE, Vector3(-22.5, 0.8, -66.0))
 		await _expect(s, Stage.State.CLEARED, "E10 기름통 줄로 봉화대 태우기")
-		# E10: 강철벽 정면 화염탄으로는 봉화대가 안 탄다 → 전령 도착
+		# E10: 고폭탄으로 석벽을 날리고 봉화대를 태운다
 		s = _new_stage(9)
 		await physics_frame
-		await _throw(s, K.FIRE, Vector3(-33, 2.0, -84.6))
-		await _expect(s, Stage.State.FAILED, "E10 강철벽 정면 화염탄 → 전령 도착", 60.0, "fail_messenger")
+		await _throw(s, K.HE, Vector3(-29, 2.0, -70.7))
+		await _wait(s, 1.5)
+		await _throw(s, K.FIRE, StageDefs.E10_BEACON + Vector3(0, 3.6, 0.6))
+		await _expect(s, Stage.State.CLEARED, "E10 석벽 날리고 봉화대 태우기")
+		# E10: 석벽 정면 화염탄으로는 봉화대가 안 탄다 → 전령 도착
+		s = _new_stage(9)
+		await physics_frame
+		await _throw(s, K.FIRE, Vector3(-29, 2.0, -70.6))
+		await _expect(s, Stage.State.FAILED, "E10 석벽 정면 화염탄 → 전령 도착", 60.0, "fail_messenger")
+		# E10: 강철벽은 고폭탄에도 그대로다
+		s = _new_stage(9)
+		await physics_frame
+		await _throw(s, K.HE, Vector3(22, 1.5, -34.7))
+		await _wait(s, 2.0)
+		var steel_ok := true
+		for blk in s.structures[0].blocks:
+			if blk.mat == Block.Mat.STEEL and blk.fallen:
+				steel_ok = false
+		_check(steel_ok, "E10 강철벽은 고폭탄에도 버틴다")
 	if _want(10):
-		# E11: 방패병(화염) → 바리케이드(고폭) → 그물(고폭) → 성문 앞 폭발통(화염)
+		# E11: 방패병(화염) → 바리케이드(고폭) → 석재 울타리(고폭, 살짝 빗나가도) → 성문 앞 폭발통(화염)
 		s = _new_stage(10)
 		await physics_frame
 		var pts: Array = StageDefs.E11_PATH
 		await _throw(s, K.FIRE, StageDefs._along(pts, 12.0) + Vector3(0, 0.5, 0))
 		await _throw(s, K.HE, StageDefs._along(pts, 22.0) + Vector3(0, 0.7, 0.3))
-		await _throw(s, K.HE, StageDefs._along(pts, 32.0) + Vector3(0, 1.0, 0.3))
+		await _throw(s, K.HE, StageDefs._along(pts, 32.0) + Vector3(1.2, 0.0, 0.8))
 		var ally: Ally = s.allies[0]
 		var t := 0.0
 		while not ally.at_gate and t < 60.0:

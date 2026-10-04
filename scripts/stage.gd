@@ -25,7 +25,6 @@ const HITSTOP := 0.07
 
 var stage_id := ""
 var title := ""
-var objective := ""
 var night := false
 var goal: int = Goal.COMMANDER
 var state: int = State.PLAYING
@@ -55,11 +54,10 @@ var _last_shot_warned := false
 
 # ---------- 구성 ----------
 
-func begin(p_id: String, p_title: String, p_objective: String, p_night := false, p_goal := Goal.COMMANDER) -> void:
+func begin(p_id: String, p_title: String, p_night := false, p_goal := Goal.COMMANDER) -> void:
 	goal = p_goal
 	stage_id = p_id
 	title = p_title
-	objective = p_objective
 	night = p_night
 	_make_ground()
 
@@ -286,13 +284,10 @@ func select_slot(i: int) -> void:
 		return
 	if player and player.is_throwing():
 		return
-	var prev: AmmoType = current_ammo()
 	current_slot = i
 	if player:
+		# 손에 든 폭탄 모양이 바뀌는 것으로 알린다 (글씨는 띄우지 않는다)
 		_update_held()
-	if prev and prev.throw_speed != current_ammo().throw_speed:
-		# 수치는 보여 주지 않는다
-		toast.emit(Texts.t("weight_changed"))
 	ammo_changed.emit()
 
 
@@ -495,7 +490,7 @@ func on_block_burnt(b: Block) -> void:
 			pool.setup(2.2, 4.0, 1.5, true)
 
 
-## 고폭탄에 산산조각 난 석재·강철 블록: 같은 색 파편이 크게 튀고 먼지가 인다.
+## 고폭탄·화약통에 산산조각 난 석재 블록: 같은 색 파편이 크게 튀고 먼지가 인다.
 func on_block_shattered(b: Block) -> void:
 	var col: Color = Block.INFO[b.mat].color
 	var debris := Fx.burst(int(clampf(b.size.length() * 10.0, 10.0, 40.0)), 7.0, 0.3, [col, col, Color(col, 0.0)], false)
@@ -505,6 +500,17 @@ func on_block_shattered(b: Block) -> void:
 	debris.emitting = true
 	Fx.free_after(debris, 2.0)
 	Fx.smoke_puff(self, b.global_position, b.size.length() * 0.5)
+
+
+## 근처 충격에 금이 커진 블록: 같은 색 부스러기가 조금 튀고 먼지가 인다 (빗나가도 조금은 부서진 느낌).
+func on_block_chipped(b: Block) -> void:
+	var col: Color = Block.INFO[b.mat].color
+	var chips := Fx.burst(8, 4.0, 0.12, [col, col.darkened(0.3), Color(col, 0.0)], false)
+	add_child(chips)
+	chips.global_position = b.global_position + Vector3.UP * b.size.y * 0.3
+	chips.emitting = true
+	Fx.free_after(chips, 1.5)
+	Fx.smoke_puff(self, b.global_position, 0.4)
 
 
 func on_heavy_landing(pos: Vector3, energy: float) -> void:
@@ -520,7 +526,8 @@ func _on_collapsed(pos: Vector3, count: int) -> void:
 
 
 func _on_barrel_exploded(pos: Vector3, ally: Ally) -> void:
-	explode(pos, 6.5, 500.0, true)
+	# 반듯한 석재 성문(연결 강도 400)을 무너뜨릴 만큼 크다. 강철 문짝은 그대로 남는다
+	explode(pos, 8.0, 1200.0, true)
 	# 그을린 동료가 웃으며 날아간다 (연출)
 	ally.launch(Vector3(0.3, 0, 1.0), 3, 0.9)
 

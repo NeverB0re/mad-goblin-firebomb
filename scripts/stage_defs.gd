@@ -1,7 +1,9 @@
 class_name StageDefs
 extends RefCounted
-## 확장 테스트 스테이지 E1~E11 (확장 기획서 9장). 승리 조건은 모두 "지휘관을 쓰러뜨림".
-## 플레이어(미친 고블린)는 투척 구역 앞쪽 끝에서 -Z 방향 아래쪽 인간 진지를 내려다본다.
+## 확장 테스트 스테이지 E1~E11 (확장 기획서 9장). 승리 조건은 지휘관 쓰러뜨리기 (E3·E10은 전령 멈추기).
+## 플레이어(미친 고블린)는 투척 구역에서 -Z 방향의 인간 진지를 내려다본다.
+## 화면에 목표 문구는 없다. 무엇을 해야 할지는 재질로 보여 준다:
+## 짚·나무 = 탄다, 금 간 석벽 = 고폭탄으로 부서진다, 반듯한 석재 = 버틴다, 강철 = 절대 안 부서진다.
 ## 인간 시설은 반듯하고 대칭인 규격품, 빨강은 깃발에만 쓴다.
 ## 각 스테이지는 "설계상 최소 투척 수 + 보정 여유 2~3발"로 탄을 준다.
 
@@ -14,8 +16,9 @@ const M := Block.Mat
 const COUNT := 11
 const NAMES := ["E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9", "E10", "E11"]
 
-## 스테이지별 투척 구역 높이 (중간 높이도 섞는다)
-const PERCH := [25.0, 14.0, 25.0, 20.0, 18.0, 25.0, 15.0, 22.0, 22.0, 20.0, 22.0]
+## 스테이지별 투척 구역 높이. 기본은 낮은 언덕, 아주 먼 표적(E9)만 고지대, 먼 종합 스테이지(E10)는 중간
+const HILL := 6.0
+const PERCH := [HILL, HILL, HILL, HILL, HILL, HILL, HILL, HILL, 22.0, 12.0, HILL]
 ## 지휘관 위치 (E3·E10 전령 스테이지는 지휘관이 없다)
 const COMMANDER := [
 	Vector3(0, 0, -45), Vector3(0, 4.3, -40), Vector3(-6, 0, -58), Vector3(0, 0, -48), Vector3(0, 0, -52),
@@ -26,10 +29,10 @@ const E3_RUN := [Vector3(-26, 0, -38), Vector3(-14, 0, -46), Vector3(-18, 0, -56
 	Vector3(6, 0, -54), Vector3(18, 0, -64), Vector3(28, 0, -72)]
 const E3_SPEED := 2.6
 const E3_BEACON := Vector3(31, 0, -75)
-const E10_RUN := [Vector3(26, 0, -40), Vector3(14, 0, -46), Vector3(22, 0, -54), Vector3(8, 0, -60), Vector3(14, 0, -70),
-	Vector3(-2, 0, -74), Vector3(-10, 0, -66), Vector3(-20, 0, -78), Vector3(-29, 0, -84)]
+const E10_RUN := [Vector3(30, 0, -26), Vector3(18, 0, -32), Vector3(26, 0, -40), Vector3(12, 0, -46), Vector3(18, 0, -56),
+	Vector3(2, 0, -60), Vector3(-6, 0, -52), Vector3(-16, 0, -64), Vector3(-25, 0, -70)]
 const E10_SPEED := 3.4
-const E10_BEACON := Vector3(-33, 0, -88)
+const E10_BEACON := Vector3(-29, 0, -74)
 ## 지원형 동료 경로 (E11): 투척 구역 아래에서 성문까지
 const E11_PATH := [Vector3(-14, 0, -18), Vector3(-6, 0, -34), Vector3(0, 0, -58.3)]
 
@@ -78,7 +81,17 @@ static func shelter(st: Structure, c: Vector3, half := 2.4, height := 2.8) -> vo
 		var x := -half + (i + 0.5) * half * 2.0 / n
 		st.add_block(M.WOOD_BEAM, c + Vector3(x, height + 0.06, 0), Vector3(half * 2.0 / n, 0.12, half * 2.0))
 
-## 강철벽: 반듯한 강철 판을 격자로 쌓는다.
+## 금 간 석벽: 누렇게 바랜 석재 판을 격자로 쌓는다. 고폭탄으로 부서진다.
+static func cracked_wall(st: Structure, c: Vector3, width: float, height: float, thick := 0.5) -> void:
+	var cols := int(roundf(width / 1.5))
+	var rows := int(roundf(height / 1.0))
+	for r in rows:
+		for k in cols:
+			var x := c.x - width * 0.5 + (k + 0.5) * width / cols
+			st.add_block(M.CRACKED, Vector3(x, (r + 0.5) * height / rows, c.z), Vector3(width / cols, height / rows, thick))
+
+
+## 강철벽: 반듯한 강철 판을 격자로 쌓는다. 무엇으로도 부서지지 않는 가림막.
 static func steel_wall(st: Structure, c: Vector3, width: float, height: float, thick := 0.4) -> void:
 	var cols := int(roundf(width / 1.5))
 	var rows := int(roundf(height / 1.0))
@@ -139,7 +152,7 @@ static func hut(st: Structure, c: Vector3, half := 2.0, height := 2.6, wall := M
 
 ## E1 직격형: 목책과 목재 차양 뒤의 지휘관, 고지대. 차양을 태우고 직격한다.
 static func _e1(s: Stage) -> void:
-	s.begin("E1", "E1 · 목책 진지", "깃발 옆 지휘관을 쓰러뜨려라 (목재 차양이 머리 위를 가린다)")
+	s.begin("E1", "E1 · 목책 진지")
 	_zone(s, 0)
 	s.add_ammo(FIRE, 5)
 	var c: Vector3 = COMMANDER[0]
@@ -153,7 +166,7 @@ static func _e1(s: Stage) -> void:
 
 ## E2 연소형: 목재 망루 위의 지휘관. 다리에 불을 붙이고 번지기를 기다린다.
 static func _e2(s: Stage) -> void:
-	s.begin("E2", "E2 · 목재 망루", "망루를 태워 지휘관을 쓰러뜨려라 (불이 다가갈수록 지휘관이 허둥댄다)")
+	s.begin("E2", "E2 · 목재 망루")
 	_zone(s, 1)
 	s.add_ammo(FIRE, 5)
 	var c: Vector3 = COMMANDER[1]
@@ -166,7 +179,7 @@ static func _e2(s: Stage) -> void:
 ## E3 전령형: 지원을 부르러 봉화대로 달리는 전령을 멈춘다 (지휘관 없음).
 ## 전령을 앞질러 맞히거나, 봉화대를 먼저 태운다. 첫 전령 스테이지라 느리고 완만하게 꺾인다.
 static func _e3(s: Stage) -> void:
-	s.begin("E3", "E3 · 봉화대로 달리는 전령", "전령을 멈춰라: 쓰러뜨리거나 봉화대를 먼저 태운다 (첫 투척과 함께 달린다)", false, Stage.Goal.MESSENGER)
+	s.begin("E3", "E3 · 봉화대로 달리는 전령", false, Stage.Goal.MESSENGER)
 	_zone(s, 2)
 	s.add_ammo(FIRE, 6)
 	s.add_messenger(E3_RUN, E3_SPEED)
@@ -174,15 +187,15 @@ static func _e3(s: Stage) -> void:
 	s.beacon_center = E3_BEACON
 	beacon(s.beacon, E3_BEACON)
 
-## E4 직격형: 강철벽 뒤 지휘관. 고폭탄으로 벽을 날리고 직격한다 (강철 지붕이 높은 포물선을 막는다).
+## E4 직격형: 금 간 석벽 뒤 지휘관. 고폭탄으로 벽을 날리고 직격한다 (강철 지붕이 높은 포물선을 막는다).
 static func _e4(s: Stage) -> void:
-	s.begin("E4", "E4 · 강철벽", "고폭탄으로 강철벽을 날리고 지휘관을 쓰러뜨려라")
+	s.begin("E4", "E4 · 석벽 뒤 지휘관")
 	_zone(s, 3)
 	s.add_ammo(HE, 5)
 	var c: Vector3 = COMMANDER[3]
 	var st := s.add_structure()
-	# 강철벽은 지붕을 받치지 않는다 (벽을 날려도 지붕은 그대로라 한 번 더 던져야 한다)
-	steel_wall(st, c + Vector3(0, 0, 2.6), 6.0, 2.8)
+	# 석벽은 지붕을 받치지 않는다 (벽을 날려도 지붕은 그대로라 한 번 더 던져야 한다)
+	cracked_wall(st, c + Vector3(0, 0, 2.65), 6.0, 2.8)
 	# 강철 지붕: 기둥 넷에 얹힌다. 높은 포물선으로 벽 너머를 노리는 것을 막는다
 	for sx in [-1, 1]:
 		for z in [1.9, -2.2]:
@@ -191,36 +204,41 @@ static func _e4(s: Stage) -> void:
 	s.add_commander(c, 180.0, Vector3(1.2, 0, -1.0))
 
 
-## E5 직격형: 강철벽 + 안쪽 목재 초소. 고폭탄으로 벽, 화염탄으로 초소 (반대로 하면 불이 피식 꺼진다).
+## E5 직격형: 금 간 석벽 + 안쪽 목재 초소. 고폭탄으로 벽, 화염탄으로 초소.
 static func _e5(s: Stage) -> void:
-	s.begin("E5", "E5 · 강철벽과 목재 초소", "벽을 먼저 날릴까, 초소를 먼저 태울까 (1~2 키로 탄종 교체)")
+	s.begin("E5", "E5 · 석벽과 목재 초소")
 	_zone(s, 4)
 	s.add_ammo(HE, 2)
 	s.add_ammo(FIRE, 3)
 	var c: Vector3 = COMMANDER[4]
 	var st := s.add_structure()
-	steel_wall(st, c + Vector3(0, 0, 4.5), 9.0, 4.0)
+	cracked_wall(st, c + Vector3(0, 0, 4.5), 9.0, 4.0)
 	hut(st, c, 2.0, 2.6)
 	s.add_commander(c, 180.0, Vector3(3.0, 0, -0.5))
 
 
-## E6 간접형: 절벽 밑 동굴 속 지휘관, 위에 석재 덮개. 덮개를 받치는 기둥(석재)과 버팀목(목재)을 친다.
+## E6 간접형: 절벽 밑 동굴 속 지휘관. 머리 위 무거운 석재 덮개가 앞쪽 받침 둘에만 얹혀 있다.
+## 왼쪽은 금 간 석재 기둥(고폭탄), 오른쪽은 나무 버팀목(화염탄). 둘 다 없애면 덮개가 떨어져 깔린다.
+## 덮개는 반듯한 석재라 직접 맞혀도 안 부서지고, 바위턱이 정면 직격을 막는다.
 static func _e6(s: Stage) -> void:
-	s.begin("E6", "E6 · 절벽 밑 동굴", "직격은 안 된다. 머리 위 석재 덮개를 떨어뜨려라")
+	s.begin("E6", "E6 · 절벽 밑 동굴")
 	_zone(s, 5)
 	s.add_ammo(HE, 4)
 	s.add_ammo(FIRE, 2)
 	var c: Vector3 = COMMANDER[5]
-	# 뒤쪽 절벽 (블록이 아닌 지형)
+	# 뒤쪽 절벽 (블록이 아닌 지형). 덮개 뒤끝이 절벽에 닿아 있다
 	s.add_prop(c + Vector3(0, 6, -4.5), Vector3(14, 12, 4), Color(0.33, 0.31, 0.3))
 	s.add_prop(c + Vector3(0, 13, -1.5), Vector3(14, 2, 4), Color(0.28, 0.27, 0.26))
 	var st := s.add_structure()
-	# 덮개를 받치는 셋: 왼쪽 석재 기둥, 오른쪽 목재 버팀목, 뒤쪽 석재 벽 (둘을 잃으면 떨어진다)
-	st.add_block(M.STONE, c + Vector3(-2.4, 1.4, 1.6), Vector3(0.8, 2.8, 0.8))
-	st.add_block(M.WOOD_BEAM, c + Vector3(2.4, 1.4, 1.6), Vector3(0.5, 2.8, 0.5))
-	st.add_block(M.STONE, c + Vector3(0, 1.4, -2.2), Vector3(5.6, 2.8, 0.8))
-	# 덮개 (받침 셋 중 둘을 잃으면 떨어진다: 석재 기본 받침 비율 0.6)
-	st.add_block(M.STONE, c + Vector3(0, 3.2, -0.2), Vector3(6.0, 0.8, 4.6))
+	# 받침 둘은 멀리 떨어져 있어 가운데에 한 발로 둘 다 끊을 수 없다
+	st.add_block(M.CRACKED, c + Vector3(-3.2, 1.4, 1.6), Vector3(0.9, 2.8, 0.9))
+	st.add_block(M.WOOD_BEAM, c + Vector3(3.2, 1.4, 1.6), Vector3(0.55, 2.8, 0.55))
+	# 덮개: 받침 둘 중 하나만 남아도 버티고, 둘 다 잃으면 떨어진다
+	var cover := st.add_block(M.STONE, c + Vector3(0, 3.2, -0.2), Vector3(7.4, 0.8, 4.6))
+	cover.support_ratio = 0.5
+	# 덮개 위 바위 (무게가 실린 게 보이게. 덮개와 함께 떨어진다)
+	st.add_block(M.STONE, c + Vector3(-0.8, 3.95, -0.8), Vector3(1.6, 0.7, 1.4))
+	st.add_block(M.STONE, c + Vector3(1.4, 3.85, 0.2), Vector3(1.1, 0.5, 1.0))
 	# 동굴 입구의 바위턱 (지형이라 부서지지 않는다. 정면 직격을 막는다)
 	s.add_prop(c + Vector3(0, 0.8, 2.8), Vector3(7.0, 1.6, 0.8), Color(0.3, 0.28, 0.27))
 	s.add_commander(c + Vector3(0, 0, -0.8), 180.0, Vector3(1.0, 0, -0.6))
@@ -228,7 +246,7 @@ static func _e6(s: Stage) -> void:
 
 ## E7 연소형: 석재 건물 안의 지휘관, 내부 연료 배관, 바깥에 짚. 젖은 홈통에 기름을 붓고 점화한다.
 static func _e7(s: Stage) -> void:
-	s.begin("E7", "E7 · 연료 창고", "젖은 홈통에 기름을 부어 배관까지 불길을 이어라 (1~2 키로 탄종 교체)")
+	s.begin("E7", "E7 · 연료 창고")
 	_zone(s, 6)
 	s.add_ammo(OIL, 3)
 	s.add_ammo(FIRE, 3)
@@ -257,7 +275,7 @@ static func _e7(s: Stage) -> void:
 
 ## E8 밤 직격형: 횃불 몇 개만 켜진 진지. 조명탄으로 보고 맞힌다.
 static func _e8(s: Stage) -> void:
-	s.begin("E8", "E8 · 밤의 진지", "조명탄으로 진지를 밝히고 지휘관을 쓰러뜨려라 (1~2 키로 탄종 교체)", true)
+	s.begin("E8", "E8 · 밤의 진지", true)
 	_zone(s, 7)
 	s.add_ammo(FIRE, 5)
 	s.add_ammo(FLARE, 3)
@@ -277,40 +295,41 @@ static func _e8(s: Stage) -> void:
 ## E9 원거리: 아주 먼 지휘관 (거의 최대 사거리). 거리를 격해 맞히는 쾌감 확인용.
 ## 이후 본편에서는 이 정도 거리를 뒤 스테이지의 난이도 요소로 쓴다.
 static func _e9(s: Stage) -> void:
-	s.begin("E9", "E9 · 먼 진지", "아주 멀리 있는 지휘관을 쓰러뜨려라 (차양을 태우고 직격)")
+	s.begin("E9", "E9 · 먼 진지")
 	_zone(s, 8)
 	s.add_ammo(FIRE, 5)
 	var c: Vector3 = COMMANDER[8]
 	shelter(s.add_structure(), c)
 	s.add_commander(c)
 
-## E10 종합 (전령형 응용): 더 빠르고 많이 꺾이는 전령, 경로 일부를 가리는 강철벽,
-## 강철벽 뒤에 숨은 봉화대와 그 앞까지 이어진 기름통 줄. 고폭탄으로 벽을 날리거나 기름통 줄에 불을 붙인다.
+## E10 종합 (전령형 응용): 더 빠르고 많이 꺾이는 전령, 경로 일부를 가리는 강철벽(안 부서짐),
+## 금 간 석벽 뒤에 숨은 봉화대와 그 곁까지 이어진 기름통 줄. 고폭탄으로 석벽을 날리거나 기름통 줄에 불을 붙인다.
 static func _e10(s: Stage) -> void:
-	s.begin("E10", "E10 · 강철벽 뒤의 봉화대", "전령을 멈춰라: 쓰러뜨리거나 봉화대를 먼저 태운다 (1~2 키로 탄종 교체)", false, Stage.Goal.MESSENGER)
+	s.begin("E10", "E10 · 석벽 뒤의 봉화대", false, Stage.Goal.MESSENGER)
 	_zone(s, 9)
 	s.add_ammo(HE, 3)
 	s.add_ammo(FIRE, 4)
 	var st := s.add_structure()
-	# 경로 일부를 가리는 강철벽 둘
-	steel_wall(st, Vector3(18, 0, -49), 9.0, 3.0)
-	steel_wall(st, Vector3(4, 0, -69), 9.0, 3.0)
-	# 봉화대 앞을 막는 강철벽
-	steel_wall(st, Vector3(-33, 0, -85), 9.0, 4.0)
+	# 경로 일부를 가리는 강철벽 둘 (안 부서진다. 전령이 벽 뒤로 지나갈 때는 기다려야 한다)
+	steel_wall(st, Vector3(22, 0, -35), 9.0, 3.0)
+	steel_wall(st, Vector3(8, 0, -55), 9.0, 3.0)
+	# 봉화대 앞을 막는 금 간 석벽
+	cracked_wall(s.add_structure(), Vector3(-29, 0, -71), 9.0, 4.0)
 	# 벽 옆으로 돌아 봉화대 곁까지 이어진 기름통 줄 (검정에 흰 띠)
 	for i in 8:
-		st.add_block(M.FUEL, Vector3(-26.5, 0.4, -80.5 - i * 1.0), Vector3(0.8, 0.8, 1.0))
+		st.add_block(M.FUEL, Vector3(-22.5, 0.4, -66.5 - i * 1.0), Vector3(0.8, 0.8, 1.0))
 	for i in 4:
-		st.add_block(M.FUEL, Vector3(-27.5 - i * 1.0, 0.4, -88.3), Vector3(1.0, 0.8, 0.8))
+		st.add_block(M.FUEL, Vector3(-23.5 - i * 1.0, 0.4, -74.3), Vector3(1.0, 0.8, 0.8))
 	s.add_messenger(E10_RUN, E10_SPEED)
 	s.beacon = s.add_structure()
 	s.beacon_center = E10_BEACON
 	beacon(s.beacon, E10_BEACON)
 
-## E11 지원형: 폭발통을 진 동료 고블린이 성문까지 걷는다. 방패병, 바리케이드, 쇠사슬 그물을 치워 길을 연다.
+## E11 지원형: 폭발통을 진 동료 고블린이 성문까지 걷는다. 방패병, 나무 바리케이드, 금 간 석재 울타리를 치워 길을 연다.
+## 동료가 지나갈 가운데 폭만 트이면 된다 (양 끝 조각이 남아도 지나간다).
 ## 성문 앞에 닿으면 화염탄으로 폭발통을 터뜨린다. 지휘관은 성문 위에 서 있다.
 static func _e11(s: Stage) -> void:
-	s.begin("E11", "E11 · 성문 앞 지원", "동료의 길을 열고, 성문 앞에서 폭발통을 터뜨려라 (1~2 키로 탄종 교체)")
+	s.begin("E11", "E11 · 성문 앞 지원")
 	_zone(s, 10)
 	s.add_ammo(HE, 3)
 	s.add_ammo(FIRE, 3)
@@ -331,7 +350,7 @@ static func _e11(s: Stage) -> void:
 		st.add_block(M.STONE, gate + Vector3(sx * 1.5, 5.4, 0), Vector3(0.3, 2.2, 1.6))
 	st.add_block(M.STONE, gate + Vector3(0, 6.65, 0), Vector3(3.3, 0.3, 1.6))
 	var pts: Array = E11_PATH
-	# 길 위의 장애물: 방패병 둘 → 목재 바리케이드 → 쇠사슬 그물 (강철)
+	# 길 위의 장애물: 방패병 둘 → 목재 바리케이드 → 금 간 석재 울타리
 	var g1 := s.add_guard(_along(pts, 12.0) + Vector3(-0.5, 0, 0), 20.0, true)
 	var g2 := s.add_guard(_along(pts, 12.0) + Vector3(0.6, 0, 0), 20.0, true)
 	var barricade := s.add_structure()
@@ -339,16 +358,15 @@ static func _e11(s: Stage) -> void:
 	for k in 4:
 		barricade.add_block(M.WOOD_THIN, bp + Vector3(-1.5 + k * 1.0, 0.6, 0), Vector3(1.0, 1.2, 0.3))
 	barricade.add_block(M.WOOD_THIN, bp + Vector3(0, 1.35, 0), Vector3(4.0, 0.3, 0.3))
-	var net := s.add_structure()
-	var np := _along(pts, 32.0)
-	for sx in [-1, 1]:
-		net.add_block(M.STEEL, np + Vector3(sx * 1.6, 1.0, 0), Vector3(0.3, 2.0, 0.3))
+	var fence := s.add_structure()
+	var fp := _along(pts, 32.0)
 	for k in 3:
-		net.add_block(M.STEEL, np + Vector3(0, 0.5 + k * 0.6, 0), Vector3(2.9, 0.08, 0.08))
+		for r in 2:
+			fence.add_block(M.CRACKED, fp + Vector3(-1.0 + k * 1.0, 0.45 + r * 0.9, 0), Vector3(1.0, 0.9, 0.4))
 	var obstacles := [
 		{"distance": 12.0, "cleared": func(): return g1.dead and g2.dead},
-		{"distance": 22.0, "cleared": func(): return _cleared(barricade)},
-		{"distance": 32.0, "cleared": func(): return _cleared(net)},
+		{"distance": 22.0, "cleared": func(): return _path_open(barricade, pts, 22.0)},
+		{"distance": 32.0, "cleared": func(): return _path_open(fence, pts, 32.0)},
 	]
 	s.add_ally(pts, 1.8, obstacles)
 	s.add_commander(Vector3(0, 4.3, -60.2), 180.0, Vector3(2.2, 0, 0))
@@ -367,9 +385,22 @@ static func _along(pts: Array, d: float) -> Vector3:
 	return pts[pts.size() - 1]
 
 
-## 장애물 구조가 길에서 치워졌는지 (서 있는 블록이 하나도 없음).
-static func _cleared(st: Structure) -> bool:
+## 동료가 지나갈 폭의 절반
+const HALF_PASS := 0.45
+
+
+## 경로 거리 d 지점에서 동료가 지나갈 폭에 서 있는 블록이 없는지 (길이 트였는지).
+## 무너진 잔해는 넘어간다. 양 끝 조각만 남았으면 트인 것으로 본다.
+static func _path_open(st: Structure, pts: Array, d: float) -> bool:
+	var center := _along(pts, d)
+	var ahead := _along(pts, d + 0.5) - center
+	ahead.y = 0.0
+	var side := ahead.normalized().cross(Vector3.UP)
 	for b in st.blocks:
-		if not b.fallen and not b.burnt:
+		if b.fallen or b.burnt:
+			continue
+		var lateral := absf((b.global_position - center).dot(side))
+		var half := (absf(side.x) * b.size.x + absf(side.z) * b.size.z) * 0.5
+		if lateral - half < HALF_PASS:
 			return false
 	return true

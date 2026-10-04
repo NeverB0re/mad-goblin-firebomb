@@ -21,10 +21,10 @@ func _real_wait(main: Node, seconds: float) -> void:
 		await process_frame
 
 
-func _aim(s: Stage, target: Vector3) -> void:
+func _aim(s: Stage, target: Vector3, high := false) -> void:
 	var v := s.current_ammo().throw_speed
 	for i in 4:
-		var dir := StageTest.aim(s.player.throw_origin(), target, v)
+		var dir := StageTest.aim(s.player.throw_origin(), target, v, high)
 		s.player.look_at_angles(atan2(-dir.x, -dir.z), asin(dir.y))
 
 
@@ -34,9 +34,9 @@ func _select(s: Stage, kind: int) -> void:
 			s.select_slot(i)
 
 
-func _throw(s: Stage, kind: int, target: Vector3) -> void:
+func _throw(s: Stage, kind: int, target: Vector3, high := false) -> void:
 	_select(s, kind)
-	_aim(s, target)
+	_aim(s, target, high)
 	s.try_throw(s.player.throw_origin(), s.player.throw_direction())
 
 
@@ -58,17 +58,17 @@ func _run() -> void:
 	var K := AmmoType.Kind
 	# [스테이지, 첫 투척 탄종, 목표, 결과까지 기다릴 시간]
 	var shots := [
-		[0, K.FIRE, C[0] + Vector3(0, 2.9, 0), 2.5],
-		[1, K.FIRE, Vector3(C[1].x, 1.5, C[1].z + 1.5), 5.0],
-		[2, K.FIRE, StageDefs.E3_BEACON + Vector3(0, 3.6, 0.6), 1.5],
-		[3, K.HE, C[3] + Vector3(0, 1.5, 2.8), 2.0],
-		[4, K.FIRE, C[4] + Vector3(0, 2.0, 4.7), 2.0],
-		[5, K.HE, C[5] + Vector3(-2.4, 1.4, 2.0), 2.0],
-		[6, K.OIL, C[6] + Vector3(0.3, 0.3, 5.0), 2.0],
-		[7, K.FLARE, C[7] + Vector3(0, 0, 2), 1.8],
-		[8, K.FIRE, C[8] + Vector3(0, 2.9, 0), 3.0],
-		[9, K.FIRE, Vector3(-26.5, 0.8, -80.0), 2.0],
-		[10, K.FIRE, StageDefs._along(StageDefs.E11_PATH, 12.0) + Vector3(0, 0.5, 0), 3.0],
+		[0, K.FIRE, C[0] + Vector3(0, 2.9, 0), 5.0],
+		[1, K.FIRE, Vector3(C[1].x, 1.5, C[1].z + 1.5), 7.5],
+		[2, K.FIRE, StageDefs.E3_BEACON + Vector3(0, 3.6, 0.6), 4.5],
+		[3, K.HE, C[3] + Vector3(0, 1.5, 2.8), 4.5],
+		[4, K.FIRE, C[4] + Vector3(0, 2.0, 4.7), 4.5],
+		[5, K.HE, C[5] + Vector3(-3.2, 2.2, 2.05), 4.5],
+		[6, K.OIL, C[6] + Vector3(0.3, 0.3, 5.0), 4.5],
+		[7, K.FLARE, C[7] + Vector3(0, 0, 2), 6.0],
+		[8, K.FIRE, C[8] + Vector3(0, 2.9, 0), 7.0],
+		[9, K.FIRE, Vector3(-22.5, 0.8, -66.0), 5.0],
+		[10, K.FIRE, StageDefs._along(StageDefs.E11_PATH, 12.0) + Vector3(0, 0.5, 0), 4.0],
 	]
 	for shot in shots:
 		main.load_stage(shot[0])
@@ -88,17 +88,18 @@ func _run() -> void:
 
 	# 승리 연출: 쓰러진 방식별 (날아감 / 불탐 / 깔림 / 봉화대)
 	var wins := [
-		["fly", 0, [[K.FIRE, C[0] + Vector3(0, 2.9, 0), 6.0], [K.FIRE, C[0] + Vector3(0, 1.8, 0), 0.0]]],
+		["fly", 0, [[K.FIRE, C[0] + Vector3(0, 2.9, 0), 9.0], [K.FIRE, C[0] + Vector3(0, 1.8, 0), 0.0, true]]],
 		["burn", 1, [[K.FIRE, Vector3(C[1].x, 1.5, C[1].z + 1.5), 0.0]]],
-		["crush", 5, [[K.HE, C[5] + Vector3(-2.4, 1.4, 2.0), 2.0], [K.FIRE, C[5] + Vector3(2.4, 1.4, 1.85), 0.0]]],
+		["crush", 5, [[K.HE, C[5] + Vector3(-3.2, 2.2, 2.05), 5.0], [K.FIRE, C[5] + Vector3(3.2, 2.2, 1.9), 0.0]]],
 		["beacon", 2, [[K.FIRE, StageDefs.E3_BEACON + Vector3(0, 3.6, 0.6), 0.0]]],
+		["night", 7, [[K.FIRE, C[7] + Vector3(0, 2.9, 0), 9.0], [K.FIRE, C[7] + Vector3(0, 1.8, 0), 0.0, true]]],
 	]
 	for w in wins:
 		main.load_stage(w[1])
 		await _frames(10)
 		var sw: Stage = main.stage
 		for t in w[2]:
-			_throw(sw, t[0], t[1])
+			_throw(sw, t[0], t[1], t.size() > 3)
 			_look(sw, t[1])
 			await _real_wait(main, t[2])
 		while sw.state == Stage.State.PLAYING:

@@ -1,9 +1,9 @@
 class_name Hud
 extends CanvasLayer
-## 화면 중앙의 작은 점, 목표, 탄약, 클리어/실패 표시. 포물선이나 낙하 지점은 보여 주지 않는다.
+## 화면 중앙의 작은 점, 스테이지 번호, 탄약. 목표 문구·포물선·낙하 지점은 보여 주지 않는다
+## (무엇을 해야 할지는 재질과 직접 던져 보며 알아낸다). 조작 안내는 첫 투척 뒤 사라진다.
 
 var _title: Label
-var _objective: Label
 var _ammo: Label
 var _banner: Label
 var _sub: Label
@@ -44,8 +44,6 @@ func _ready() -> void:
 
 	_title = _label(root, 24)
 	_place(_title, Vector4(0, 0, 0, 0), Vector4(24, 16, 900, 50))
-	_objective = _label(root, 18)
-	_place(_objective, Vector4(0, 0, 0, 0), Vector4(24, 52, 1100, 80))
 
 	_ammo = _label(root, 22)
 	_ammo.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -97,8 +95,9 @@ func _label(parent: Control, font_size: int) -> Label:
 
 func bind(stage: Stage) -> void:
 	_stage = stage
-	_title.text = stage.title
-	_objective.text = stage.objective
+	_title.text = stage.stage_id
+	_help.visible = true
+	stage.projectile_thrown.connect(func(_p): _help.visible = false)
 	_banner.text = ""
 	_sub.text = ""
 	_toast.text = ""
@@ -136,7 +135,7 @@ func _on_state(_state: int, _message: String) -> void:
 
 ## 승리 연출·실패 그림 동안에는 조준점, 탄약, 추적 화면을 숨긴다.
 func set_gameplay_visible(on: bool) -> void:
-	for n in [_title, _objective, _ammo, _help, _toast, _banner, _sub]:
+	for n in [_title, _ammo, _help, _toast, _banner, _sub]:
 		n.visible = on
 	if _dot:
 		_dot.visible = on
