@@ -1,6 +1,8 @@
 class_name Stage
 extends Node3D
-## 한 테스트 스테이지의 상태: 지형, 플레이어, 건물, 적, 탄약, 클리어/실패 판정.
+## 한 테스트 스테이지의 상태: 지형, 플레이어(고블린), 인간 시설, 인물, 탄약, 승리/실패 판정.
+## 승리 조건은 지휘관을 쓰러뜨리는 것 하나로 통일한다 (확장 기획서 6장). 깃발은 위치 표식이다.
+## 원칙은 "과장은 판정 뒤에": 궤적·폭발 반경·점화·지휘관 판정은 정직하고 고정, 연출만 부풀린다.
 
 signal state_changed(state: int, message: String)
 signal ammo_changed
@@ -8,25 +10,32 @@ signal toast(text: String)
 signal projectile_thrown(projectile: Projectile)
 ## 착탄·폭발의 화면 흔들림 (세기 0~1, 추적 화면용)
 signal shake_requested(amount: float)
+## 지휘관 판정 확정 (승리 연출 시작)
+signal commander_down(commander: Commander, cause: String)
 
 enum State { PLAYING, CLEARED, FAILED }
-enum Goal { CORE, ENEMY }
 
 const TRACE_TIME := 30.0
 const FAIL_QUIET_TIME := 4.0
-## 코어 바닥이 이 높이 아래로 내려와 멈추면 땅에 닿은 것으로 본다 (잔해 위에 걸친 경우)
-const CORE_GROUND_HEIGHT := 0.9
+const STARTLE_RANGE := 14.0
+## 히트스톱 (현실 시간)
+const HITSTOP := 0.07
 
 var stage_id := ""
 var title := ""
 var objective := ""
-var goal: int = Goal.CORE
-## 이 스테이지에서 되찾는 기계장치의 신 부품 (Models.Part)
-var part_kind := -1
+var night := false
 var state: int = State.PLAYING
+var fail_cause := ""
 var player: Player
+var commander: Commander
 var structures: Array[Structure] = []
-var enemies: Array[Enemy] = []
+var messengers: Array[Messenger] = []
+var allies: Array[Ally] = []
+## 전령의 목적지 (봉화대). 다 타거나 무너지면 전령이 도착해도 지원을 부르지 못한다
+var beacon: Structure
+## 승리 연출 카메라 (스테이지마다 정해 둔 위치, 없으면 자동)
+var cine_cam_pos := Vector3.INF
 ## [{type: AmmoType, count: int}]
 var ammo_slots: Array = []
 var current_slot := 0
@@ -35,16 +44,17 @@ var elapsed := 0.0
 var _projectiles: Array[Projectile] = []
 var _quiet := 0.0
 var _last_collapse_sound := -10.0
+var _flags: Array[Node3D] = []
+var _last_shot_warned := false
 
 
 # ---------- 구성 ----------
 
-func begin(p_id: String, p_title: String, p_objective: String, p_goal: int, p_part := -1) -> void:
-	part_kind = p_part
+func begin(p_id: String, p_title: String, p_objective: String, p_night := false) -> void:
 	stage_id = p_id
 	title = p_title
 	objective = p_objective
-	goal = p_goal
+	night = p_night
 	_make_ground()
 
 
@@ -63,15 +73,13 @@ func _make_ground() -> void:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(1200, 1200)
 	mesh.mesh = plane
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.6, 0.6, 0.59)
-	m.roughness = 1.0
-	mesh.material_override = m
+	mesh.material_override = Models.mat(Color(0.2, 0.22, 0.24) if night else Color(0.56, 0.6, 0.48), 1.0)
 	ground.add_child(mesh)
 	add_child(ground)
 
 
-func set_zone(center: Vector3, half_extents: Vector2, yaw_deg := 0.0) -> void:
+## 투척 구역. floors가 있으면 그 높이들 중 하나를 골라 오를 수 있다 (첫 층이 바위 턱 높이).
+func set_zone(center: Vector3, half_extents: Vector2, floors: Array = [], yaw_deg := 0.0) -> void:
 	player = Player.new()
 	player.name = "Player"
 	# 바위 턱 끝 가까이에서 시작해 아래가 잘 보이게 한다
@@ -79,27 +87,30 @@ func set_zone(center: Vector3, half_extents: Vector2, yaw_deg := 0.0) -> void:
 	add_child(player)
 	player.rotation.y = deg_to_rad(yaw_deg)
 	player.set_zone(center, half_extents)
+	player.ammo_source = _ammo_for_throw
 	player.throw_requested.connect(try_throw)
 	player.slot_requested.connect(select_slot)
 	player.slot_cycle_requested.connect(func(step): cycle_slot(step))
+	player.windup_started.connect(func(): Sfx.play(self, "windup", player.global_position, -10.0))
 	if center.y > 0.1:
 		_make_perch(center, half_extents)
-	# 투척 구역 테두리
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.15, 0.15, 0.15)
+	if floors.size() > 1:
+		for h in floors:
+			player.floors.append(float(h))
+		for i in range(1, floors.size()):
+			_make_scaffold_floor(center, half_extents, float(floors[i]), float(floors[i - 1]))
+	_zone_outline(center, half_extents)
+
+
+func _zone_outline(center: Vector3, half_extents: Vector2) -> void:
+	var mat := Models.mat(Color(0.15, 0.15, 0.15))
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var w := 0.08
 	var hx := half_extents.x + 0.4
 	var hz := half_extents.y + 0.4
 	for spec in [[Vector3(0, 0, -hz), Vector3(hx * 2, 0.02, w)], [Vector3(0, 0, hz), Vector3(hx * 2, 0.02, w)],
 			[Vector3(-hx, 0, 0), Vector3(w, 0.02, hz * 2)], [Vector3(hx, 0, 0), Vector3(w, 0.02, hz * 2)]]:
-		var line := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = spec[1]
-		line.mesh = bm
-		line.material_override = mat
-		line.position = center + spec[0] + Vector3(0, 0.01, 0)
-		add_child(line)
+		Models.box(self, spec[1], center + spec[0] + Vector3(0, 0.01, 0), mat)
 
 
 ## 고블린이 올라선 높은 바위 턱. 앞쪽 끝이 투척 구역 바로 앞이라 아래를 내려다보며 던진다.
@@ -120,6 +131,34 @@ func _make_perch(center: Vector3, half_extents: Vector2) -> void:
 	add_prop(Vector3(center.x, h + 0.9, back - 0.8), Vector3(wide * 2.0, 1.8, 1.6), rock_dark)
 
 
+## 고블린식 비계 한 층. 바닥은 플레이어만 밟고(레이어 8) 투척체는 통과한다.
+func _make_scaffold_floor(center: Vector3, half_extents: Vector2, h: float, below: float) -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = 8
+	body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	var size := Vector3(half_extents.x * 2.0 + 0.8, 0.2, half_extents.y * 2.0 + 0.8)
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	body.position = Vector3(center.x, h - 0.1, center.z)
+	add_child(body)
+	# 삐뚤빼뚤한 판자 바닥과 기둥 (고블린 솜씨)
+	var wood := Models.mat(Color(0.42, 0.28, 0.16))
+	var n := int(size.x / 0.5)
+	for i in n:
+		var x := center.x - size.x * 0.5 + (i + 0.5) * size.x / n
+		Models.box(self, Vector3(size.x / n * 0.92, 0.12, size.z), Vector3(x, h - 0.06 + (i % 3) * 0.015, center.z), wood, Vector3(0, (i % 2) * 0.03 - 0.015, 0))
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			var post_h := h - below
+			Models.box(self, Vector3(0.18, post_h, 0.18), Vector3(center.x + sx * size.x * 0.5, below + post_h * 0.5, center.z + sz * size.z * 0.5), wood, Vector3(sz * 0.02, 0, sx * 0.03))
+	# 사다리 (뒤쪽)
+	for k in int((h - below) / 0.5):
+		Models.box(self, Vector3(0.6, 0.06, 0.06), Vector3(center.x, below + 0.4 + k * 0.5, center.z + size.z * 0.5 + 0.1), wood)
+
+
 func add_structure() -> Structure:
 	var s := Structure.new()
 	s.stage = self
@@ -133,24 +172,71 @@ func add_ammo(type: AmmoType, count: int) -> void:
 	ammo_slots.append({"type": type, "count": count})
 
 
-func add_enemy(from: Vector3, to: Vector3, speed: float) -> Enemy:
+## 지휘관과 곁에 꽂힌 빨간 깃발.
+func add_commander(pos: Vector3, yaw_deg := 180.0, flag_offset := Vector3(1.2, 0, 0.3)) -> Commander:
+	commander = Commander.new()
+	commander.position = pos
+	commander.rotation.y = deg_to_rad(yaw_deg)
+	add_child(commander)
+	commander.defeated.connect(_on_commander_defeated)
+	var flag := Models.flag()
+	flag.position = pos + flag_offset
+	add_child(flag)
+	_flags.append(flag)
+	return commander
+
+
+func add_guard(pos: Vector3, yaw_deg := 180.0, shield := false) -> Guard:
+	var g := Guard.new().setup(shield)
+	g.position = pos
+	g.rotation.y = deg_to_rad(yaw_deg)
+	add_child(g)
+	return g
+
+
+func _path(points: Array) -> PathFollow3D:
 	var path := Path3D.new()
 	var curve := Curve3D.new()
-	curve.add_point(from)
-	curve.add_point(to)
+	for p in points:
+		curve.add_point(p)
 	path.curve = curve
 	add_child(path)
 	var follow := PathFollow3D.new()
 	follow.loop = false
 	follow.rotation_mode = PathFollow3D.ROTATION_Y
 	path.add_child(follow)
-	var e := Enemy.new()
-	e.speed = speed
-	e.follow = follow
-	follow.add_child(e)
-	enemies.append(e)
-	e.escaped.connect(func(): _set_state(State.FAILED, "적을 놓쳤다"))
-	return e
+	return follow
+
+
+## 전령: 첫 투척과 함께 목적지(봉화대)로 달린다. 길에는 일정한 간격의 울타리 기둥.
+func add_messenger(from: Vector3, to: Vector3, speed: float, torch := false) -> Messenger:
+	var m := Messenger.new()
+	m.speed = speed
+	m.follow = _path([from, to])
+	m.follow.add_child(m)
+	if torch:
+		m.carry_torch()
+	messengers.append(m)
+	m.arrived.connect(_on_messenger_arrived.bind(m))
+	var dir := (to - from).normalized()
+	var side := dir.cross(Vector3.UP).normalized()
+	var d := 0.0
+	while d <= from.distance_to(to) + 0.01:
+		add_prop(from + dir * d + side * 1.6 + Vector3(0, 0.6, 0), Vector3(0.2, 1.2, 0.2), Color(0.35, 0.33, 0.3))
+		d += 8.0
+	return m
+
+
+## 지원형 동료 고블린. obstacles: [{distance: float, cleared: Callable}]
+func add_ally(points: Array, speed: float, obstacles: Array) -> Ally:
+	var a := Ally.new()
+	a.speed = speed
+	a.follow = _path(points)
+	a.follow.add_child(a)
+	a.obstacles = obstacles
+	a.barrel_exploded.connect(_on_barrel_exploded.bind(a))
+	allies.append(a)
+	return a
 
 
 ## 장식/표지물 (충돌 있음, 블록 시스템과 무관).
@@ -167,31 +253,40 @@ func add_prop(center: Vector3, size: Vector3, color: Color, collide := true) -> 
 		node = body
 	else:
 		node = Node3D.new()
-	var mesh := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = size
-	mesh.mesh = bm
-	var m := StandardMaterial3D.new()
-	m.albedo_color = color
-	m.roughness = 1.0
-	mesh.material_override = m
-	node.add_child(mesh)
+	Models.box(node, size, Vector3.ZERO, Models.mat(color, 1.0))
 	node.position = center
 	add_child(node)
 	return node
+
+
+## 밤의 횃불 (실제 광원 없이 발광 재질).
+func add_torch(pos: Vector3, height := 1.8) -> void:
+	var t := Models.torch(height)
+	t.position = pos
+	add_child(t)
 
 
 func finish_build() -> void:
 	for s in structures:
 		s.finalize()
 	if player and not ammo_slots.is_empty():
-		player.set_held_model(ammo_slots[0].type.model_scale)
+		_update_held()
+	toast.emit.call_deferred(Texts.t("start"))
 
 
 # ---------- 탄약 ----------
 
 func current_ammo() -> AmmoType:
 	return ammo_slots[current_slot].type if not ammo_slots.is_empty() else null
+
+
+func _ammo_for_throw() -> AmmoType:
+	if state != State.PLAYING or ammo_slots.is_empty():
+		return null
+	if ammo_slots[current_slot].count <= 0:
+		toast.emit(Texts.t("empty_slot"))
+		return null
+	return current_ammo()
 
 
 func total_ammo() -> int:
@@ -201,16 +296,23 @@ func total_ammo() -> int:
 	return n
 
 
+func _update_held() -> void:
+	var a := current_ammo()
+	player.set_held_model(Fx.ammo_model(a.kind, a.model_scale * 0.8, false))
+
+
 func select_slot(i: int) -> void:
 	if i < 0 or i >= ammo_slots.size() or i == current_slot:
+		return
+	if player and player.is_throwing():
 		return
 	var prev: AmmoType = current_ammo()
 	current_slot = i
 	if player:
-		player.set_held_model(current_ammo().model_scale)
-	if prev and prev.weight != current_ammo().weight:
+		_update_held()
+	if prev and prev.throw_speed != current_ammo().throw_speed:
 		# 수치는 보여 주지 않는다
-		toast.emit("무게가 달라졌다")
+		toast.emit(Texts.t("weight_changed"))
 	ammo_changed.emit()
 
 
@@ -220,12 +322,13 @@ func cycle_slot(step: int) -> void:
 	select_slot(posmod(current_slot + step, ammo_slots.size()))
 
 
+## 병이 손을 떠나는 순간 탄약이 줄어든다.
 func try_throw(origin: Vector3, direction: Vector3) -> bool:
 	if state != State.PLAYING or ammo_slots.is_empty():
 		return false
 	var slot: Dictionary = ammo_slots[current_slot]
 	if slot.count <= 0:
-		toast.emit("이 화염병은 다 썼다")
+		toast.emit(Texts.t("empty_slot"))
 		return false
 	slot.count -= 1
 	throws += 1
@@ -238,10 +341,15 @@ func try_throw(origin: Vector3, direction: Vector3) -> bool:
 	p.impacted.connect(_on_impact)
 	_projectiles.append(p)
 	projectile_thrown.emit(p)
-	Sfx.play(self, "throw", origin, -4.0)
+	Sfx.play(self, "flight", origin, -12.0)
 	if throws == 1:
-		for e in enemies:
-			e.start()
+		for m in messengers:
+			m.start()
+		for a in allies:
+			a.start()
+	if total_ammo() == 1 and not _last_shot_warned:
+		_last_shot_warned = true
+		toast.emit(Texts.t("last_shot"))
 	ammo_changed.emit()
 	return true
 
@@ -253,21 +361,53 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 	if collider == null:
 		return
 	var ammo := p.ammo
-	Sfx.play(self, "break", pos, 0.0)
-	_impact_juice(pos, ammo.impact_strength / 30.0)
-	var shards := Fx.burst(18, 4.0, 0.12, [Color(0.1, 0.1, 0.1, 1), Color(0.2, 0.2, 0.2, 0)], false)
-	add_child(shards)
-	shards.global_position = pos
-	shards.emitting = true
-	Fx.free_after(shards, 2.0)
-	if collider is Enemy:
-		collider.ignite()
-	for s in structures:
-		s.apply_impact(pos, ammo.impact_radius, ammo.impact_strength)
-	var pool := FirePool.new()
-	add_child(pool)
-	pool.global_position = pos + normal * 0.05
-	pool.setup(ammo.pool_radius, ammo.pool_duration, ammo.burn_multiplier)
+	if collider is Actor:
+		collider.on_direct_hit(ammo)
+	match ammo.kind:
+		AmmoType.Kind.FIRE:
+			Sfx.play_delayed(self, "break", pos, 0.0, _listener())
+			_impact_juice(pos, 1.0)
+			_shards(pos, Color(0.1, 0.1, 0.1))
+			for s in structures:
+				s.apply_impact(pos, ammo.impact_radius, ammo.impact_strength)
+			_blast_actors(pos, ammo.kill_radius)
+			var on_steel: bool = collider is Block and collider.mat == Block.Mat.STEEL
+			var pool := FirePool.new()
+			add_child(pool)
+			pool.global_position = pos + normal * 0.05
+			if on_steel:
+				# 강철에는 불이 붙지 않고 금방 꺼진다 (바로 보이게)
+				pool.setup(ammo.pool_radius * 0.6, 0.6, 0.0)
+				Sfx.play_delayed(self, "fizzle", pos, -2.0, _listener())
+				Fx.smoke_puff(self, pos, 0.6)
+			else:
+				pool.setup(ammo.pool_radius, ammo.pool_duration, ammo.burn_multiplier)
+		AmmoType.Kind.HE:
+			Sfx.play_delayed(self, "boom", pos, 4.0, _listener())
+			_impact_juice(pos, 3.0)
+			_shards(pos, Color(0.25, 0.25, 0.27))
+			Fx.smoke_puff(self, pos, 2.0)
+			var fireball := Fx.burst(40, 8.0, 0.7, Fx.FLAME_COLORS)
+			add_child(fireball)
+			fireball.global_position = pos
+			fireball.emitting = true
+			Fx.free_after(fireball, 2.0)
+			for s in structures:
+				s.apply_impact(pos, ammo.impact_radius, ammo.impact_strength)
+			_blast_actors(pos, ammo.kill_radius)
+			_detonate_kegs(pos, ammo.impact_radius)
+		AmmoType.Kind.OIL:
+			Sfx.play_delayed(self, "break", pos, -4.0, _listener())
+			var slick := OilSlick.new()
+			add_child(slick)
+			slick.global_position = pos + normal * 0.02
+			slick.setup(ammo.oil_radius)
+			slick.coat_blocks()
+		AmmoType.Kind.FLARE:
+			var flare := Flare.new()
+			add_child(flare)
+			flare.global_position = pos
+			flare.setup(ammo.flare_height, ammo.flare_duration)
 	# 빗나가도 연기 기둥이 남아 다음 투척의 기준이 된다
 	var smoke := Fx.smoke_column()
 	add_child(smoke)
@@ -276,56 +416,84 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 	Fx.free_after(smoke, TRACE_TIME)
 
 
+func _listener() -> Vector3:
+	return player.global_position if player else Vector3.ZERO
+
+
+func _shards(pos: Vector3, color: Color) -> void:
+	var shards := Fx.burst(18, 4.0, 0.12, [color, Color(color, 0.0)], false)
+	add_child(shards)
+	shards.global_position = pos
+	shards.emitting = true
+	Fx.free_after(shards, 2.0)
+
+
+func _blast_actors(pos: Vector3, radius: float) -> void:
+	for a in get_tree().get_nodes_in_group("actors"):
+		a.on_blast(pos, radius)
+
+
+## 폭발이 화약통에 닿으면 0.15초 간격으로 연쇄 폭발한다 (쾅, 쾅, 쾅).
+func _detonate_kegs(pos: Vector3, radius: float) -> void:
+	for b in get_tree().get_nodes_in_group("flammable"):
+		var block := b as Block
+		if block.mat == Block.Mat.KEG and not block.burnt and block.distance_to_point(pos) <= radius:
+			block.fuse(0.15)
+
+
+## 화약통·폭발통 폭발: 석재 벽에도 통하는 큰 충격, 주변 점화, 기름 점화, 인물 판정.
 func explode(pos: Vector3, radius: float, strength: float) -> void:
-	Sfx.play(self, "break", pos, 6.0)
-	Sfx.play(self, "collapse", pos, 8.0)
+	Sfx.play_delayed(self, "boom", pos, 8.0, _listener())
 	var fireball := Fx.burst(60, 9.0, 0.9, Fx.FLAME_COLORS)
 	add_child(fireball)
 	fireball.global_position = pos
 	fireball.emitting = true
 	Fx.free_after(fireball, 2.0)
-	var light := OmniLight3D.new()
-	light.light_color = Color(1, 0.6, 0.25)
-	light.light_energy = 8.0
-	light.omni_range = radius * 3.0
-	add_child(light)
-	light.global_position = pos + Vector3(0, 1, 0)
-	create_tween().tween_property(light, "light_energy", 0.0, 0.6)
-	Fx.free_after(light, 0.8)
 	var smoke := Fx.smoke_column(40)
 	add_child(smoke)
 	smoke.global_position = pos
 	Fx.free_after(smoke, 20.0)
-	_impact_juice(pos, 3.0)
+	_impact_juice(pos, 4.0)
 	for s in structures:
 		s.apply_impact(pos, radius, strength)
 	for b in get_tree().get_nodes_in_group("flammable"):
 		if b.distance_to_point(pos) <= radius * 0.6:
 			b.ignite()
-	for e in enemies:
-		if e.global_position.distance_to(pos) <= radius * 0.7:
-			e.ignite()
+	for o in get_tree().get_nodes_in_group("oil"):
+		if o.global_position.distance_to(pos) <= radius:
+			o.ignite_after(0.05)
+	_blast_actors(pos, radius * 0.8)
+	_detonate_kegs(pos, radius)
 
 
-## 과장된 착탄 연출: 불덩이 튀김, 순간 섬광, 화면 흔들림 (게임 판정과 무관).
+## 과장된 착탄 연출: 히트스톱, 충격파 링, 불덩이, 거리 비례 흔들림, 병사 반응 (판정과 무관).
 func _impact_juice(pos: Vector3, power: float) -> void:
-	var burst := Fx.burst(int(20 * power) + 10, 5.0 + 2.0 * power, 0.35 + 0.1 * power, Fx.FLAME_COLORS)
+	var burst := Fx.burst(int(14 * power) + 10, 5.0 + 2.0 * power, 0.35 + 0.1 * power, Fx.FLAME_COLORS)
 	add_child(burst)
 	burst.global_position = pos
 	burst.emitting = true
 	Fx.free_after(burst, 2.0)
-	var flash := OmniLight3D.new()
-	flash.light_color = Color(1.0, 0.7, 0.35)
-	flash.light_energy = 6.0 * power
-	flash.omni_range = 6.0 + 3.0 * power
-	add_child(flash)
-	flash.global_position = pos + Vector3(0, 0.8, 0)
-	create_tween().tween_property(flash, "light_energy", 0.0, 0.35)
-	Fx.free_after(flash, 0.5)
+	Fx.shockwave(self, pos, 2.0 + power * 1.5)
 	shake_requested.emit(clampf(0.45 * power, 0.0, 1.0))
 	if player:
 		var dist := player.global_position.distance_to(pos)
 		player.add_shake(clampf(0.5 * power * 25.0 / maxf(dist, 25.0), 0.0, 1.0))
+	for g in get_tree().get_nodes_in_group("soldiers"):
+		var d: float = g.global_position.distance_to(pos)
+		if d < STARTLE_RANGE:
+			g.startle(power * (1.0 - d / STARTLE_RANGE) * 1.5)
+	hitstop(HITSTOP * clampf(power, 0.6, 1.4))
+
+
+## 히트스톱: 짧게 시간을 거의 멈춘다. 물리 틱 수로 세는 판정은 영향받지 않는다.
+## 승리 연출 중(time_scale이 다른 값)이면 건드리지 않는다.
+func hitstop(seconds: float) -> void:
+	if Engine.time_scale != 1.0 or not is_inside_tree():
+		return
+	Engine.time_scale = 0.05
+	get_tree().create_timer(seconds, true, false, true).timeout.connect(func():
+		if Engine.time_scale == 0.05:
+			Engine.time_scale = 1.0)
 
 
 func on_block_burnt(b: Block) -> void:
@@ -334,9 +502,28 @@ func on_block_burnt(b: Block) -> void:
 	embers.global_position = b.global_position
 	embers.emitting = true
 	Fx.free_after(embers, 2.0)
-	if b.mat == Block.Mat.KEG:
-		# 화약통: 석재 벽에도 통하는 큰 충격
-		explode.call_deferred(b.global_position, 6.0, 450.0)
+	match b.mat:
+		Block.Mat.KEG:
+			# 화약통: 석재 벽에도 통하는 큰 충격
+			explode.call_deferred(b.global_position, 6.0, 450.0)
+		Block.Mat.FUEL:
+			# 연료 배관이 다 타면 그 자리에서 불길이 확 솟는다
+			var pool := FirePool.new()
+			add_child(pool)
+			pool.global_position = b.global_position
+			pool.setup(2.2, 4.0, 1.5, true)
+
+
+## 고폭탄에 산산조각 난 석재·강철 블록: 같은 색 파편이 크게 튀고 먼지가 인다.
+func on_block_shattered(b: Block) -> void:
+	var col: Color = Block.INFO[b.mat].color
+	var debris := Fx.burst(int(clampf(b.size.length() * 10.0, 10.0, 40.0)), 7.0, 0.3, [col, col, Color(col, 0.0)], false)
+	debris.lifetime = 1.4
+	add_child(debris)
+	debris.global_position = b.global_position
+	debris.emitting = true
+	Fx.free_after(debris, 2.0)
+	Fx.smoke_puff(self, b.global_position, b.size.length() * 0.5)
 
 
 func on_heavy_landing(pos: Vector3, energy: float) -> void:
@@ -351,7 +538,41 @@ func _on_collapsed(pos: Vector3, count: int) -> void:
 		Sfx.play(self, "collapse", pos, clampf(float(count) - 6.0, -8.0, 4.0))
 
 
+func _on_barrel_exploded(pos: Vector3, ally: Ally) -> void:
+	explode(pos, 6.5, 500.0)
+	# 그을린 동료가 웃으며 날아간다 (연출)
+	ally.launch(Vector3(0.3, 0, 1.0), 3, 0.9)
+
+
 # ---------- 판정 ----------
+
+func _on_commander_defeated(c: Commander, cause: String) -> void:
+	if state != State.PLAYING:
+		return
+	_set_state(State.CLEARED, Texts.t("win"))
+	commander_down.emit(c, cause)
+
+
+## 봉화대가 남아 있는지 (가연 블록의 절반 이상이 타거나 무너지면 못 쓴다).
+func beacon_alive() -> bool:
+	if beacon == null:
+		return true
+	var ok := 0
+	for b in beacon.blocks:
+		if not b.fallen and not b.burnt and not b.burning:
+			ok += 1
+	return ok * 2 > beacon.initial_count
+
+
+func _on_messenger_arrived(_m: Messenger) -> void:
+	if beacon_alive():
+		_fail("fail_messenger")
+
+
+func _fail(key: String) -> void:
+	fail_cause = key
+	_set_state(State.FAILED, Texts.t(key))
+
 
 func is_active() -> bool:
 	if not _projectiles.is_empty():
@@ -361,8 +582,11 @@ func is_active() -> bool:
 	for s in structures:
 		if s.any_burning() or s.any_moving():
 			return true
-	for e in enemies:
-		if e.running:
+	for m in messengers:
+		if m.running:
+			return true
+	for a in allies:
+		if a.walking:
 			return true
 	return false
 
@@ -374,55 +598,18 @@ func _set_state(s: int, message: String) -> void:
 	state_changed.emit(state, message)
 
 
-const PART_OBJECTS := ["톱니 심장을", "왼쪽 태엽 팔을", "증기 머리를", "오른쪽 태엽 팔을", "황동 다리를", "보일러 몸통을"]
-
-
-func recovered_message() -> String:
-	if part_kind < 0:
-		return "목표를 무너뜨렸다"
-	return "%s 되찾았다" % PART_OBJECTS[part_kind]
-
-
-func core_down() -> bool:
-	var cores := get_tree().get_nodes_in_group("core")
-	if cores.is_empty():
-		return false
-	for c in cores:
-		var core := c as Block
-		if not core.fallen:
-			return false
-		if core.touched_ground:
-			continue
-		if core.linear_velocity.length() > 0.5:
-			return false
-		var low := core.lowest_point()
-		# 잔해 위에 걸쳐 멈춘 경우: 땅 가까이 내려왔거나 처음 높이의 절반 이상 떨어졌으면 인정
-		if low < CORE_GROUND_HEIGHT or core.start_low - low >= maxf(2.0, core.start_low * 0.5):
-			continue
-		return false
-	return true
-
-
 func _physics_process(delta: float) -> void:
 	elapsed += delta
+	for f in _flags:
+		var cloth: Node3D = f.get_node("Cloth")
+		cloth.rotation.y = sin(elapsed * 3.0) * 0.25
+		cloth.rotation.x = sin(elapsed * 5.0) * 0.06
 	if state != State.PLAYING:
 		return
-	match goal:
-		Goal.CORE:
-			if core_down():
-				_set_state(State.CLEARED, recovered_message())
-				return
-		Goal.ENEMY:
-			var all_dead := not enemies.is_empty()
-			for e in enemies:
-				all_dead = all_dead and e.dead
-			if all_dead:
-				_set_state(State.CLEARED, recovered_message())
-				return
 	if total_ammo() == 0:
 		if is_active():
 			_quiet = 0.0
 		else:
 			_quiet += delta
 			if _quiet >= FAIL_QUIET_TIME:
-				_set_state(State.FAILED, "화염병이 떨어졌다")
+				_fail("fail_ammo")
