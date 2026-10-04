@@ -68,6 +68,10 @@ func track(p: Projectile) -> void:
 	p.impacted.connect(_on_impacted)
 
 
+func camera() -> Camera3D:
+	return _camera
+
+
 func reset() -> void:
 	_target = null
 	_hold = 0.0

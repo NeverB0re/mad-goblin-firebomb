@@ -1,15 +1,13 @@
 class_name Models
 extends RefCounted
-## 단색 로우폴리 모델 모음: 고블린, 인간(징세관·병사·남작), 기계장치의 신 부품과 조립 신상, 요새 탑.
+## 단색 로우폴리 모델 모음: 고블린(부족장 포함), 인간(병사·지휘관), 깃발, 횃불, 요새 탑.
 ## 게임과 오프닝 컷만화가 같은 모델을 쓴다.
-
-enum Part { HEART, ARM_L, HEAD, ARM_R, LEGS, TORSO }
-const PART_NAMES := ["톱니 심장", "왼쪽 태엽 팔", "증기 머리", "오른쪽 태엽 팔", "황동 다리", "보일러 몸통"]
-const PART_COUNT := 6
 
 const GOLD := Color(0.97, 0.74, 0.16)
 const GOBLIN_SKIN := Color(0.36, 0.56, 0.22)
-const ENEMY_RED := Color(0.85, 0.12, 0.08)
+## 인간 진영: 깨끗한 청회색 강철 (빨강은 깃발에만 쓴다)
+const HUMAN_STEEL := Color(0.46, 0.55, 0.66)
+const FLAG_RED := Color(0.9, 0.08, 0.06)
 
 enum Hat { NONE, HELMET, CROWN, TOP_HAT }
 
@@ -103,68 +101,6 @@ static func gear(parent: Node3D, radius: float, thick: float, pos: Vector3, m: M
 	return g
 
 
-# ---------- 기계장치의 신 ----------
-
-## 신상 부품 하나. 약 0.8m 상자 안에 들어가고 원점이 중심이다.
-static func idol_part(kind: int, gold: Material, dark: Material) -> Node3D:
-	var root := Node3D.new()
-	match kind:
-		Part.HEART:
-			gear(root, 0.38, 0.2, Vector3.ZERO, gold, dark, Vector3(PI * 0.5, 0, 0), 9).name = "Spin"
-			ball(root, 0.1, Vector3(0, 0, 0.14), mat(Color(1.0, 0.3, 0.1), 0.4, 0.0, 1.5))
-		Part.ARM_L, Part.ARM_R:
-			var sx := -1.0 if kind == Part.ARM_L else 1.0
-			ball(root, 0.16, Vector3(-sx * 0.1, 0.27, 0), gold)
-			cyl(root, 0.09, 0.09, 0.32, Vector3(0, 0.1, 0), gold, Vector3(0, 0, sx * 0.4))
-			gear(root, 0.1, 0.12, Vector3(sx * 0.07, -0.05, 0), dark, gold, Vector3(PI * 0.5, 0, 0), 6)
-			cyl(root, 0.08, 0.07, 0.28, Vector3(sx * 0.1, -0.2, 0), gold)
-			for cz in [-0.07, 0.07]:
-				box(root, Vector3(0.05, 0.14, 0.05), Vector3(sx * 0.1, -0.38, cz), gold, Vector3(cz * 3.0, 0, 0))
-		Part.HEAD:
-			box(root, Vector3(0.6, 0.46, 0.5), Vector3(0, -0.08, 0), gold)
-			for ex in [-0.14, 0.14]:
-				cyl(root, 0.08, 0.08, 0.06, Vector3(ex, -0.04, 0.26), mat(Color(1.0, 0.45, 0.1), 0.4, 0.0, 2.0), Vector3(PI * 0.5, 0, 0))
-			box(root, Vector3(0.36, 0.05, 0.04), Vector3(0, -0.22, 0.26), dark)
-			cyl(root, 0.06, 0.08, 0.22, Vector3(0.17, 0.26, -0.05), dark)
-			cyl(root, 0.012, 0.012, 0.18, Vector3(-0.15, 0.24, 0), dark)
-			ball(root, 0.04, Vector3(-0.15, 0.34, 0), mat(Color(1.0, 0.3, 0.1), 0.4, 0.0, 1.5))
-		Part.LEGS:
-			box(root, Vector3(0.62, 0.14, 0.32), Vector3(0, 0.3, 0), gold)
-			for lx in [-0.18, 0.18]:
-				cyl(root, 0.1, 0.09, 0.5, Vector3(lx, 0.0, 0), gold)
-				ball(root, 0.09, Vector3(lx, 0.02, 0.0), dark)
-				box(root, Vector3(0.2, 0.1, 0.32), Vector3(lx, -0.3, 0.05), gold)
-		Part.TORSO:
-			cyl(root, 0.3, 0.34, 0.62, Vector3.ZERO, gold, Vector3.ZERO, 10)
-			for by in [-0.2, 0.2]:
-				cyl(root, 0.355, 0.355, 0.05, Vector3(0, by, 0), dark, Vector3.ZERO, 10)
-			gear(root, 0.13, 0.08, Vector3(0, 0.0, 0.33), dark, gold, Vector3(PI * 0.5, 0, 0), 7)
-			cyl(root, 0.05, 0.06, 0.2, Vector3(0.18, 0.4, 0), dark)
-	return root
-
-
-## 조립된 기계장치의 신 (높이 약 2.2m, 원점은 발바닥). missing에 든 부품은 빼고 만든다.
-static func statue(gold: Material, dark: Material, missing: Array = []) -> Node3D:
-	var root := Node3D.new()
-	var layout := {
-		Part.LEGS: [Vector3(0, 0.4, 0), 1.0],
-		Part.TORSO: [Vector3(0, 1.05, 0), 1.0],
-		Part.HEART: [Vector3(0, 1.1, 0.36), 0.55],
-		Part.ARM_L: [Vector3(-0.55, 1.15, 0), 1.0],
-		Part.ARM_R: [Vector3(0.55, 1.15, 0), 1.0],
-		Part.HEAD: [Vector3(0, 1.62, 0), 0.9],
-	}
-	for kind in layout:
-		if kind in missing:
-			continue
-		var p := idol_part(kind, gold, dark)
-		p.position = layout[kind][0]
-		p.scale = Vector3.ONE * layout[kind][1]
-		p.name = "Part%d" % kind
-		root.add_child(p)
-	return root
-
-
 # ---------- 인물 ----------
 
 ## 미친 발명가 고블린 (원점은 발바닥, -Z가 앞).
@@ -212,9 +148,13 @@ static func human(body: Color, hat: int = Hat.NONE, size := 1.0, cape := Color(0
 		box(root, Vector3(0.75, 1.2, 0.06), Vector3(0, 0.75, 0.3), mat(cape, 0.9), Vector3(0.12, 0, 0))
 	match hat:
 		Hat.HELMET:
-			var steel := mat(Color(0.55, 0.57, 0.6), 0.4, 0.6)
-			cyl(root, 0.17, 0.23, 0.22, Vector3(0, 1.72, 0), steel)
-			box(root, Vector3(0.05, 0.12, 0.05), Vector3(0, 1.9, 0), steel)
+			var steel := mat(Color(0.62, 0.66, 0.72), 0.35, 0.7)
+			var helmet := Node3D.new()
+			helmet.name = "Helmet"
+			helmet.position = Vector3(0, 1.72, 0)
+			root.add_child(helmet)
+			cyl(helmet, 0.17, 0.23, 0.22, Vector3.ZERO, steel)
+			box(helmet, Vector3(0.05, 0.12, 0.05), Vector3(0, 0.18, 0), steel)
 		Hat.CROWN:
 			var g := gold_material()
 			cyl(root, 0.2, 0.2, 0.12, Vector3(0, 1.8, 0), g)
@@ -248,7 +188,72 @@ static func tower(height := 3.0, color := Color(0.62, 0.62, 0.66)) -> Node3D:
 	for i in 4:
 		var a := TAU * i / 4.0 + PI * 0.25
 		box(root, Vector3(0.35, 0.4, 0.35), Vector3(cos(a) * 0.55, height + 0.2, sin(a) * 0.55), stone)
-	var flag := mat(ENEMY_RED, 0.8)
+	var flag := mat(FLAG_RED, 0.8)
 	cyl(root, 0.025, 0.025, 1.0, Vector3(0, height + 0.5, 0), mat(Color(0.2, 0.2, 0.2)))
 	box(root, Vector3(0.5, 0.3, 0.02), Vector3(0.25, height + 0.85, 0), flag)
+	return root
+
+
+## 인간 지휘관: 반듯한 강철 갑옷, 깃털 장식 투구, 짙은 남색 망토. 조금 더 크다.
+static func commander() -> Node3D:
+	var root := human(HUMAN_STEEL.lightened(0.1), Hat.HELMET, 1.15, Color(0.12, 0.16, 0.3))
+	var helmet: Node3D = root.get_node("Helmet")
+	var plume := mat(Color(0.95, 0.85, 0.3), 0.8)
+	for i in 3:
+		box(helmet, Vector3(0.06, 0.28, 0.06), Vector3(0, 0.3, 0.05 + i * 0.07), plume, Vector3(-0.3 - i * 0.25, 0, 0))
+	# 가슴의 금색 훈장 (규격품 느낌의 반듯한 장식)
+	box(root, Vector3(0.18, 0.18, 0.04), Vector3(0, 1.15, -0.32), gold_material())
+	return root
+
+
+## 지휘관 곁의 빨간 깃발. "Cloth" 노드를 흔들어 펄럭이게 한다 (천 시뮬레이션 없음).
+static func flag(height := 4.0) -> Node3D:
+	var root := Node3D.new()
+	cyl(root, 0.05, 0.06, height, Vector3(0, height * 0.5, 0), mat(Color(0.3, 0.3, 0.32), 0.5, 0.5))
+	ball(root, 0.09, Vector3(0, height + 0.05, 0), gold_material())
+	var cloth := Node3D.new()
+	cloth.name = "Cloth"
+	cloth.position = Vector3(0.05, height - 0.55, 0)
+	root.add_child(cloth)
+	var red := mat(FLAG_RED, 0.8, 0.0, 0.25)
+	box(cloth, Vector3(1.3, 0.85, 0.03), Vector3(0.65, 0, 0), red)
+	return root
+
+
+## 횃불 (밤 스테이지). 실제 광원 대신 발광 재질과 밝은 원뿔 메시로 흉내 낸다.
+static func torch(height := 1.8) -> Node3D:
+	var root := Node3D.new()
+	cyl(root, 0.04, 0.05, height, Vector3(0, height * 0.5, 0), mat(Color(0.3, 0.2, 0.1)))
+	var flame := mat(Color(1.0, 0.6, 0.15), 0.5, 0.0, 4.0)
+	cyl(root, 0.0, 0.12, 0.3, Vector3(0, height + 0.15, 0), flame, Vector3.ZERO, 6)
+	# 바닥에 퍼지는 빛 웅덩이 (발광 원판, 가산 혼합)
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	glow.albedo_color = Color(1.0, 0.55, 0.2, 0.35)
+	cyl(root, 3.5, 3.5, 0.02, Vector3(0, 0.03, 0), glow, Vector3.ZERO, 16)
+	var cone := StandardMaterial3D.new()
+	cone.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cone.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	cone.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	cone.albedo_color = Color(1.0, 0.6, 0.25, 0.12)
+	cyl(root, 0.15, 2.0, height + 0.3, Vector3(0, (height + 0.3) * 0.5, 0), cone, Vector3.ZERO, 12)
+	var fire := Fx.fire(Vector3(0.05, 0.05, 0.05), 10, 0.25)
+	fire.position = Vector3(0, height + 0.2, 0)
+	root.add_child(fire)
+	return root
+
+
+## 고블린 부족장: 깃털 머리장식과 뼈 목걸이.
+static func chief() -> Node3D:
+	var root := goblin()
+	var head: Node3D = root.get_node("Head")
+	var colors := [Color(0.95, 0.75, 0.2), Color(0.3, 0.6, 0.85), Color(0.95, 0.95, 0.9)]
+	for i in 5:
+		var a := -0.8 + i * 0.4
+		box(head, Vector3(0.07, 0.45, 0.03), Vector3(sin(a) * 0.2, 0.42, 0.08), mat(colors[i % 3], 0.8), Vector3(0, 0, -a * 0.6))
+	for i in 5:
+		var a := -1.0 + i * 0.5
+		box(root, Vector3(0.06, 0.12, 0.06), Vector3(sin(a) * 0.3, 1.15, -0.3 + absf(a) * 0.08), mat(Color(0.95, 0.93, 0.85)))
 	return root

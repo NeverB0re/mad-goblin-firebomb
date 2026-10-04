@@ -12,8 +12,7 @@ var _help: Label
 var _toast_time := 0.0
 var _stage: Stage
 var follow_cam: FollowCam
-## 지금까지 되찾은 신상 부품 수 (Main이 갱신)
-var recovered_count := 0
+var _dot: Control
 
 
 func _ready() -> void:
@@ -30,6 +29,7 @@ func _ready() -> void:
 
 	# 조준점: 작은 점 하나
 	var dot_bg := ColorRect.new()
+	_dot = dot_bg
 	dot_bg.color = Color(0, 0, 0, 0.6)
 	dot_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(dot_bg)
@@ -55,7 +55,7 @@ func _ready() -> void:
 	_help = _label(root, 15)
 	_help.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_help.modulate = Color(1, 1, 1, 0.75)
-	_help.text = "WASD 이동 · 마우스 시점 · 좌클릭 누름 준비 / 뗌 투척 · 우클릭 줌 · 1/2·휠 탄종 · R 재시작 · F1~F6 스테이지 · Esc 마우스 해제"
+	_help.text = Texts.t("help")
 	_place(_help, Vector4(0, 1, 0, 1), Vector4(24, -50, 1000, -18))
 
 	_banner = _label(root, 64)
@@ -102,6 +102,7 @@ func bind(stage: Stage) -> void:
 	_banner.text = ""
 	_sub.text = ""
 	_toast.text = ""
+	set_gameplay_visible(true)
 	stage.ammo_changed.connect(_refresh_ammo)
 	stage.state_changed.connect(_on_state)
 	stage.toast.connect(show_toast)
@@ -128,16 +129,19 @@ func _refresh_ammo() -> void:
 	_ammo.text = "\n".join(lines)
 
 
-func _on_state(state: int, message: String) -> void:
-	if state == Stage.State.CLEARED:
-		_banner.text = "되찾았다!"
-		_banner.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-		_sub.text = "%s · 투척 %d회\n기계장치의 신 부품 %d / %d\nEnter 다음 스테이지 · R 다시 하기" % [message, _stage.throws, recovered_count, Models.PART_COUNT]
-	else:
-		_banner.text = "실패"
-		_banner.add_theme_color_override("font_color", Color(1.0, 0.3, 0.25))
-		_sub.text = "%s\nR 다시 하기" % message
+## 승리·실패 화면은 ResultScreen이 그린다. 여기서는 아무것도 하지 않는다.
+func _on_state(_state: int, _message: String) -> void:
+	pass
 
+
+## 승리 연출·실패 그림 동안에는 조준점, 탄약, 추적 화면을 숨긴다.
+func set_gameplay_visible(on: bool) -> void:
+	for n in [_title, _objective, _ammo, _help, _toast, _banner, _sub]:
+		n.visible = on
+	if _dot:
+		_dot.visible = on
+	if not on:
+		follow_cam.reset()
 
 func _process(delta: float) -> void:
 	if _toast_time > 0.0:
