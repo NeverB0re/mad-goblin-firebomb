@@ -152,7 +152,7 @@ func show_select(back_to: int, world := -1) -> void:
 	tabs.add_theme_constant_override("separation", 10)
 	box.add_child(tabs)
 	for w in Campaign.WORLDS.size():
-		var b := _button(tabs, "%d. %s" % [w + 1, Campaign.WORLDS[w]], func(): show_select(back_to, w), w * 10 < SaveData.unlocked)
+		var b := _button(tabs, "%d. %s" % [w + 1, Campaign.WORLDS[w]], func(): show_select(back_to, w), w * 10 < SaveData.open_count())
 		b.custom_minimum_size = Vector2(0, 0)
 		b.add_theme_font_size_override("font_size", 18)
 		if w == world:
@@ -163,7 +163,7 @@ func show_select(back_to: int, world := -1) -> void:
 	grid.add_theme_constant_override("v_separation", 14)
 	box.add_child(grid)
 	for i in range(world * 10, world * 10 + 10):
-		var open := i < SaveData.unlocked
+		var open := i < SaveData.open_count()
 		var text := "%s\n%s" % [Campaign.label(i), Campaign.title(i) if open else Texts.t("locked")]
 		if SaveData.is_cleared(i):
 			text += "\n" + Texts.t("best_left") % int(SaveData.best[i])

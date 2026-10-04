@@ -7,6 +7,13 @@ static var path := "user://save.cfg"
 
 ## 열린 본편 스테이지 수 (최소 1)
 static var unlocked := 1
+## 시험 기간: 진행과 상관없이 모든 진지를 고를 수 있다 (출시 전에 false로 돌린다)
+static var unlock_all := true
+
+
+## 고를 수 있는 진지 수 (시험 기간에는 전부).
+static func open_count() -> int:
+	return Campaign.COUNT if unlock_all else unlocked
 ## 스테이지 번호 → 최고 기록 (클리어할 때 남은 탄 수, 클리어 못 했으면 없음)
 static var best := {}
 static var opening_seen := false
