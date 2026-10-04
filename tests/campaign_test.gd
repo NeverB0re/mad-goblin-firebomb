@@ -1,7 +1,7 @@
 extends "res://tests/stage_test.gd"
-## 본편 스테이지 테스트: 13개 모두 생성 시간·블록 수, 새 연계 스테이지 셋(화약고, 매달린 추, 국경 요새)의 풀이.
-## 시험 스테이지를 다시 쓰는 본편 스테이지의 풀이는 stage_test가 확인한다.
-## 실행: Godot --headless --fixed-fps 60 --script res://tests/campaign_test.gd
+## 본편 50개 진지 테스트: 모두 생성 시간·블록 수를 확인하고, 진지마다 설계상 풀이(Campaign.plan)를
+## 실제 와인드업 투척 경로로 던져서 이기는지 본다. 바람이 부는 진지는 바람을 감안해 겨눈다.
+## 인자: 월드 번호(1~5)를 주면 그 월드만. 실행: Godot --headless --fixed-fps 60 --script res://tests/campaign_test.gd -- 1
 
 
 func _campaign(index: int) -> Stage:
@@ -23,61 +23,102 @@ func _campaign(index: int) -> Stage:
 	return stage
 
 
+## 바람 속 궤적의 착탄점 (target 높이로 내려오는 순간).
+static func _land(origin: Vector3, dir: Vector3, v: float, wind: Vector3, y: float) -> Vector3:
+	var p := origin
+	var vel := dir * v
+	var dt := 1.0 / 240.0
+	for i in 240 * 20:
+		var nv := vel + (Vector3.DOWN * G + wind) * dt
+		var np := p + (vel + nv) * 0.5 * dt
+		if nv.y < 0.0 and np.y <= y:
+			return np
+		p = np
+		vel = nv
+	return p
+
+
+## 바람을 감안한 겨눔: 바람 없이 겨눈 뒤 빗나간 만큼 겨눌 점을 옮기기를 되풀이한다.
+func _point_wind(s: Stage, target: Vector3, high: bool) -> void:
+	var v := s.current_ammo().throw_speed
+	var aim_at := target
+	for k in 8:
+		for i in 4:
+			var dir := aim(s.player.throw_origin(), aim_at, v, high)
+			s.player.look_at_angles(atan2(-dir.x, -dir.z), asin(dir.y))
+		var hit := _land(s.player.throw_origin(), s.player.throw_direction(), v, s.wind, target.y)
+		var err := hit - target
+		err.y = 0.0
+		if err.length() < 0.05:
+			break
+		aim_at -= err
+
+
+func _throw_plan(s: Stage, kind: int, target: Vector3, high: bool) -> void:
+	_select(s, kind)
+	if s.wind != Vector3.ZERO:
+		_point_wind(s, target, high)
+	else:
+		_point(s, target, high)
+	var before := s.throws
+	if not s.player.begin_windup():
+		return
+	s.player.request_release()
+	var guard := 0
+	while s.throws == before and guard < 120:
+		await physics_frame
+		guard += 1
+
+
+func _play(i: int) -> void:
+	var s := _campaign(i)
+	await physics_frame
+	for step in Campaign.plan(i):
+		if s.state != Stage.State.PLAYING:
+			break
+		if step[0] is String:
+			await _ally(s)
+			continue
+		var target: Vector3 = step[1]
+		if target == Vector3.INF:
+			target = s.commander.global_position + Vector3(0, 1.2, 0)
+		await _throw_plan(s, step[0], target, step[2])
+		if step[3] > 0.0:
+			await _wait(s, step[3])
+	await _expect(s, Stage.State.CLEARED, "%s %s 풀이" % [Campaign.label(i), Campaign.title(i)], 60.0)
+
+
+## 지원형 풀이 (E11 배치): 방패병(화염) → 바리케이드(고폭) → 울타리(고폭) → 성문 앞 폭발통(화염).
+func _ally(s: Stage) -> void:
+	var pts: Array = StageDefs.E11_PATH
+	await _throw_plan(s, AmmoType.Kind.FIRE, StageDefs._along(pts, 12.0) + Vector3(0, 0.5, 0), false)
+	await _throw_plan(s, AmmoType.Kind.HE, StageDefs._along(pts, 22.0) + Vector3(0, 0.7, 0.3), false)
+	await _throw_plan(s, AmmoType.Kind.HE, StageDefs._along(pts, 32.0) + Vector3(1.2, 0.0, 0.8), false)
+	var ally: Ally = s.allies[0]
+	var t := 0.0
+	while not ally.at_gate and t < 60.0:
+		await physics_frame
+		t += 1.0 / 60.0
+	await _throw_plan(s, AmmoType.Kind.FIRE, ally.global_position + Vector3(0, 1.0, 0.5), false)
+
+
 func _run() -> void:
-	print("== 본편 스테이지 테스트 ==")
+	print("== 본편 50개 진지 테스트 ==")
 	Engine.max_fps = 0
 	preload("res://scripts/main.gd").register_input()
-	var K := AmmoType.Kind
-	var s: Stage
-	for i in Campaign.COUNT:
-		s = _campaign(i)
+	var first := 0
+	var last := Campaign.COUNT
+	if _only > 0:
+		first = (_only - 1) * 10
+		last = first + 10
+	for i in range(first, last):
+		await _play(i)
+	# 발리스타가 남아 있으면 미사일이 요격당한다 (5-2)
+	if _only <= 0 or _only == 5:
+		var s := _campaign(41)
 		await physics_frame
-
-	# 1-5 화약고: 창고 지붕에 불 → 화약통 폭발 → 망대 기둥이 부러져 지휘관이 떨어진다
-	s = _campaign(4)
-	await physics_frame
-	var c: Vector3 = Campaign.POWDER_TOWER
-	await _throw(s, K.FIRE, c + Vector3(3.6, 2.2, 0.4))
-	await _expect(s, Stage.State.CLEARED, "1-5 화약 창고에 불 → 망대 붕괴")
-	# 1-5: 망대 꼭대기 지붕 위 화염탄으로는 지휘관이 무사하다
-	s = _campaign(4)
-	await physics_frame
-	await _throw(s, K.FIRE, c + Vector3(0, 7.0, 0))
-	await _wait(s, 6.0)
-	_check(s.state == Stage.State.PLAYING, "1-5 망대 지붕 화염탄 → 지휘관 무사 %s" % s.commander.defeat_cause)
-
-	# 1-10 매달린 추: 밧줄(쇳덩이)에 불 → 쇳덩이가 지붕을 뚫고 떨어진다
-	s = _campaign(9)
-	await physics_frame
-	c = Campaign.WEIGHT_HUT
-	await _throw(s, K.FIRE, c + Vector3(0, 7.5, -0.1))
-	await _expect(s, Stage.State.CLEARED, "1-10 밧줄을 태워 쇳덩이 떨어뜨리기")
-	# 1-10: 석재 벽 앞에 던지면 아무 일도 없다
-	s = _campaign(9)
-	await physics_frame
-	await _throw(s, K.FIRE, c + Vector3(1.5, 1.0, 2.3))
-	await _wait(s, 6.0)
-	_check(s.state == Stage.State.PLAYING, "1-10 석벽 앞 화염탄 → 지휘관 무사 %s" % s.commander.defeat_cause)
-
-	# 1-13 국경 요새: 석벽 너머 화약통에 높이 띄워 넣는다 → 공성탑 붕괴
-	s = _campaign(12)
-	await physics_frame
-	c = Campaign.FORTRESS
-	var dist := Vector2(c.x, c.z).distance_to(Vector2(s.player.global_position.x, s.player.global_position.z))
-	_check(dist > 65.0, "1-13 요새까지 %.0fm" % dist)
-	await _throw(s, K.FIRE, c + Vector3(0, 0.7, 2.3), true)
-	await _expect(s, Stage.State.CLEARED, "1-13 화약통으로 공성탑 무너뜨리기")
-	# 1-13: 성벽 정면 고폭탄 두 발로는 성벽이 버틴다
-	s = _campaign(12)
-	await physics_frame
-	for i in 2:
-		await _throw(s, K.HE, c + Vector3(-4.5, 2.0, 6.6))
-	await _wait(s, 3.0)
-	var fallen := 0
-	for blk in s.structures[0].blocks:
-		if blk.fallen:
-			fallen += 1
-	_check(fallen == 0 and s.state == Stage.State.PLAYING, "1-13 성벽은 고폭탄에 버틴다 (무너진 블록 %d)" % fallen)
-
+		await _throw_plan(s, AmmoType.Kind.FLAREGUN, Campaign.STAGES[41].c + Vector3(0, 2.7, 0), false)
+		await _wait(s, 4.0)
+		_check(s.state == Stage.State.PLAYING and not s.commander.dead, "5-2 발리스타가 서 있으면 미사일이 요격당한다")
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

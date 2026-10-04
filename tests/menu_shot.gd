@@ -18,7 +18,7 @@ func _run() -> void:
 	SaveData.path = "user://test_save.cfg"
 	SaveData.load_all()
 	SaveData.opening_seen = true
-	SaveData.unlocked = 6
+	SaveData.unlocked = 50
 	SaveData.best = {0: 3, 1: 1, 2: 4}
 	change_scene_to_file("res://scenes/main.tscn")
 	await _frames(60)
@@ -27,10 +27,12 @@ func _run() -> void:
 	main.menus.show_select(Menus.Screen.TITLE)
 	await _frames(5)
 	_save("menu_select")
-	for i in [4, 9, 12]:
+	for i in [4, 21, 22, 31, 41, 49]:
+		SaveData.worlds_seen = [0, 1, 2, 3, 4]
 		main.menus.stage_chosen.emit(i)
-		await _frames(20)
-		var to: Vector3 = main.stage.commander.global_position - main.stage.player.head.global_position
+		await _frames(30)
+		var focus: Vector3 = main.stage.commander.global_position if main.stage.commander else main.stage.messengers[0].global_position
+		var to: Vector3 = focus - main.stage.player.head.global_position
 		main.stage.player.look_at_angles(atan2(-to.x, -to.z), atan2(to.y, Vector2(to.x, to.z).length()))
 		await _frames(10)
 		_save("campaign_%d" % (i + 1))

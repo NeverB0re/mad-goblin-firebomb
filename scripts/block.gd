@@ -145,6 +145,16 @@ func is_flammable() -> bool:
 	return INFO[mat].flammable
 
 
+## 비에 젖은 목재로 바꾼다 (기름을 묻혀야 탄다).
+func make_wet() -> void:
+	if not (mat in [Mat.WOOD_THIN, Mat.WOOD_BEAM]):
+		return
+	mat = Mat.WOOD_WET
+	_base_color = INFO[mat].color
+	_material.albedo_color = _base_color
+	burn_time = INFO[mat].burn
+
+
 ## 기름을 묻힌다. 젖은 목재도 탈 수 있게 되고, 불이 빨리 붙어 빨리 약해진다.
 func coat_oil() -> void:
 	if oiled or not INFO[mat].flammable:

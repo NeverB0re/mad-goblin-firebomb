@@ -8,6 +8,8 @@ const DELAY_TICKS := 60
 const FLIGHT_TICKS := 90
 const RADIUS := 9.0
 const STRENGTH := 900.0
+## 엄폐와 상관없이 쓰러뜨리는 거리
+const KILL_RADIUS := 6.0
 
 var _stage: Stage
 var _target := Vector3.ZERO
@@ -70,5 +72,9 @@ func _physics_process(_delta: float) -> void:
 	if k >= 1.0:
 		_done = true
 		_stage.explode(_target, RADIUS, STRENGTH)
+		# 탄도미사일은 엄폐를 무시한다: 가까운 인물은 벽·지붕 너머라도 날아간다
+		for a in get_tree().get_nodes_in_group("actors"):
+			if not a.dead and a.chest().distance_to(_target) < KILL_RADIUS:
+				a.defeat("blast")
 		_stage.hitstop(0.12)
 		queue_free()
