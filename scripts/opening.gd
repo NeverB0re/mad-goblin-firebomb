@@ -290,17 +290,21 @@ func _world_1(c: CanvasItem, s: Vector2, t: float) -> void:
 				A.hut(c, Vector2(s.x * (0.62 + i * 0.13), s.y * 0.7), 60, 44)
 				A.flag(c, Vector2(s.x * (0.62 + i * 0.13), s.y * 0.7 - 70), 40, t)
 		1:
-			A.backdrop(c, s, Color(0.45, 0.5, 0.6), Color(0.75, 0.75, 0.75), Color(0.45, 0.45, 0.45), 0.7)
-			A.tower(c, Vector2(s.x * 0.68, s.y * 0.7), 80, 170, true)
-			A.tower(c, Vector2(s.x * 0.9, s.y * 0.7), 80, 170, true)
-		2:
-			A.backdrop(c, s, Color(0.4, 0.38, 0.36), Color(0.62, 0.55, 0.48), Color(0.35, 0.3, 0.27), 0.7)
+			# 비 내리는 광산 도시: 굴뚝 연기와 빗줄기
+			A.backdrop(c, s, Color(0.35, 0.37, 0.4), Color(0.55, 0.55, 0.55), Color(0.32, 0.3, 0.28), 0.7)
 			for i in 3:
 				var bx := s.x * (0.65 + i * 0.12)
 				A.rect(c, Vector2(bx, s.y * 0.7 - 120 - i * 20), Vector2(26, 120 + i * 20), Color(0.4, 0.35, 0.33))
 				A.smoke(c, Vector2(bx + 13, s.y * 0.7 - 140 - i * 20 - fmod(t * 15.0, 20.0)), 16.0, 0.35)
+			_rain(c, s, t)
+		2:
+			# 밤의 철벽 관문
+			A.backdrop(c, s, Color(0.05, 0.06, 0.15), Color(0.15, 0.17, 0.3), Color(0.14, 0.15, 0.19), 0.7)
+			A.tower(c, Vector2(s.x * 0.68, s.y * 0.7), 80, 170, true)
+			A.tower(c, Vector2(s.x * 0.9, s.y * 0.7), 80, 170, true)
 		3:
-			A.backdrop(c, s, Color(0.05, 0.06, 0.15), Color(0.15, 0.17, 0.3), Color(0.12, 0.13, 0.17), 0.7)
+			# 대공 요새: 높은 하늘 아래 발리스타
+			A.backdrop(c, s, Color(0.5, 0.62, 0.8), Color(0.82, 0.85, 0.85), Color(0.45, 0.45, 0.42), 0.7)
 			A.ballista(c, Vector2(s.x * 0.7, s.y * 0.7), 1.1)
 			A.ballista(c, Vector2(s.x * 0.9, s.y * 0.7), 1.1)
 		_:
@@ -314,15 +318,32 @@ func _world_1(c: CanvasItem, s: Vector2, t: float) -> void:
 	A.cage(c, Vector2(s.x * 0.06, s.y * 0.93 - 120), Vector2(120, 120))
 
 
+## 빗줄기 (비 내리는 광산 도시).
+func _rain(c: CanvasItem, s: Vector2, t: float) -> void:
+	for k in 40:
+		var x := fmod(k * 97.0 + t * 40.0, s.x)
+		var y := fmod(k * 53.0 + t * 600.0, s.y)
+		A.line(c, Vector2(x, y), Vector2(x - 6, y + 26), 2.0, Color(0.8, 0.85, 0.95, 0.5))
+
+
 ## 2. 고블린들이 이 월드의 새 무기에 불을 붙이며 웃는다.
+## 1월드 화염탄, 2월드 기름병(비), 3월드 조명탄(밤), 4월드 플레어건과 미사일, 5월드 고폭탄.
 func _world_2(c: CanvasItem, s: Vector2, t: float) -> void:
-	var night := world == 3
-	A.backdrop(c, s, Color(0.1, 0.1, 0.2) if night else Color(0.98, 0.62, 0.3), Color(0.3, 0.25, 0.35) if night else Color(1.0, 0.85, 0.5), Color(0.3, 0.26, 0.24) if night else Color(0.55, 0.42, 0.3), 0.8)
-	if world == 4:
-		A.rocket(c, Vector2(s.x * 0.6, s.y * 0.45), 1.2, -0.5, t)
-	for i in 3:
-		var pose := {"grin": true, "bounce": true, "bomb": world != 4, "bomb_kind": mini(world, 2), "arms_up": world == 4}
-		A.goblin(c, Vector2(s.x * (0.18 + i * 0.32), s.y * 1.02), 2.0, pose, t + i)
+	match world:
+		1:
+			A.backdrop(c, s, Color(0.35, 0.37, 0.4), Color(0.58, 0.58, 0.58), Color(0.36, 0.32, 0.28), 0.8)
+		2:
+			A.backdrop(c, s, Color(0.1, 0.1, 0.2), Color(0.3, 0.25, 0.35), Color(0.3, 0.26, 0.24), 0.8)
+		_:
+			A.backdrop(c, s, Color(0.98, 0.62, 0.3), Color(1.0, 0.85, 0.5), Color(0.55, 0.42, 0.3), 0.8)
 	if world == 3:
+		A.rocket(c, Vector2(s.x * 0.6, s.y * 0.45), 1.2, -0.5, t)
+	var kinds := [0, 2, 0, 0, 1]
+	for i in 3:
+		var pose := {"grin": true, "bounce": true, "bomb": world != 3, "bomb_kind": kinds[world % kinds.size()], "arms_up": world == 3}
+		A.goblin(c, Vector2(s.x * (0.18 + i * 0.32), s.y * 1.02), 2.0, pose, t + i)
+	if world == 1:
+		_rain(c, s, t)
+	if world == 2:
 		# 조명탄: 하늘에 솟은 밝은 불꽃
 		A.boom(c, Vector2(s.x * 0.5, s.y * 0.2), 30.0, t, 9)

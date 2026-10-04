@@ -72,6 +72,16 @@ func _throw_plan(s: Stage, kind: int, target: Vector3, high: bool) -> void:
 
 func _play(i: int) -> void:
 	var s := _campaign(i)
+	var log := []
+	s.projectile_thrown.connect(func(p: Projectile):
+		var kind: String = p.ammo.display_name
+		p.impacted.connect(func(_p, pos: Vector3, _n, col: Object):
+			var what := "없음"
+			if col is Block:
+				what = Block.Mat.keys()[col.mat] + str(col.global_position.snapped(Vector3.ONE * 0.1))
+			elif col:
+				what = col.get_class() + " " + str(col.name)
+			log.append("%s → %s %s" % [kind, pos.snapped(Vector3.ONE * 0.1), what])))
 	await physics_frame
 	for step in Campaign.plan(i):
 		if s.state != Stage.State.PLAYING:
@@ -79,13 +89,25 @@ func _play(i: int) -> void:
 		if step[0] is String:
 			await _ally(s)
 			continue
-		var target: Vector3 = step[1]
-		if target == Vector3.INF:
-			target = s.commander.global_position + Vector3(0, 1.2, 0)
+		var target: Vector3
+		if step[1] is int:
+			target = s.commanders[step[1]].global_position + Vector3(0, 1.2, 0)
+		else:
+			target = step[1]
 		await _throw_plan(s, step[0], target, step[2])
 		if step[3] > 0.0:
 			await _wait(s, step[3])
-	await _expect(s, Stage.State.CLEARED, "%s %s 풀이" % [Campaign.label(i), Campaign.title(i)], 60.0)
+	await _expect(s, Stage.State.CLEARED, "%s %s 풀이 (지휘관 %d)" % [Campaign.label(i), Campaign.title(i), s.commanders.size()], 60.0)
+	if s.state != Stage.State.CLEARED:
+		var left := []
+		for k in s.commanders.size():
+			if not s.commanders[k].dead:
+				left.append(k)
+		for line in log:
+			print("    ", line)
+		for k in left:
+			print("    지휘관 %d 위치 %s" % [k, s.commanders[k].global_position.snapped(Vector3.ONE * 0.1)])
+		print("    남은 지휘관 번호: ", left, "  남은 탄: ", s.ammo_slots.map(func(x): return "%s %d" % [x.type.display_name, x.count]))
 
 
 ## 지원형 풀이 (E11 배치): 방패병(화염) → 바리케이드(고폭) → 울타리(고폭) → 성문 앞 폭발통(화염).
@@ -113,12 +135,33 @@ func _run() -> void:
 		last = first + 10
 	for i in range(first, last):
 		await _play(i)
-	# 발리스타가 남아 있으면 미사일이 요격당한다 (5-2)
-	if _only <= 0 or _only == 5:
-		var s := _campaign(41)
+	# 2월드는 비에 젖어 기름 없이 화염탄만으로는 안 풀린다 (기름 단계를 빼고 같은 자리에 화염탄만)
+	if _only <= 0 or _only == 2:
+		for i in [11, 12, 14, 16]:
+			var s := _campaign(i)
+			await physics_frame
+			for step in Campaign.plan(i):
+				if step[0] == AmmoType.Kind.FIRE:
+					var target: Vector3 = s.commanders[step[1]].global_position + Vector3(0, 1.2, 0) if step[1] is int else step[1]
+					await _throw_plan(s, step[0], target, step[2])
+			await _wait(s, 12.0)
+			_check(s.state == Stage.State.PLAYING, "%s 기름 없이 화염탄만으로는 안 풀린다 (남은 지휘관 %d)" % [Campaign.label(i), s.commanders_left()])
+	# 발리스타가 남아 있으면 미사일이 요격당한다 (4-3)
+	if _only <= 0 or _only == 4:
+		var s := _campaign(32)
 		await physics_frame
-		await _throw_plan(s, AmmoType.Kind.FLAREGUN, Campaign.STAGES[41].c + Vector3(0, 2.7, 0), false)
+		await _throw_plan(s, AmmoType.Kind.FLAREGUN, Campaign.STAGES[32].parts[0][1] + Vector3(0, 2.7, 0), false)
 		await _wait(s, 4.0)
-		_check(s.state == Stage.State.PLAYING and not s.commander.dead, "5-2 발리스타가 서 있으면 미사일이 요격당한다")
+		_check(s.state == Stage.State.PLAYING and not s.commander.dead, "4-3 발리스타가 서 있으면 미사일이 요격당한다")
+	# 영점 돌은 아무것도 부수지 않고, 돌만 남으면 실패한다 (3-6)
+	if _only <= 0 or _only == 3:
+		var s := _campaign(25)
+		await physics_frame
+		for k in 4:
+			await _throw_plan(s, AmmoType.Kind.FIRE, Vector3(-30, 0, -20), false)
+		await _throw_plan(s, AmmoType.Kind.STONE, s.commanders[0].global_position + Vector3(0, 1.2, 0), false)
+		await _wait(s, 2.0)
+		_check(not s.commanders[0].dead, "3-6 영점 돌을 맞아도 지휘관은 멀쩡하다")
+		await _expect(s, Stage.State.FAILED, "3-6 폭탄을 다 쓰고 돌만 남으면 실패", 20.0, "fail_ammo")
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)
