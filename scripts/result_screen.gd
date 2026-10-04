@@ -45,26 +45,15 @@ func _ready() -> void:
 	_root = Control.new()
 	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var theme := Theme.new()
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Malgun Gothic", "맑은 고딕", "Noto Sans CJK KR", "sans-serif"])
-	font.font_weight = 800
-	theme.default_font = font
-	_root.theme = theme
+	_root.theme = UiStyle.theme(24)
 	add_child(_root)
 	_last_ms = Time.get_ticks_msec()
 
 
-func _label(text: String, size: int, color: Color) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", color)
-	l.add_theme_color_override("font_outline_color", Color(0.05, 0.03, 0.02))
-	l.add_theme_constant_override("outline_size", maxi(6, size / 6))
+func _label(text: String, size: int, color: Color, display := false) -> Label:
+	var l := UiStyle.label(text, size, color, display)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(l)
 	return l
 
@@ -247,28 +236,37 @@ func _smash(stage: Stage) -> void:
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_flash)
 	_tween().tween_property(_flash, "color:a", 0.0, 0.35)
-	var smash := _label(Texts.t("win"), 150, Color(1.0, 0.82, 0.15))
+	var smash := _label(Texts.t("win"), 160, UiStyle.GOLD, true)
 	_place(smash, Vector4(0.5, 0.3, 0.5, 0.3), Vector4(-500, -130, 500, 130))
 	smash.pivot_offset = Vector2(500, 130)
-	smash.rotation = -0.18
+	smash.rotation = -0.08
 	smash.scale = Vector2.ONE * 2.6
 	_tween().tween_property(smash, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await _wait_real(0.45)
 	# 별 셋: 목표 달성(깃발) · 폭탄 남김(폭탄 그림 ×남은 수) · 보조 목표(고블린 말)
 	if stars > 0:
+		# 별 판: 가운데 반투명 판 위에 별 셋과 그 아래 설명
+		var holder := CenterContainer.new()
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_root.add_child(holder)
+		_place(holder, Vector4(0, 0.5, 1, 0.74))
+		var card := PanelContainer.new()
+		card.add_theme_stylebox_override("panel", UiStyle.panel(0.62, 18, 18.0))
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(card)
+		UiStyle.pop_in(card)
 		var row := HBoxContainer.new()
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_theme_constant_override("separation", 46)
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_root.add_child(row)
-		_place(row, Vector4(0, 0.5, 1, 0.74))
+		card.add_child(row)
 		var got := [true, stage.total_ammo() > 0, bonus_ok]
 		for k in 3:
 			var col := VBoxContainer.new()
 			col.alignment = BoxContainer.ALIGNMENT_CENTER
 			col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row.add_child(col)
-			var star := _label("★" if got[k] else "☆", 84, Color(1.0, 0.84, 0.2) if got[k] else Color(0.6, 0.6, 0.6))
+			var star := _label("★" if got[k] else "☆", 84, UiStyle.GOLD if got[k] else UiStyle.MUTED)
 			star.reparent(col)
 			star.pivot_offset = Vector2(40, 50)
 			star.scale = Vector2.ZERO
@@ -282,9 +280,9 @@ func _smash(stage: Stage) -> void:
 					cap.add_child(_flag_icon())
 				1:
 					cap.add_child(UiIcon.make("he", 34.0))
-					_label("×%d" % stage.total_ammo(), 24, Color(1, 1, 1)).reparent(cap)
+					_label("×%d" % stage.total_ammo(), 24, UiStyle.TEXT).reparent(cap)
 				2:
-					_label(bonus_text, 20, Color(1, 0.95, 0.8) if bonus_ok else Color(0.75, 0.75, 0.75)).reparent(cap)
+					_label(bonus_text, 20, UiStyle.TEXT if bonus_ok else UiStyle.MUTED).reparent(cap)
 	else:
 		var left := HBoxContainer.new()
 		left.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -325,12 +323,12 @@ static func _place(c: Control, anchors: Vector4, offsets := Vector4.ZERO) -> voi
 ## 실패: 고블린 그림 한 장과 원인 한 줄.
 func play_failure(cause_text: String, picture: int, world := 0) -> void:
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.55)
+	dim.color = Color(UiStyle.INK, 0.6)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(dim)
-	var frame := ColorRect.new()
-	frame.color = Color(0.06, 0.06, 0.06)
+	var frame := Panel.new()
+	frame.add_theme_stylebox_override("panel", UiStyle.panel(0.95, 16, 0.0))
 	frame.anchor_left = 0.3
 	frame.anchor_right = 0.7
 	frame.anchor_top = 0.12
@@ -354,7 +352,7 @@ func play_failure(cause_text: String, picture: int, world := 0) -> void:
 	frame.pivot_offset = Vector2(320, 225)
 	frame.scale = Vector2.ONE * 0.9
 	_tween().tween_property(frame, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	var line := _label(cause_text, 44, Color(1.0, 0.9, 0.75))
+	var line := _label(cause_text, 40, UiStyle.TEXT)
 	line.anchor_left = 0.0
 	line.anchor_right = 1.0
 	line.anchor_top = 0.64
@@ -388,7 +386,7 @@ func _buttons(items: Array) -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	var box := HBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 30)
+	box.add_theme_constant_override("separation", 22)
 	box.anchor_left = 0.0
 	box.anchor_right = 1.0
 	box.anchor_top = 0.76
@@ -399,23 +397,15 @@ func _buttons(items: Array) -> void:
 	for it in items:
 		var b := Button.new()
 		b.text = it[0]
-		b.add_theme_font_size_override("font_size", 30)
-		b.add_theme_color_override("font_color", Color(1, 0.95, 0.85))
-		b.add_theme_color_override("font_hover_color", Color(1, 1, 0.7))
-		for st_name in ["normal", "hover", "pressed", "focus"]:
-			var sb := StyleBoxFlat.new()
-			sb.bg_color = Color(0.35, 0.5, 0.2) if st_name == "normal" else (Color(0.45, 0.64, 0.26) if st_name != "pressed" else Color(0.25, 0.38, 0.14))
-			sb.border_color = Color(0.1, 0.08, 0.05) if st_name != "hover" else Color(1.0, 0.85, 0.35)
-			sb.set_border_width_all(4)
-			sb.set_corner_radius_all(6)
-			sb.content_margin_left = 28
-			sb.content_margin_right = 28
-			sb.content_margin_top = 8
-			sb.content_margin_bottom = 8
-			b.add_theme_stylebox_override(st_name, sb)
+		b.add_theme_font_size_override("font_size", 24)
+		b.custom_minimum_size = Vector2(220, 0)
+		if it == items[0]:
+			UiStyle.primary(b)
+		UiStyle.hover_grow(b)
 		var action: String = it[1]
 		b.pressed.connect(func(): _choose(action))
 		box.add_child(b)
+		UiStyle.pop_in(b, 0.06 * box.get_child_count())
 
 
 var _first_action := ""

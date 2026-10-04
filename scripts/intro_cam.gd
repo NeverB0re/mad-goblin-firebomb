@@ -52,30 +52,22 @@ func setup(stage: Stage) -> void:
 	_ui = CanvasLayer.new()
 	_ui.layer = 5
 	add_child(_ui)
-	var title := Label.new()
-	title.text = stage.title
-	title.add_theme_font_size_override("font_size", 40)
-	title.add_theme_color_override("font_outline_color", Color.BLACK)
-	title.add_theme_constant_override("outline_size", 8)
+	var title := UiStyle.label(stage.title, 46, UiStyle.TEXT, true)
 	title.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	title.position = Vector2(-400, 40)
 	title.size = Vector2(800, 60)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ui.add_child(title)
-	var hint := Label.new()
-	hint.text = Texts.t("skip_intro")
-	hint.add_theme_font_size_override("font_size", 18)
-	hint.add_theme_color_override("font_outline_color", Color.BLACK)
-	hint.add_theme_constant_override("outline_size", 5)
-	hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	hint.position = Vector2(-300, -60)
-	hint.size = Vector2(600, 30)
-	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_ui.add_child(hint)
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Malgun Gothic", "맑은 고딕", "Noto Sans CJK KR", "sans-serif"])
-	title.add_theme_font_override("font", font)
-	hint.add_theme_font_override("font", font)
+	# 건너뛰기 안내: 아래 가운데 작은 판
+	var hint_row := CenterContainer.new()
+	hint_row.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	hint_row.offset_top = -72
+	hint_row.offset_bottom = -30
+	_ui.add_child(hint_row)
+	var hint := UiStyle.label(Texts.t("skip_intro"), 15, UiStyle.MUTED)
+	hint.add_theme_stylebox_override("normal", UiStyle.panel(0.5, 10, 8))
+	hint_row.add_child(hint)
+	UiStyle.pop_in(title, 0.15)
 
 
 func _place(k: float) -> void:

@@ -1,7 +1,7 @@
 class_name Menus
 extends CanvasLayer
 ## 타이틀, 스테이지 선택, 일시정지, 설정 화면. 게임이 멈춰 있어도 동작한다 (process_mode ALWAYS).
-## 버튼 모양은 승리 화면과 같은 초록 판자.
+## 모양은 UiStyle (짙은 갈색 반투명 판, 금빛 강조).
 
 signal start_requested
 signal stage_chosen(index: int)
@@ -29,38 +29,7 @@ func _ready() -> void:
 
 
 static func theme_for_ui() -> Theme:
-	var theme := Theme.new()
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Malgun Gothic", "맑은 고딕", "Noto Sans CJK KR", "Apple SD Gothic Neo", "sans-serif"])
-	font.font_weight = 700
-	theme.default_font = font
-	theme.default_font_size = 26
-	var normal := _plank(Color(0.35, 0.5, 0.2))
-	theme.set_stylebox("normal", "Button", normal)
-	theme.set_stylebox("hover", "Button", _plank(Color(0.45, 0.62, 0.26)))
-	theme.set_stylebox("pressed", "Button", _plank(Color(0.27, 0.4, 0.15)))
-	theme.set_stylebox("focus", "Button", _plank(Color(0.45, 0.62, 0.26)))
-	theme.set_stylebox("disabled", "Button", _plank(Color(0.25, 0.25, 0.25)))
-	theme.set_color("font_color", "Button", Color(1, 0.95, 0.85))
-	theme.set_color("font_hover_color", "Button", Color(1, 1, 0.9))
-	theme.set_color("font_disabled_color", "Button", Color(0.6, 0.6, 0.6))
-	theme.set_color("font_color", "Label", Color(1, 0.96, 0.88))
-	theme.set_color("font_outline_color", "Label", Color(0.05, 0.03, 0.02))
-	theme.set_constant("outline_size", "Label", 6)
-	return theme
-
-
-static func _plank(color: Color) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = color
-	sb.border_color = Color(0.1, 0.08, 0.05)
-	sb.set_border_width_all(4)
-	sb.set_corner_radius_all(6)
-	sb.content_margin_left = 24
-	sb.content_margin_right = 24
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
-	return sb
+	return UiStyle.theme(22)
 
 
 func hide_all() -> void:
@@ -78,25 +47,45 @@ func _new_panel(dim: float) -> VBoxContainer:
 	_root.add_child(holder)
 	_panel = holder
 	var bg := ColorRect.new()
-	bg.color = Color(0, 0, 0, dim)
+	bg.color = Color(UiStyle.INK, dim)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	holder.add_child(bg)
+	# 가장자리를 더 어둡게 (가운데 메뉴에 눈이 가게)
+	var vig := TextureRect.new()
+	var g := Gradient.new()
+	g.colors = PackedColorArray([Color(0, 0, 0, 0), Color(0, 0, 0, 0.55)])
+	g.offsets = PackedFloat32Array([0.35, 1.0])
+	var gt := GradientTexture2D.new()
+	gt.gradient = g
+	gt.fill = GradientTexture2D.FILL_RADIAL
+	gt.fill_from = Vector2(0.5, 0.5)
+	gt.fill_to = Vector2(1.1, 1.1)
+	vig.texture = gt
+	vig.stretch_mode = TextureRect.STRETCH_SCALE
+	vig.set_anchors_preset(Control.PRESET_FULL_RECT)
+	vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(vig)
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	holder.add_child(center)
 	var box := VBoxContainer.new()
 	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", 14)
+	box.add_theme_constant_override("separation", 12)
 	center.add_child(box)
+	# 다음 프레임에 칸들이 차례로 나타난다
+	(func():
+		if not is_instance_valid(box):
+			return
+		var k := 0
+		for c in box.get_children():
+			if c is Control:
+				UiStyle.pop_in(c, 0.04 * k)
+				k += 1).call_deferred()
 	return box
 
 
-func _title_label(parent: Control, text: String, size: int, color := Color(1.0, 0.82, 0.15)) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", color)
-	l.add_theme_constant_override("outline_size", maxi(6, size / 6))
+func _title_label(parent: Control, text: String, size: int, color := UiStyle.GOLD) -> Label:
+	var l := UiStyle.label(text, size, color, size >= 40)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	parent.add_child(l)
 	return l
@@ -106,7 +95,8 @@ func _button(parent: Control, text: String, cb: Callable, enabled := true) -> Bu
 	var b := Button.new()
 	b.text = text
 	b.disabled = not enabled
-	b.custom_minimum_size = Vector2(340, 0)
+	b.custom_minimum_size = Vector2(360, 0)
+	UiStyle.hover_grow(b)
 	b.pressed.connect(func():
 		Sfx.play_ui(self, "click")
 		cb.call())
@@ -119,14 +109,15 @@ func _button(parent: Control, text: String, cb: Callable, enabled := true) -> Bu
 func show_title() -> void:
 	screen = Screen.TITLE
 	var box := _new_panel(0.25)
-	var t := _title_label(box, Texts.t("game_title"), 110)
-	t.rotation = -0.05
-	_title_label(box, Texts.t("game_subtitle"), 26, Color(1, 0.95, 0.85))
+	_title_label(box, Texts.t("game_title"), 120)
+	_title_label(box, Texts.t("game_subtitle"), 22, UiStyle.TEXT)
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 30)
+	gap.custom_minimum_size = Vector2(0, 26)
 	box.add_child(gap)
 	var first := SaveData.unlocked <= 1 and SaveData.best.is_empty()
-	_button(box, Texts.t("menu_start") if first else Texts.t("menu_continue"), func(): start_requested.emit()).grab_focus()
+	var go := _button(box, Texts.t("menu_start") if first else Texts.t("menu_continue"), func(): start_requested.emit())
+	UiStyle.primary(go)
+	go.grab_focus()
 	_button(box, Texts.t("menu_select"), func(): show_select(Screen.TITLE))
 	_button(box, Texts.t("menu_opening"), func(): opening_requested.emit())
 	_button(box, Texts.t("menu_settings"), func(): show_settings(Screen.TITLE))
@@ -156,11 +147,11 @@ func show_select(back_to: int, world := -1) -> void:
 	tabs.add_theme_constant_override("separation", 10)
 	box.add_child(tabs)
 	for w in Campaign.WORLDS.size():
-		var b := _button(tabs, "%d. %s" % [w + 1, Campaign.WORLDS[w]], func(): show_select(back_to, w), w * 10 < SaveData.open_count())
+		var b := _button(tabs, "%d  %s" % [w + 1, Campaign.WORLDS[w]], func(): show_select(back_to, w), w * 10 < SaveData.open_count())
 		b.custom_minimum_size = Vector2(0, 0)
-		b.add_theme_font_size_override("font_size", 18)
+		b.add_theme_font_size_override("font_size", 17)
 		if w == world:
-			b.modulate = Color(1.3, 1.3, 1.0)
+			UiStyle.primary(b)
 	var grid := GridContainer.new()
 	grid.columns = 5
 	grid.add_theme_constant_override("h_separation", 14)
@@ -168,13 +159,26 @@ func show_select(back_to: int, world := -1) -> void:
 	box.add_child(grid)
 	for i in range(world * 10, world * 10 + 10):
 		var open := i < SaveData.open_count()
-		var text := "%s\n%s" % [Campaign.label(i), Campaign.title(i) if open else Texts.t("locked")]
+		var b := _button(grid, "", func(): stage_chosen.emit(i), open)
+		b.custom_minimum_size = Vector2(230, 112)
+		# 카드: 번호(금빛 제목 글꼴) / 이름 / 별
+		var col := VBoxContainer.new()
+		col.set_anchors_preset(Control.PRESET_FULL_RECT)
+		col.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.add_theme_constant_override("separation", 2)
+		col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(col)
+		var num := UiStyle.label(Campaign.label(i), 24, UiStyle.GOLD if open else UiStyle.MUTED, true)
+		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(num)
+		var name_l := UiStyle.label(Campaign.title(i) if open else Texts.t("locked"), 16, UiStyle.TEXT if open else UiStyle.MUTED)
+		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(name_l)
 		if SaveData.is_cleared(i):
 			var n := int(SaveData.stars.get(i, 1))
-			text += "\n" + "★".repeat(n) + "☆".repeat(3 - n)
-		var b := _button(grid, text, func(): stage_chosen.emit(i), open)
-		b.custom_minimum_size = Vector2(230, 110)
-		b.add_theme_font_size_override("font_size", 18)
+			var st := UiStyle.label("★".repeat(n) + "☆".repeat(3 - n), 18, UiStyle.GOLD)
+			st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			col.add_child(st)
 	_button(box, Texts.t("menu_back"), _go_back)
 
 
@@ -192,7 +196,9 @@ func show_pause() -> void:
 	screen = Screen.PAUSE
 	var box := _new_panel(0.5)
 	_title_label(box, Texts.t("paused"), 64)
-	_button(box, Texts.t("menu_resume"), func(): resume_requested.emit()).grab_focus()
+	var go := _button(box, Texts.t("menu_resume"), func(): resume_requested.emit())
+	UiStyle.primary(go)
+	go.grab_focus()
 	_button(box, Texts.t("menu_restart"), func(): restart_requested.emit())
 	_button(box, Texts.t("menu_select"), func(): show_select(Screen.PAUSE, current_world))
 	_button(box, Texts.t("menu_settings"), func(): show_settings(Screen.PAUSE))

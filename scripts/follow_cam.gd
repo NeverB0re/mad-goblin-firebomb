@@ -36,7 +36,7 @@ func _ready() -> void:
 	offset_bottom = MARGIN + VIEW_SIZE.y
 
 	var border := ColorRect.new()
-	border.color = Color(0.05, 0.05, 0.05, 0.9)
+	border.color = Color(UiStyle.INK, 0.85)
 	border.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	border.set_anchors_preset(Control.PRESET_FULL_RECT)
 	border.offset_left = -3

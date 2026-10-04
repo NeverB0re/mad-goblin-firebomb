@@ -106,9 +106,7 @@ func _ready() -> void:
 	hint.text = Texts.t("opening_hint")
 	hint.add_theme_font_size_override("font_size", 16)
 	hint.add_theme_color_override("font_color", Color(0.25, 0.22, 0.18))
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Malgun Gothic", "맑은 고딕", "Noto Sans CJK KR", "sans-serif"])
-	hint.add_theme_font_override("font", font)
+	hint.add_theme_font_override("font", UiStyle.BOLD)
 	hint.anchor_left = 0.5
 	hint.anchor_right = 1.0 - MARGIN
 	hint.anchor_top = bottom

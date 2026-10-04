@@ -4,6 +4,8 @@ extends CanvasLayer
 ## (무엇을 해야 할지는 재질과 직접 던져 보며 알아낸다). 조작 안내는 첫 투척 뒤 사라진다.
 
 var _title: Label
+## 왼쪽 위 판 (진지 번호 + 보조 목표)
+var _top: PanelContainer
 ## 별 셋째 칸 보조 목표 (☆ + 고블린 말)
 var _bonus: Label
 ## 탄약 줄: 탄종 그림, 숫자 키, 남은 개수 (글자 대신 그림)
@@ -28,12 +30,7 @@ func _ready() -> void:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var theme := Theme.new()
-	var font := SystemFont.new()
-	font.font_names = PackedStringArray(["Malgun Gothic", "맑은 고딕", "Noto Sans CJK KR", "Apple SD Gothic Neo", "sans-serif"])
-	theme.default_font = font
-	theme.default_font_size = 20
-	root.theme = theme
+	root.theme = UiStyle.theme(20)
 	add_child(root)
 
 	# 조준점: 작은 점 하나
@@ -51,17 +48,26 @@ func _ready() -> void:
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	dot_bg.add_child(dot)
 
-	_title = _label(root, 24)
-	_place(_title, Vector4(0, 0, 0, 0), Vector4(24, 16, 900, 50))
-	_bonus = _label(root, 17)
-	_bonus.add_theme_color_override("font_color", Color(1.0, 0.88, 0.45))
-	_place(_bonus, Vector4(0, 0, 0, 0), Vector4(80, 22, 900, 46))
+	_top = PanelContainer.new()
+	_top.add_theme_stylebox_override("panel", UiStyle.panel(0.55, 12, 9))
+	_top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(_top)
+	_place(_top, Vector4(0, 0, 0, 0), Vector4(20, 16, 20, 16))
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", 14)
+	top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_top.add_child(top_row)
+	_title = UiStyle.label("", 24, UiStyle.GOLD, true)
+	_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	top_row.add_child(_title)
+	_bonus = _label(top_row, 16)
+	_bonus.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
 	_targets = HBoxContainer.new()
 	_targets.add_theme_constant_override("separation", 8)
 	_targets.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_targets)
-	_place(_targets, Vector4(0, 0, 0, 0), Vector4(26, 56, 400, 90))
+	_place(_targets, Vector4(0, 0, 0, 0), Vector4(28, 70, 400, 104))
 
 	_ammo = HBoxContainer.new()
 	_ammo.alignment = BoxContainer.ALIGNMENT_END
@@ -70,11 +76,15 @@ func _ready() -> void:
 	root.add_child(_ammo)
 	_place(_ammo, Vector4(1, 1, 1, 1), Vector4(-760, -170, -24, -16))
 
-	_help = _label(root, 15)
-	_help.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-	_help.modulate = Color(1, 1, 1, 0.75)
+	var help_row := HBoxContainer.new()
+	help_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(help_row)
+	_place(help_row, Vector4(0, 1, 0, 1), Vector4(20, -54, 1100, -18))
+	_help = _label(help_row, 15)
+	_help.add_theme_color_override("font_color", UiStyle.MUTED)
+	_help.add_theme_stylebox_override("normal", UiStyle.panel(0.5, 10, 8))
+	_help.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_help.text = Texts.t("help")
-	_place(_help, Vector4(0, 1, 0, 1), Vector4(24, -50, 1000, -18))
 
 	_banner = _label(root, 64)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -88,14 +98,19 @@ func _ready() -> void:
 
 	_prompt = _label(root, 26)
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_prompt.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_prompt.add_theme_color_override("font_color", UiStyle.GOLD)
 	_prompt.text = Texts.t("press_button")
 	_prompt.visible = false
 	_place(_prompt, Vector4(0, 0.5, 1, 0.5), Vector4(0, 110, 0, 150))
 
-	_toast = _label(root, 26)
-	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_place(_toast, Vector4(0, 0.5, 1, 0.5), Vector4(0, 50, 0, 95))
+	# 알림: 가운데 아래쪽의 작은 판 (글 길이에 맞춰 줄고 는다)
+	var toast_row := CenterContainer.new()
+	toast_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(toast_row)
+	_place(toast_row, Vector4(0, 0.5, 1, 0.5), Vector4(0, 50, 0, 100))
+	_toast = _label(toast_row, 24)
+	_toast.add_theme_stylebox_override("normal", UiStyle.panel(0.6, 12, 10))
+	_toast.modulate.a = 0.0
 
 
 ## 앵커(왼, 위, 오른, 아래)와 오프셋으로 배치한다.
@@ -110,12 +125,7 @@ func _place(c: Control, anchors: Vector4, offsets: Vector4) -> void:
 	c.offset_bottom = offsets.w
 
 func _label(parent: Control, font_size: int) -> Label:
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", font_size)
-	l.add_theme_color_override("font_color", Color(1, 1, 1))
-	l.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	l.add_theme_constant_override("outline_size", maxi(4, font_size / 5))
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := UiStyle.label("", font_size)
 	parent.add_child(l)
 	return l
 
@@ -129,6 +139,7 @@ func bind(stage: Stage) -> void:
 	_banner.text = ""
 	_sub.text = ""
 	_toast.text = ""
+	_toast.modulate.a = 0.0
 	set_gameplay_visible(true)
 	stage.ammo_changed.connect(_refresh_ammo)
 	stage.state_changed.connect(_on_state)
@@ -156,11 +167,13 @@ func _refresh_ammo() -> void:
 		c.queue_free()
 	for i in _stage.ammo_slots.size():
 		var slot: Dictionary = _stage.ammo_slots[i]
-		var cell := _ammo_cell(UiIcon.of_ammo(slot.type.kind), slot.count, str(i + 1), i == _stage.current_slot, slot.type.display_name)
-		# 폭격 진지: 조명탄 칸에 글라이더도 함께 (조명탄 하나에 글라이더 하나가 같이 나간다)
+		var icon_kind := UiIcon.of_ammo(slot.type.kind)
+		var title: String = slot.type.display_name
+		# 폭격 진지: 조명탄 칸 대신 글라이더 칸 (조명탄 하나 = 글라이더 폭격 한 번)
 		if slot.type.kind == AmmoType.Kind.FLARE and _stage.bombers_total > 0:
-			_add_glider(cell, _stage.bombers_left())
-		_ammo.add_child(cell)
+			icon_kind = "bomber"
+			title = Texts.t("airstrike_name")
+		_ammo.add_child(_ammo_cell(icon_kind, slot.count, str(i + 1), i == _stage.current_slot, title))
 	if _stage.button_ready():
 		_ammo.add_child(_ammo_cell("rocket", 1, "E", false, Texts.t("rocket_name")))
 
@@ -169,12 +182,10 @@ func _refresh_ammo() -> void:
 func _ammo_cell(icon_kind: String, count: int, key: String, selected: bool, title := "") -> Control:
 	var cell := PanelContainer.new()
 	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bg := StyleBoxFlat.new()
-	bg.bg_color = Color(1.0, 0.85, 0.35, 0.35) if selected else Color(0, 0, 0, 0.25)
-	bg.border_color = Color(1.0, 0.85, 0.35) if selected else Color(0, 0, 0, 0)
-	bg.set_border_width_all(3 if selected else 0)
-	bg.set_corner_radius_all(10)
-	bg.set_content_margin_all(4)
+	var bg := UiStyle.panel(0.8 if selected else 0.5, 12, 6.0)
+	if selected:
+		bg.border_color = UiStyle.GOLD
+		bg.set_border_width_all(2)
 	cell.add_theme_stylebox_override("panel", bg)
 	var col := VBoxContainer.new()
 	col.name = "Col"
@@ -184,7 +195,7 @@ func _ammo_cell(icon_kind: String, count: int, key: String, selected: bool, titl
 	var top := _label(col, 14)
 	top.text = key
 	top.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	top.modulate = Color(1, 1, 1, 0.7)
+	top.add_theme_color_override("font_color", UiStyle.MUTED)
 	var row := HBoxContainer.new()
 	row.name = "Icons"
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -195,6 +206,8 @@ func _ammo_cell(icon_kind: String, count: int, key: String, selected: bool, titl
 	if title != "":
 		var name_l := _label(col, 15 if selected else 13)
 		name_l.text = title
+		if selected:
+			name_l.add_theme_color_override("font_color", UiStyle.GOLD)
 		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var n := _label(col, 22 if selected else 18)
 	n.name = "Count"
@@ -204,16 +217,6 @@ func _ammo_cell(icon_kind: String, count: int, key: String, selected: bool, titl
 		cell.modulate = Color(1, 1, 1, 0.35)
 	cell.size_flags_vertical = Control.SIZE_SHRINK_END
 	return cell
-
-
-## 조명탄 칸에 "+ 글라이더 그림 ×대기 수"를 붙인다 (조명탄 하나에 글라이더 하나가 같이 나간다).
-func _add_glider(cell: Control, left: int) -> void:
-	var row: HBoxContainer = cell.get_node("Col/Icons")
-	var plus := _label(row, 18)
-	plus.text = "+"
-	row.add_child(UiIcon.make("bomber", 40.0))
-	var n := _label(row, 18)
-	n.text = "×%d" % left
 
 
 func _refresh_targets() -> void:
@@ -280,6 +283,7 @@ func _flag_icon(alive: bool) -> Control:
 ## 보조 목표 한 줄 (빈 글이면 숨김).
 func set_bonus(text: String) -> void:
 	_bonus.text = ("☆ " + text) if text != "" else ""
+	_bonus.visible = text != "" and _top.visible
 
 
 ## 승리·실패 화면은 ResultScreen이 그린다. 여기서는 아무것도 하지 않는다.
@@ -289,8 +293,9 @@ func _on_state(_state: int, _message: String) -> void:
 
 ## 승리 연출·실패 그림 동안에는 조준점, 탄약, 추적 화면을 숨긴다.
 func set_gameplay_visible(on: bool) -> void:
-	for n in [_title, _bonus, _ammo, _help, _toast, _banner, _sub, _targets]:
+	for n in [_top, _title, _bonus, _ammo, _help, _toast, _banner, _sub, _targets]:
 		n.visible = on
+	_bonus.visible = on and _bonus.text != ""
 	if _dot:
 		_dot.visible = on
 	if not on:
