@@ -6,7 +6,7 @@
 script = ExtResource("1")
 kind = 2
 display_name = "기름탄"
-throw_speed = 28.5
+throw_speed = 22.0
 windup_time = 0.55
 impact_radius = 0.0
 impact_strength = 0.0

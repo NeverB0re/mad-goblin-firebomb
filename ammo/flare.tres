@@ -6,7 +6,7 @@
 script = ExtResource("1")
 kind = 3
 display_name = "조명탄"
-throw_speed = 36.0
+throw_speed = 27.0
 windup_time = 0.35
 impact_radius = 0.0
 impact_strength = 0.0

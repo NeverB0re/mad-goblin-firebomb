@@ -74,7 +74,7 @@ func _run() -> void:
 		_check(absf(dist - pair[1]) < 1.0, "%s 45도 사거리 %.1fm (기대 %.1fm)" % [ammo.display_name, dist, pair[1]])
 
 	# 탄종이 다르면 같은 겨냥으로 다른 곳에 떨어진다
-	var d2 := Vector3(0, 0.25, -1).normalized()
+	var d2 := Vector3(0, 0.8, -1).normalized()
 	var a: Vector3 = await _throw(world, Vector3(-20, 1.6, 0), d2, basic)
 	var b: Vector3 = await _throw(world, Vector3(-20, 1.6, 0), d2, heavy)
 	_check(a.distance_to(b) > 10.0, "화염탄/고폭탄 같은 겨냥 착탄 차이 %.1fm" % a.distance_to(b))
