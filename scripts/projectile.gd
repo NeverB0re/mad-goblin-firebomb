@@ -14,6 +14,8 @@ const MAX_TIME := 25.0
 const FLIGHT_TIME_SCALE := 0.64
 
 var ammo: AmmoType
+## 바람: 날아가는 동안 받는 일정한 수평 가속 (m/s²). 스테이지마다 고정이라 영점은 여전히 내 판단이다
+var wind := Vector3.ZERO
 var velocity := Vector3.ZERO
 var exclude: Array[RID] = []
 var flight_time := 0.0
@@ -46,7 +48,7 @@ func step(dt: float) -> void:
 	if done:
 		return
 	var from := global_position
-	var new_velocity := velocity + Vector3.DOWN * GRAVITY * dt
+	var new_velocity := velocity + (Vector3.DOWN * GRAVITY + wind) * dt
 	# 등가속도 운동의 정확한 변위: (v0 + v1) / 2 * dt
 	var to := from + (velocity + new_velocity) * 0.5 * dt
 	velocity = new_velocity

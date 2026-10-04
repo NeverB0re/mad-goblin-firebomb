@@ -3,7 +3,8 @@ extends Resource
 ## 탄종 데이터. 무게 변형이 아니라 역할이 다른 네 가지 (확장 기획서 5장).
 ## 던지는 힘은 탄종마다 고정이고, 궤적·폭발 반경·판정은 겉모습과 상관없이 항상 같다.
 
-enum Kind { FIRE, HE, OIL, FLARE }
+## FLAREGUN: 맞힌 지점을 후방 탄도미사일의 표적으로 지정한다 (5월드)
+enum Kind { FIRE, HE, OIL, FLARE, FLAREGUN }
 
 @export var kind: Kind = Kind.FIRE
 @export var display_name := "화염탄"

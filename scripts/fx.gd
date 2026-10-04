@@ -189,6 +189,13 @@ static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Nod
 			Models.box(root, Vector3(0.11, 0.012, 0.02), Vector3(0.012, 0.15, 0.03), Models.mat(Color(0.85, 0.8, 0.65)), Vector3(0, 0.6, 0.2))
 			Models.box(root, Vector3(0.03, 0.08, 0.005), Vector3(0.06, 0.02, 0.105), oil, Vector3(0, 0, 0.15))
 			spark_at = Vector3(-1, -1, -1)
+		AmmoType.Kind.FLAREGUN:
+			# 붉은 띠를 감은 굵은 신호탄 통 (가죽끈으로 묶은 고블린 플레어)
+			var tube := Models.mat(Color(0.2, 0.18, 0.16), 0.6, 0.3)
+			var red := Models.mat(Color(0.9, 0.08, 0.06), 0.8)
+			Models.cyl(root, 0.05, 0.055, 0.36, Vector3.ZERO, tube, Vector3(0, 0, 0.1))
+			Models.cyl(root, 0.058, 0.058, 0.05, Vector3(0, 0.08, 0), red, Vector3(0, 0, 0.1))
+			spark_at = Vector3(-0.02, 0.2, 0)
 		AmmoType.Kind.FLARE:
 			var paper := Models.mat(Color(0.93, 0.86, 0.6), 0.95)
 			var stripe := Models.mat(Color(0.25, 0.2, 0.15), 0.9)

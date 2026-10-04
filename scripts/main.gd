@@ -154,7 +154,7 @@ func _setup_environment() -> void:
 
 
 ## 밤은 안개 대신 시야를 제한한다. 적의 횃불과 조명탄이 단서다.
-func _apply_time_of_day(night: bool) -> void:
+func _apply_time_of_day(night: bool, rain := false) -> void:
 	if night:
 		_sky_mat.sky_top_color = Color(0.02, 0.03, 0.07)
 		_sky_mat.sky_horizon_color = Color(0.06, 0.07, 0.12)
@@ -173,6 +173,14 @@ func _apply_time_of_day(night: bool) -> void:
 		_env.fog_light_color = Color(0.82, 0.86, 0.92)
 		_sun.light_color = Color(1.0, 0.97, 0.9)
 		_sun.light_energy = 1.1
+	if rain and not night:
+		# 비: 낮은 회색 하늘, 약한 햇빛
+		_sky_mat.sky_top_color = Color(0.4, 0.43, 0.48)
+		_sky_mat.sky_horizon_color = Color(0.58, 0.6, 0.63)
+		_sky_mat.ground_horizon_color = Color(0.58, 0.6, 0.63)
+		_env.ambient_light_energy = 0.7
+		_env.fog_light_color = Color(0.55, 0.58, 0.62)
+		_sun.light_energy = 0.45
 
 
 func load_stage(index: int) -> void:
@@ -191,7 +199,7 @@ func load_stage(index: int) -> void:
 		StageDefs.build(stage_index, stage)
 	else:
 		Campaign.build(stage_index, stage)
-	_apply_time_of_day(stage.night)
+	_apply_time_of_day(stage.night, stage.rain)
 	stage.player.camera.make_current()
 	stage.state_changed.connect(_on_stage_state)
 	stage.target_down.connect(_on_target_down)

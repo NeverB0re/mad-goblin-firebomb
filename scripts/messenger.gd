@@ -32,6 +32,21 @@ func start() -> void:
 		running = true
 
 
+## 광차를 탄 전령 (3월드): 몸 아래에 쇠테 두른 나무 광차.
+func ride_cart() -> void:
+	var cart := Node3D.new()
+	cart.name = "Cart"
+	add_child(cart)
+	var wood := Models.mat(Color(0.4, 0.28, 0.17))
+	var iron := Models.mat(Color(0.28, 0.28, 0.3), 0.5, 0.6)
+	Models.box(cart, Vector3(1.1, 0.7, 1.5), Vector3(0, 0.55, 0), wood)
+	Models.box(cart, Vector3(1.15, 0.08, 1.55), Vector3(0, 0.88, 0), iron)
+	for sx in [-0.45, 0.45]:
+		for sz in [-0.5, 0.5]:
+			Models.cyl(cart, 0.2, 0.2, 0.1, Vector3(sx, 0.2, sz), iron, Vector3(0, 0, PI * 0.5))
+	visual.position.y = 0.45
+
+
 ## 다리가 끊겨 오도 가도 못한다.
 func strand() -> void:
 	running = false
@@ -54,8 +69,9 @@ func _physics_process(delta: float) -> void:
 	if not running or dead or follow == null:
 		return
 	follow.progress += speed * delta
-	# 달리는 몸짓
-	visual.position.y = absf(sin(_anim_t * 10.0)) * 0.12
+	# 달리는 몸짓 (광차는 덜컹거린다)
+	var base := 0.45 if has_node("Cart") else 0.0
+	visual.position.y = base + absf(sin(_anim_t * 10.0)) * (0.04 if base > 0.0 else 0.12)
 	var arm_l: Node3D = visual.get_node("ArmL")
 	arm_l.rotation.x = sin(_anim_t * 10.0) * 0.9
 	if follow.progress_ratio >= 0.999:

@@ -26,6 +26,14 @@ const HITSTOP := 0.07
 var stage_id := ""
 var title := ""
 var night := false
+## 비: 하늘이 어둡고 빗줄기가 보인다. 비 맞는 목재는 젖은 목재로 짓는다 (처마 밑만 마른다)
+var rain := false
+## 바람: 투척체가 받는 수평 가속 (m/s²). 깃발과 바람자루가 바람 쪽으로 날린다
+var wind := Vector3.ZERO
+## 대공 발리스타 (블록). 하나라도 서 있으면 미사일을 쏘아 떨어뜨린다
+var ballistas: Array[Block] = []
+## 월드 번호 (0부터, 실패 그림과 시작 컷이 쓴다)
+var world := 0
 var goal: int = Goal.COMMANDER
 var state: int = State.PLAYING
 var fail_cause := ""
@@ -181,13 +189,16 @@ func _path(points: Array) -> PathFollow3D:
 
 ## 전령: 첫 투척과 함께 목적지(봉화대)로 정해진 경로를 달린다 (구불구불한 꺾은선).
 ## 길에는 일정한 간격으로 울타리 기둥을 세워 "몇 칸 앞에 던질지"의 단서로 쓴다.
-func add_messenger(points: Array, speed: float, torch := false) -> Messenger:
+func add_messenger(points: Array, speed: float, torch := false, cart := false) -> Messenger:
 	var m := Messenger.new()
 	m.speed = speed
 	m.follow = _path(points)
 	m.follow.add_child(m)
 	if torch:
 		m.carry_torch()
+	if cart:
+		m.ride_cart()
+		_rails(points)
 	messengers.append(m)
 	m.arrived.connect(_on_messenger_arrived.bind(m))
 	m.defeated.connect(_on_messenger_defeated)
@@ -203,6 +214,66 @@ func add_messenger(points: Array, speed: float, torch := false) -> Messenger:
 			d += 8.0
 		carry = d - a.distance_to(b)
 	return m
+
+## 광차 궤도: 경로를 따라 깔린 레일 두 줄과 침목.
+func _rails(points: Array) -> void:
+	var iron := Models.mat(Color(0.3, 0.3, 0.33), 0.5, 0.6)
+	var wood := Models.mat(Color(0.35, 0.24, 0.15))
+	for i in range(1, points.size()):
+		var a: Vector3 = points[i - 1]
+		var b: Vector3 = points[i]
+		var seg := b - a
+		var len := seg.length()
+		if len < 0.01:
+			continue
+		var yaw := atan2(seg.x, seg.z)
+		for sx in [-0.45, 0.45]:
+			var side: Vector3 = Vector3(cos(yaw), 0, -sin(yaw)) * sx
+			Models.box(self, Vector3(0.08, 0.08, len), (a + b) * 0.5 + side + Vector3(0, 0.05, 0), iron, Vector3(0, yaw, 0))
+		var n := int(len / 1.2)
+		for k in n:
+			Models.box(self, Vector3(1.3, 0.06, 0.2), a + seg * ((k + 0.5) / n) + Vector3(0, 0.02, 0), wood, Vector3(0, yaw, 0))
+
+
+## 구경하는 마을 고블린 (1월드): 자기 집이 부서져도 박수 치며 좋아한다. 판정과 무관한 장식.
+func add_villager(pos: Vector3, yaw_deg := 180.0) -> void:
+	var v := Villager.new()
+	v.position = pos
+	v.rotation.y = deg_to_rad(yaw_deg)
+	add_child(v)
+
+
+## 빗줄기 (플레이어 주변을 따라다닌다).
+func make_rain() -> void:
+	rain = true
+	var p := GPUParticles3D.new()
+	p.amount = 600
+	p.lifetime = 1.2
+	p.visibility_aabb = AABB(Vector3(-60, -30, -80), Vector3(120, 60, 120))
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	pm.emission_box_extents = Vector3(40, 1, 50)
+	pm.direction = Vector3(0.1, -1, 0)
+	pm.spread = 2.0
+	pm.initial_velocity_min = 24.0
+	pm.initial_velocity_max = 28.0
+	pm.gravity = Vector3.ZERO
+	p.process_material = pm
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.03, 0.9)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = Color(0.75, 0.8, 0.9, 0.45)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	quad.material = m
+	p.draw_pass_1 = quad
+	p.position = Vector3(0, 22, -30)
+	if player:
+		player.add_child(p)
+	else:
+		add_child(p)
+
 
 ## 지원형 동료 고블린. obstacles: [{distance: float, cleared: Callable}]
 func add_ally(points: Array, speed: float, obstacles: Array) -> Ally:
@@ -311,6 +382,7 @@ func try_throw(origin: Vector3, direction: Vector3) -> bool:
 	var excluded: Array[RID] = []
 	if player:
 		excluded.append(player.get_rid())
+	p.wind = wind
 	p.launch(origin, direction, slot.type, excluded)
 	p.impacted.connect(_on_impact)
 	_projectiles.append(p)
@@ -377,6 +449,20 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			slick.global_position = pos + normal * 0.02
 			slick.setup(ammo.oil_radius)
 			slick.coat_blocks()
+		AmmoType.Kind.FLAREGUN:
+			# 표적 지정: 붉은 연기 + 짧은 불빛, 잠시 뒤 후방에서 탄도미사일이 날아온다
+			var mark := Flare.new()
+			add_child(mark)
+			mark.global_position = pos
+			mark.setup(pos, 3.0, 3.0)
+			var red := Fx.smoke_column(30)
+			add_child(red)
+			red.global_position = pos
+			(red.process_material as ParticleProcessMaterial).color = Color(1.0, 0.25, 0.2)
+			Fx.free_after(red, 8.0)
+			var missile := Missile.new()
+			add_child(missile)
+			missile.setup(self, pos)
 		AmmoType.Kind.FLARE:
 			var flare := Flare.new()
 			add_child(flare)
@@ -460,6 +546,44 @@ func _impact_juice(pos: Vector3, power: float) -> void:
 	hitstop(HITSTOP * clampf(power, 0.6, 1.4))
 
 
+## 대공 발리스타가 하나라도 남아 있는지.
+func aa_alive() -> bool:
+	for b in ballistas:
+		if is_instance_valid(b) and not b.fallen and not b.burnt:
+			return true
+	return false
+
+
+## 대공 발리스타 탑의 발리스타를 등록한다.
+func add_ballista(b: Block) -> void:
+	ballistas.append(b)
+	var wood := Models.mat(Color(0.32, 0.22, 0.14))
+	var iron := Models.mat(Models.HUMAN_STEEL, 0.4, 0.6)
+	# 받침 위 거대한 석궁 (반듯한 인간 규격품)
+	Models.box(b, Vector3(0.25, 0.25, 2.2), Vector3(0, b.size.y * 0.5 + 0.2, 0), wood, Vector3(-0.5, 0, 0))
+	Models.box(b, Vector3(2.4, 0.15, 0.15), Vector3(0, b.size.y * 0.5 + 0.55, -0.5), iron, Vector3(-0.5, 0, 0))
+	Models.box(b, Vector3(0.06, 0.06, 2.0), Vector3(0, b.size.y * 0.5 + 0.45, -0.1), iron, Vector3(-0.5, 0, 0))
+
+
+## 바람자루 (바람 방향과 세기를 보여 준다).
+func add_windsock(pos: Vector3) -> void:
+	var root := Node3D.new()
+	root.position = pos
+	add_child(root)
+	Models.cyl(root, 0.06, 0.08, 4.0, Vector3(0, 2.0, 0), Models.mat(Color(0.35, 0.33, 0.3)))
+	var sock := Node3D.new()
+	sock.position = Vector3(0, 3.9, 0)
+	root.add_child(sock)
+	var strength := clampf(wind.length() / 3.0, 0.15, 1.0)
+	var cloth := Models.mat(Color(0.95, 0.9, 0.8))
+	var stripe := Models.mat(Color(0.25, 0.25, 0.3))
+	for i in 4:
+		var c := Models.cyl(sock, 0.28 - i * 0.05, 0.3 - i * 0.05, 0.4, Vector3(0, 0, -0.2 - i * 0.4), cloth if i % 2 == 0 else stripe, Vector3(PI * 0.5, 0, 0))
+		c.position.y = -(1.0 - strength) * i * 0.3
+	if wind.length() > 0.01:
+		sock.look_at(sock.global_position - Vector3(wind.x, 0, wind.z).normalized(), Vector3.UP)
+
+
 ## 히트스톱: 짧게 시간을 거의 멈춘다. 물리 틱 수로 세는 판정은 영향받지 않는다.
 ## 승리 연출 중(time_scale이 다른 값)이면 건드리지 않는다.
 func hitstop(seconds: float) -> void:
@@ -519,6 +643,8 @@ func on_heavy_landing(pos: Vector3, energy: float) -> void:
 
 
 func _on_collapsed(pos: Vector3, count: int) -> void:
+	for v in get_tree().get_nodes_in_group("villagers"):
+		v.cheer()
 	if elapsed - _last_collapse_sound > 0.3:
 		_last_collapse_sound = elapsed
 		Sfx.play(self, "collapse", pos, clampf(float(count) - 6.0, -8.0, 4.0))
@@ -579,6 +705,8 @@ func is_active() -> bool:
 		return true
 	if not get_tree().get_nodes_in_group("fire_pool").is_empty():
 		return true
+	if not get_tree().get_nodes_in_group("missile").is_empty():
+		return true
 	for s in structures:
 		if s.any_burning() or s.any_moving():
 			return true
@@ -600,9 +728,10 @@ func _set_state(s: int, message: String) -> void:
 
 func _physics_process(delta: float) -> void:
 	elapsed += delta
+	var wind_yaw := atan2(-wind.x, -wind.z) if wind.length() > 0.01 else 0.0
 	for f in _flags:
 		var cloth: Node3D = f.get_node("Cloth")
-		cloth.rotation.y = sin(elapsed * 3.0) * 0.25
+		cloth.rotation.y = wind_yaw + sin(elapsed * (3.0 + wind.length())) * 0.25
 		cloth.rotation.x = sin(elapsed * 5.0) * 0.06
 	if state != State.PLAYING:
 		return
