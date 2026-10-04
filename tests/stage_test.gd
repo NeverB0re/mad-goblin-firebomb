@@ -57,8 +57,9 @@ func _lead_on_path(s: Stage, m: Messenger, extra: float) -> Vector3:
 	var p := curve.sample_baked(0.0)
 	for i in 8:
 		p = curve.sample_baked(m.follow.progress + m.speed * (t + extra))
-		var dir := aim(s.player.throw_origin(), p + Vector3(0, 0.9, 0), 30.0)
-		t = flight_time(s.player.throw_origin(), p, dir, 30.0)
+		var v := StageDefs.FIRE.throw_speed
+		var dir := aim(s.player.throw_origin(), p + Vector3(0, 0.9, 0), v)
+		t = flight_time(s.player.throw_origin(), p, dir, v)
 	return p
 
 
@@ -133,7 +134,7 @@ func _expect(s: Stage, want: int, label: String, limit := MAX_TIME, cause := "")
 		elif not s.messengers.is_empty() and s.messengers[0].dead:
 			why = "전령: " + s.messengers[0].defeat_cause
 		else:
-			why = "봉화대가 탐"
+			why = "다리가 끊겨 전령이 멈춤"
 	_check(ok, "%s → %s %s (투척 %d회, %.1f초)" % [label, names[s.state], why, s.throws, s.elapsed])
 
 
@@ -178,11 +179,12 @@ func _run() -> void:
 		await _throw(s, K.FIRE, _lead_on_path(s, m, 0.0) + Vector3(0, 0.9, 0))
 		await _expect(s, Stage.State.CLEARED, "E3 전령 예측 투척", 10.0)
 		_check(m.dead, "E3 전령이 쓰러짐 (%s)" % m.defeat_cause)
-		# E3: 봉화대를 먼저 태운다 (두 번째 풀이)
+		# E3: 건너야 할 나무다리를 먼저 태운다 (두 번째 풀이)
 		s = _new_stage(2)
 		await physics_frame
-		await _throw(s, K.FIRE, StageDefs.E3_BEACON + Vector3(0, 3.6, 0.6))
-		await _expect(s, Stage.State.CLEARED, "E3 봉화대 먼저 태우기")
+		await _throw(s, K.FIRE, StageDefs.E3_BRIDGE + Vector3(0, 0.45, 0))
+		await _expect(s, Stage.State.CLEARED, "E3 다리 먼저 태우기")
+		_check(s.messengers[0].stranded, "E3 전령이 끊긴 다리 앞에서 멈춤")
 		# E3: 아무것도 막지 않으면 전령이 도착해 실패
 		s = _new_stage(2)
 		await physics_frame
@@ -234,7 +236,8 @@ func _run() -> void:
 		_check(wall_ok and s.state == Stage.State.PLAYING, "E5 화염탄은 석벽을 못 뚫는다")
 		await _throw(s, K.HE, C[4] + Vector3(0, 1.5, 4.7))
 		await _wait(s, 2.0)
-		await _throw(s, K.FIRE, C[4] + Vector3(0, 2.9, 0), true)
+		# 날아든 벽 조각에 지휘관이 밀려났을 수 있으니 지금 자리를 노린다
+		await _throw(s, K.FIRE, s.commander.global_position + Vector3(0, 1.2, 0), true)
 		await _expect(s, Stage.State.CLEARED, "E5 벽 날리고 초소 태우기")
 
 	if _want(5):
@@ -287,40 +290,23 @@ func _run() -> void:
 		await physics_frame
 		await physics_frame
 		var dist := Vector2(C[8].x, C[8].z).distance_to(Vector2(s.player.global_position.x, s.player.global_position.z))
-		_check(reachable(s.player.throw_origin(), C[8] + Vector3(0, 2.9, 0), 30.0) and dist > 100.0, "E9 %.0fm 떨어진 지휘관이 사거리 안" % dist)
+		_check(reachable(s.player.throw_origin(), C[8] + Vector3(0, 2.9, 0), StageDefs.FIRE.throw_speed) and dist > 65.0, "E9 %.0fm 떨어진 지휘관이 사거리 안" % dist)
 		await _throw(s, K.FIRE, C[8] + Vector3(0, 2.9, 0))
 		await _wait(s, 6.5)
 		await _throw(s, K.FIRE, C[8] + Vector3(0, 1.8, 0))
 		await _expect(s, Stage.State.CLEARED, "E9 먼 지휘관")
 
 	if _want(9):
-		# E10: 기름통 줄 끝에 불 → 석벽 뒤 봉화대까지 타 들어간다
+		# E10: 나무다리를 고폭탄으로 끊는다
 		s = _new_stage(9)
 		await physics_frame
-		await _throw(s, K.FIRE, Vector3(-22.5, 0.8, -66.0))
-		await _expect(s, Stage.State.CLEARED, "E10 기름통 줄로 봉화대 태우기")
-		# E10: 고폭탄으로 석벽을 날리고 봉화대를 태운다
+		await _throw(s, K.HE, StageDefs.E10_BRIDGE + Vector3(0, 0.45, 0))
+		await _expect(s, Stage.State.CLEARED, "E10 다리 끊기")
+		# E10: 마구간 정면만 태우면 전령은 그대로 도착한다
 		s = _new_stage(9)
 		await physics_frame
-		await _throw(s, K.HE, Vector3(-29, 2.0, -70.7))
-		await _wait(s, 1.5)
-		await _throw(s, K.FIRE, StageDefs.E10_BEACON + Vector3(0, 3.6, 0.6))
-		await _expect(s, Stage.State.CLEARED, "E10 석벽 날리고 봉화대 태우기")
-		# E10: 석벽 정면 화염탄으로는 봉화대가 안 탄다 → 전령 도착
-		s = _new_stage(9)
-		await physics_frame
-		await _throw(s, K.FIRE, Vector3(-29, 2.0, -70.6))
-		await _expect(s, Stage.State.FAILED, "E10 석벽 정면 화염탄 → 전령 도착", 60.0, "fail_messenger")
-		# E10: 강철벽은 고폭탄에도 그대로다
-		s = _new_stage(9)
-		await physics_frame
-		await _throw(s, K.HE, Vector3(22, 1.5, -34.7))
-		await _wait(s, 2.0)
-		var steel_ok := true
-		for blk in s.structures[0].blocks:
-			if blk.mat == Block.Mat.STEEL and blk.fallen:
-				steel_ok = false
-		_check(steel_ok, "E10 강철벽은 고폭탄에도 버틴다")
+		await _throw(s, K.FIRE, Vector3(15.5, 2.0, -35.0))
+		await _expect(s, Stage.State.FAILED, "E10 마구간만 태움 → 전령 도착", 60.0, "fail_messenger")
 	if _want(10):
 		# E11: 방패병(화염) → 바리케이드(고폭) → 석재 울타리(고폭, 살짝 빗나가도) → 성문 앞 폭발통(화염)
 		s = _new_stage(10)

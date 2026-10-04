@@ -60,14 +60,14 @@ func _run() -> void:
 	var shots := [
 		[0, K.FIRE, C[0] + Vector3(0, 2.9, 0), 5.0],
 		[1, K.FIRE, Vector3(C[1].x, 1.5, C[1].z + 1.5), 7.5],
-		[2, K.FIRE, StageDefs.E3_BEACON + Vector3(0, 3.6, 0.6), 4.5],
+		[2, K.FIRE, StageDefs.E3_BRIDGE + Vector3(0, 0.45, 0), 4.5],
 		[3, K.HE, C[3] + Vector3(0, 1.5, 2.8), 4.5],
 		[4, K.FIRE, C[4] + Vector3(0, 2.0, 4.7), 4.5],
 		[5, K.HE, C[5] + Vector3(-3.2, 2.2, 2.05), 4.5],
 		[6, K.OIL, C[6] + Vector3(0.3, 0.3, 5.0), 4.5],
 		[7, K.FLARE, C[7] + Vector3(0, 0, 2), 6.0],
 		[8, K.FIRE, C[8] + Vector3(0, 2.9, 0), 7.0],
-		[9, K.FIRE, Vector3(-22.5, 0.8, -66.0), 5.0],
+		[9, K.FIRE, Vector3(15.5, 2.0, -35.0), 5.0],
 		[10, K.FIRE, StageDefs._along(StageDefs.E11_PATH, 12.0) + Vector3(0, 0.5, 0), 4.0],
 	]
 	for shot in shots:
@@ -91,7 +91,7 @@ func _run() -> void:
 		["fly", 0, [[K.FIRE, C[0] + Vector3(0, 2.9, 0), 9.0], [K.FIRE, C[0] + Vector3(0, 1.8, 0), 0.0, true]]],
 		["burn", 1, [[K.FIRE, Vector3(C[1].x, 1.5, C[1].z + 1.5), 0.0]]],
 		["crush", 5, [[K.HE, C[5] + Vector3(-3.2, 2.2, 2.05), 5.0], [K.FIRE, C[5] + Vector3(3.2, 2.2, 1.9), 0.0]]],
-		["beacon", 2, [[K.FIRE, StageDefs.E3_BEACON + Vector3(0, 3.6, 0.6), 0.0]]],
+		["bridge", 2, [[K.FIRE, StageDefs.E3_BRIDGE + Vector3(0, 0.45, 0), 0.0]]],
 		["night", 7, [[K.FIRE, C[7] + Vector3(0, 2.9, 0), 9.0], [K.FIRE, C[7] + Vector3(0, 1.8, 0), 0.0, true]]],
 	]
 	for w in wins:

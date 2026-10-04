@@ -302,6 +302,10 @@ func _unfreeze(impulse: Vector3) -> void:
 	# 충돌 상자를 살짝 줄여 위아래 블록 사이에 끼어 버티지 않게 한다
 	if _box:
 		_box.size = size * 0.97
+	# 떨어진 잔해는 층 8로 옮긴다: 지형·서 있는 블록·다른 잔해와는 부딪히지만 인물은 밀지 않는다
+	# (깔림 판정은 인물이 따로 본다)
+	collision_layer = 8
+	collision_mask = 1 | 8
 	freeze = false
 	can_sleep = true
 	sleeping = false
