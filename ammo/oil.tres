@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="AmmoType" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/ammo_type.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+kind = 2
+display_name = "기름탄"
+throw_speed = 28.5
+windup_time = 0.55
+impact_radius = 0.0
+impact_strength = 0.0
+pool_radius = 0.0
+pool_duration = 0.0
+burn_multiplier = 1.8
+oil_radius = 3.5
+kill_radius = 0.0
+model_scale = 1.15

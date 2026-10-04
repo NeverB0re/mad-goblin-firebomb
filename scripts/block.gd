@@ -3,7 +3,7 @@ extends RigidBody3D
 ## 건물 블록. 평소에는 freeze 상태로 서 있다가, 연결이 끊기거나 받침을 잃으면 떨어진다.
 ## 가연물은 불이 붙으면 서서히 약해지다가(검게 변함) 다 타면 끊어져 사라진다.
 
-enum Mat { WOOD_THIN, WOOD_BEAM, STONE, ROPE, STRAW, KEG, CORE, WEIGHT }
+enum Mat { WOOD_THIN, WOOD_BEAM, STONE, ROPE, STRAW, KEG, CORE, WEIGHT, STEEL, WOOD_WET, FUEL }
 
 const CHAR_COLOR := Color(0.07, 0.06, 0.05)
 ## 떨어지는 블록이 다른 블록에 부딪힐 때의 충격 계수 (질량 × 속도 × K)
@@ -12,14 +12,20 @@ const IMPACT_K := 2.2
 ## joint: 연결 강도, ignite: 점화에 필요한 누적 열(초), burn: 다 타는 시간(초, -1 = 굵기로 계산)
 ## ratio: 처음 받침 수 중 몇 비율이 남아야 버티는지 (0 = 받침 규칙 없음)
 const INFO := {
-	Mat.WOOD_THIN: {"color": Color(0.82, 0.64, 0.42), "density": 0.6, "joint": 10.0, "flammable": true, "ignite": 0.4, "burn": 3.5, "ratio": 1.0},
-	Mat.WOOD_BEAM: {"color": Color(0.30, 0.18, 0.09), "density": 0.7, "joint": 70.0, "flammable": true, "ignite": 0.8, "burn": -1.0, "ratio": 1.0},
-	Mat.STONE: {"color": Color(0.64, 0.65, 0.68), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
-	Mat.ROPE: {"color": Color(0.86, 0.78, 0.55), "density": 0.5, "joint": 15.0, "flammable": true, "ignite": 0.3, "burn": 2.0, "ratio": 0.0},
-	Mat.STRAW: {"color": Color(0.94, 0.83, 0.36), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.15, "burn": 2.0, "ratio": 1.0},
+	Mat.WOOD_THIN: {"color": Color(0.5, 0.33, 0.19), "density": 0.6, "joint": 10.0, "flammable": true, "ignite": 0.4, "burn": 3.5, "ratio": 1.0},
+	Mat.WOOD_BEAM: {"color": Color(0.32, 0.19, 0.1), "density": 0.7, "joint": 70.0, "flammable": true, "ignite": 0.8, "burn": -1.0, "ratio": 1.0},
+	Mat.STONE: {"color": Color(0.74, 0.74, 0.76), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+	Mat.ROPE: {"color": Color(0.84, 0.7, 0.42), "density": 0.5, "joint": 15.0, "flammable": true, "ignite": 0.3, "burn": 2.0, "ratio": 0.0},
+	Mat.STRAW: {"color": Color(0.86, 0.7, 0.38), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.15, "burn": 2.0, "ratio": 1.0},
 	Mat.KEG: {"color": Color(0.06, 0.06, 0.06), "density": 0.9, "joint": 30.0, "flammable": true, "ignite": 0.3, "burn": 0.8, "ratio": 1.0},
 	Mat.CORE: {"color": Color(0.97, 0.74, 0.16), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 1.0},
 	Mat.WEIGHT: {"color": Color(0.16, 0.16, 0.18), "density": 7.8, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.0},
+	# 인간의 강철벽: 청회색, 반듯한 리벳. 화염탄으로는 불이 붙지 않고 고폭탄으로 부순다
+	Mat.STEEL: {"color": Color(0.42, 0.5, 0.58), "density": 3.0, "joint": 150.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+	# 젖은 목재: 그대로는 타지 않는다. 기름을 묻히면 탄다
+	Mat.WOOD_WET: {"color": Color(0.26, 0.2, 0.17), "density": 0.8, "joint": 60.0, "flammable": true, "ignite": 0.6, "burn": 5.0, "ratio": 1.0},
+	# 내부 연료 배관: 검정에 흰 띠. 빨리 타고, 다 타면 그 자리에서 불길이 확 솟는다
+	Mat.FUEL: {"color": Color(0.08, 0.08, 0.08), "density": 1.0, "joint": 40.0, "flammable": true, "ignite": 0.25, "burn": 1.6, "ratio": 0.0},
 }
 
 var mat: int = Mat.STONE
@@ -41,6 +47,8 @@ var touched_ground := false
 var start_low := 0.0
 var burn_time := 8.0
 var burn_rate := 1.0
+## 기름이 묻었는지 (불이 빨리 붙고 빨리 약해진다)
+var oiled := false
 
 var _mesh: MeshInstance3D
 var _material: StandardMaterial3D
@@ -48,9 +56,11 @@ var _base_color: Color
 var _fire: GPUParticles3D
 var _last_velocity := Vector3.ZERO
 var _impact_cooldown := 0.0
+var _pending_impulse := Vector3.ZERO
+var _box: BoxShape3D
+var _impulse_delay := 0
 var _burn_clock := 0.0
 var _react := 0.0
-var _spin: Node3D
 var _react_dir := Vector3.ZERO
 
 
@@ -67,7 +77,7 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 		# 목재는 굵기에 따라 약 3~8초 뒤 끊어진다 (기획서 초기값 8~20초에서 플레이 피드백으로 단축)
 		var thick := minf(size.x, minf(size.y, size.z))
 		burn_time = 3.0 + 5.0 * clampf((thick - 0.2) / 0.6, 0.0, 1.0)
-	freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
+	freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
 	freeze = true
 	collision_layer = 1
 	collision_mask = 1
@@ -83,6 +93,7 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 	var box := BoxShape3D.new()
 	box.size = size
 	shape.shape = box
+	_box = box
 	add_child(shape)
 
 	_mesh = MeshInstance3D.new()
@@ -95,8 +106,8 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 	_mesh.material_override = _material
 	add_child(_mesh)
 
-	if mat == Mat.KEG:
-		# 흰 띠를 두른 검은 통
+	if mat == Mat.KEG or mat == Mat.FUEL:
+		# 흰 띠를 두른 검은 통 / 배관
 		var band_mat := StandardMaterial3D.new()
 		band_mat.albedo_color = Color(0.95, 0.95, 0.95)
 		for y in [-0.22, 0.22]:
@@ -108,31 +119,47 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 			band.position = Vector3(0, size.y * y, 0)
 			_mesh.add_child(band)
 
+	if mat == Mat.STEEL:
+		_add_rivets()
+
 	add_to_group("blocks")
-	if is_flammable():
+	if INFO[mat].flammable:
 		add_to_group("flammable")
-	if mat == Mat.CORE:
-		add_to_group("core")
 	return self
 
 
-## 코어 블록의 겉모양을 기계장치의 신 부품으로 바꾼다 (충돌 상자는 그대로).
-## 부품 메시는 이 블록의 재질을 공유해서 타격 번쩍임도 그대로 적용된다.
-func set_idol_part(kind: int) -> void:
-	_mesh.mesh = null
-	_material.metallic = 0.5
-	_material.roughness = 0.35
-	_material.emission_enabled = true
-	_material.emission = _base_color
-	_material.emission_energy_multiplier = 0.25
-	var part := Models.idol_part(kind, _material, Models.mat(Color(0.2, 0.17, 0.12), 0.5, 0.4))
-	part.scale = size / 0.8
-	_mesh.add_child(part)
-	_spin = part.find_child("Spin", true, false)
-
-
 func is_flammable() -> bool:
+	if mat == Mat.WOOD_WET:
+		return oiled
 	return INFO[mat].flammable
+
+
+## 기름을 묻힌다. 젖은 목재도 탈 수 있게 되고, 불이 빨리 붙어 빨리 약해진다.
+func coat_oil() -> void:
+	if oiled or not INFO[mat].flammable:
+		return
+	oiled = true
+	_base_color = _base_color.darkened(0.35)
+	_material.albedo_color = _base_color
+	_material.roughness = 0.15
+	_material.metallic = 0.2
+
+
+## 반듯하게 박힌 리벳 (큰 면 두 개에 격자로).
+func _add_rivets() -> void:
+	var rivet_mat := Models.mat(Color(0.28, 0.33, 0.38), 0.4, 0.7)
+	var axis := 2 if size.z <= size.x else 0
+	var u := 0 if axis == 2 else 2
+	var nu := clampi(int(size[u] / 0.6), 1, 4)
+	var nv := clampi(int(size.y / 0.6), 1, 3)
+	for side in [-1.0, 1.0]:
+		for i in nu:
+			for j in nv:
+				var p := Vector3.ZERO
+				p[u] = (i + 0.5) / nu * size[u] - size[u] * 0.5
+				p.y = (j + 0.5) / nv * size.y - size.y * 0.5
+				p[axis] = side * (size[axis] * 0.5 + 0.015)
+				Models.box(_mesh, Vector3(0.07, 0.07, 0.07), p, rivet_mat)
 
 
 func joint_strength() -> float:
@@ -166,8 +193,9 @@ func add_heat(amount: float, rate := 1.0) -> void:
 	if burnt or burning or not is_flammable():
 		return
 	heat += amount
-	if heat >= INFO[mat].ignite:
-		ignite(rate)
+	var need: float = INFO[mat].ignite * (0.3 if oiled else 1.0)
+	if heat >= need:
+		ignite(rate * (1.6 if oiled else 1.0))
 
 
 func ignite(rate := 1.0) -> void:
@@ -182,6 +210,19 @@ func ignite(rate := 1.0) -> void:
 	add_child(_fire)
 
 
+## 화약통 연쇄: 폭발이 닿으면 짧은 지연 뒤 터진다.
+func fuse(seconds: float) -> void:
+	if burnt:
+		return
+	if not burning:
+		burning = true
+		var f := Fx.fire(size * 0.4, 12, 0.4)
+		add_child(f)
+	burn_rate = 1.0
+	health = 1.0
+	burn_time = maxf(seconds, 0.02)
+
+
 func drop(impulse := Vector3.ZERO) -> void:
 	if fallen:
 		return
@@ -190,20 +231,42 @@ func drop(impulse := Vector3.ZERO) -> void:
 
 
 func _unfreeze(impulse: Vector3) -> void:
+	# 충돌 상자를 살짝 줄여 위아래 블록 사이에 끼어 버티지 않게 한다
+	if _box:
+		_box.size = size * 0.97
 	freeze = false
 	can_sleep = true
 	sleeping = false
-	if impulse != Vector3.ZERO:
-		apply_central_impulse(impulse)
-		# 날아가는 방향에 수직한 축으로 굴러가듯 회전 (결정적, 무작위 없음)
-		var axis := impulse.cross(Vector3.UP)
-		if axis.length() < 0.001:
-			axis = Vector3.RIGHT * impulse.length()
-		apply_torque_impulse(axis * 0.25 * maxf(size.length(), 0.5))
+	# 충격은 정지 상태가 실제로 풀린 뒤(2틱 후)에 준다. 더 일찍 주면 상태 전환 때 속도가 0으로 초기화된다
+	_pending_impulse = impulse
+	_impulse_delay = 2
+
+
+## 막 풀려난 몸체가 잠들어 있을 수 있으므로 깨우고 속도를 직접 더한다.
+func _apply_pending_impulse() -> void:
+	var impulse := _pending_impulse
+	_pending_impulse = Vector3.ZERO
+	if impulse == Vector3.ZERO:
+		return
+	sleeping = false
+	linear_velocity += impulse / mass
+	# 날아가는 방향에 수직한 축으로 굴러가듯 회전 (결정적, 무작위 없음).
+	# 위에 무언가를 받치던 블록은 돌리지 않는다 (쓰러지며 위 블록에 걸려 끼지 않도록)
+	for j in joints:
+		if j.upper != null and j.upper != self:
+			return
+	var axis := impulse.cross(Vector3.UP)
+	if axis.length() < 0.001:
+		axis = Vector3.RIGHT * impulse.length()
+	angular_velocity += axis.normalized() * clampf(impulse.length() / mass * 0.8, 0.0, 12.0)
 
 
 func _physics_process(delta: float) -> void:
 	if fallen:
+		if _pending_impulse != Vector3.ZERO and not freeze:
+			_impulse_delay -= 1
+			if _impulse_delay <= 0:
+				_apply_pending_impulse()
 		_last_velocity = linear_velocity
 		_impact_cooldown -= delta
 	if not burning:
@@ -255,8 +318,6 @@ func hit_react(amount: float, from: Vector3) -> void:
 
 
 func _process(delta: float) -> void:
-	if _spin:
-		_spin.rotate_y(delta * 1.5)
 	if _react <= 0.0:
 		return
 	_react = maxf(0.0, _react - delta * 3.0)

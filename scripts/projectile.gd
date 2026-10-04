@@ -26,8 +26,10 @@ func launch(origin: Vector3, direction: Vector3, ammo_type: AmmoType, excluded: 
 	exclude = excluded
 	global_position = origin
 	velocity = direction.normalized() * ammo.throw_speed
-	_model = Fx.molotov_model(ammo.model_scale)
+	_model = Fx.ammo_model(ammo.kind, ammo.model_scale)
 	add_child(_model)
+	if ammo.kind == AmmoType.Kind.OIL:
+		return
 	var trail := Fx.fire(Vector3(0.02, 0.02, 0.02), 24, 0.12)
 	trail.local_coords = false
 	trail.lifetime = 0.3

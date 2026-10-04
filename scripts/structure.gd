@@ -31,6 +31,8 @@ class Joint:
 var blocks: Array[Block] = []
 var joints: Array[Joint] = []
 var stage: Node
+## finalize 시점의 블록 수 (봉화대처럼 '절반 이상 남았는지'를 볼 때 쓴다)
+var initial_count := 0
 
 
 func add_block(mat: int, center: Vector3, size: Vector3) -> Block:
@@ -43,6 +45,7 @@ func add_block(mat: int, center: Vector3, size: Vector3) -> Block:
 
 ## 맞닿은 블록을 찾아 연결과 이웃(불 번짐) 목록을 만든다.
 func finalize() -> void:
+	initial_count = blocks.size()
 	for i in blocks.size():
 		var a := blocks[i]
 		var amin := a.position - a.size * 0.5
@@ -119,6 +122,7 @@ func apply_impact(pos: Vector3, radius: float, strength: float) -> int:
 		if bd < radius * 1.3:
 			b.hit_react(strength * (1.0 - bd / (radius * 1.3)) / 40.0, pos)
 	var broken := 0
+	var hit_blocks := {}
 	for j in joints:
 		if j.broken:
 			continue
@@ -129,9 +133,33 @@ func apply_impact(pos: Vector3, radius: float, strength: float) -> int:
 		if dmg >= j.effective_strength():
 			j.broken = true
 			broken += 1
+			# 블록 자체 강도 이상의 충격을 받은 블록만 부서질 후보 (불에 약해진 이웃 때문에 끊긴 건 제외)
+			if dmg >= j.a.joint_strength():
+				hit_blocks[j.a] = true
+			if j.b and dmg >= j.b.joint_strength():
+				hit_blocks[j.b] = true
 	if broken > 0:
+		# 충격에 직접 끊긴 작은 석재·강철 블록은 그 자리에서 산산조각 난다 (밀려나 끼어 버티지 않게)
+		for b in hit_blocks:
+			if b.mat in SHATTER_MATS and b.size.x * b.size.y * b.size.z <= SHATTER_VOLUME and not b.fallen:
+				_shatter(b)
 		resolve(pos, strength, radius)
 	return broken
+
+
+const SHATTER_MATS := [Block.Mat.STONE, Block.Mat.STEEL]
+const SHATTER_VOLUME := 3.5
+
+
+func _shatter(b: Block) -> void:
+	if stage and stage.has_method("on_block_shattered"):
+		stage.on_block_shattered(b)
+	for j in b.joints:
+		j.broken = true
+	b.fallen = true
+	blocks.erase(b)
+	b.remove_from_group("blocks")
+	b.queue_free()
 
 
 ## 받침과 지면 연결을 다시 계산해서 버틸 수 없는 블록을 떨어뜨린다.
@@ -195,11 +223,20 @@ func _drop(b: Block, origin: Vector3, strength: float, radius: float) -> void:
 		if d < radius * 1.5:
 			var away := b.global_position - origin
 			var flat := Vector3(away.x, 0.0, away.z)
-			var dir := (away.normalized() * 0.4 + flat.normalized() * 1.2 + Vector3.UP * 0.5).normalized()
+			# 위에 무언가를 받치던 블록은 위로 튀지 않게 한다 (위 블록에 끼어 멈추지 않도록)
+			var lift := 0.0 if _carries_load(b) else 0.5
+			var dir := (away.normalized() * 0.4 + flat.normalized() * 1.2 + Vector3.UP * lift).normalized()
 			var falloff := 1.0 - d / (radius * 1.5)
 			# 가벼운 판자는 크게 튕기고 무거운 석재나 추는 덜 밀린다
 			impulse = dir * minf(strength * 0.35 * falloff, b.mass * 14.0)
 	b.drop(impulse)
+
+
+func _carries_load(b: Block) -> bool:
+	for j in b.joints:
+		if j.upper != null and j.upper != b:
+			return true
+	return false
 
 
 ## 다 탄 블록은 끊어져 사라진다.

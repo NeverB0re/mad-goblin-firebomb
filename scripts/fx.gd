@@ -159,3 +159,88 @@ static func molotov_model(model_scale := 1.0, with_flame := true) -> Node3D:
 
 	root.scale = Vector3.ONE * model_scale
 	return root
+
+
+## 탄종별 고블린식 모델 (겉은 엉성하게 삐뚤빼뚤, 실제 위력은 겉모습과 무관).
+## 화염탄 = 검고 둥근 병 + 천 심지, 고폭탄 = 쇠테 두른 폭탄 항아리 + 짧은 도화선,
+## 기름탄 = 마개를 끈으로 묶은 기름 단지, 조명탄 = 가늘고 긴 종이 통 + 끝의 불꽃.
+static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Node3D:
+	if kind == AmmoType.Kind.FIRE:
+		return molotov_model(model_scale, with_flame)
+	var root := Node3D.new()
+	var spark_at := Vector3.ZERO
+	match kind:
+		AmmoType.Kind.HE:
+			var iron := Models.mat(Color(0.12, 0.12, 0.13), 0.5, 0.6)
+			var band := Models.mat(Color(0.45, 0.42, 0.38), 0.5, 0.7)
+			var pot := Models.ball(root, 0.13, Vector3.ZERO, iron, 10)
+			pot.scale = Vector3(1.0, 0.85, 1.05)
+			Models.cyl(root, 0.135, 0.135, 0.035, Vector3(0, 0.02, 0), band, Vector3(0.12, 0, -0.08), 10)
+			Models.cyl(root, 0.11, 0.11, 0.03, Vector3(0, -0.07, 0), band, Vector3(-0.1, 0, 0.1), 10)
+			Models.cyl(root, 0.045, 0.05, 0.06, Vector3(0.01, 0.12, 0), iron)
+			Models.cyl(root, 0.008, 0.008, 0.07, Vector3(0.02, 0.18, 0.01), Models.mat(Color(0.75, 0.7, 0.55)), Vector3(0, 0, -0.4))
+			spark_at = Vector3(0.035, 0.22, 0.01)
+		AmmoType.Kind.OIL:
+			var clay := Models.mat(Color(0.48, 0.3, 0.17), 0.9)
+			var oil := Models.mat(Color(0.06, 0.05, 0.03), 0.2)
+			Models.cyl(root, 0.08, 0.12, 0.2, Vector3(0, -0.02, 0), clay, Vector3(0, 0, 0.08), 9)
+			Models.cyl(root, 0.05, 0.08, 0.06, Vector3(0.008, 0.11, 0), clay, Vector3(0, 0, 0.08))
+			Models.cyl(root, 0.045, 0.04, 0.05, Vector3(0.012, 0.16, 0), Models.mat(Color(0.6, 0.48, 0.3)))
+			Models.box(root, Vector3(0.11, 0.012, 0.02), Vector3(0.012, 0.15, 0.03), Models.mat(Color(0.85, 0.8, 0.65)), Vector3(0, 0.6, 0.2))
+			Models.box(root, Vector3(0.03, 0.08, 0.005), Vector3(0.06, 0.02, 0.105), oil, Vector3(0, 0, 0.15))
+			spark_at = Vector3(-1, -1, -1)
+		AmmoType.Kind.FLARE:
+			var paper := Models.mat(Color(0.93, 0.86, 0.6), 0.95)
+			var stripe := Models.mat(Color(0.25, 0.2, 0.15), 0.9)
+			Models.cyl(root, 0.035, 0.04, 0.42, Vector3.ZERO, paper, Vector3(0, 0, 0.06))
+			for y in [-0.12, 0.05]:
+				Models.cyl(root, 0.042, 0.042, 0.02, Vector3(0.002 * y, y, 0), stripe, Vector3(0, 0, 0.06))
+			spark_at = Vector3(-0.013, 0.22, 0)
+	if with_flame and spark_at.y > -1.0:
+		var flame := fire(Vector3(0.01, 0.01, 0.01), 10, 0.06)
+		var pm: ParticleProcessMaterial = flame.process_material
+		pm.initial_velocity_min = 0.2
+		pm.initial_velocity_max = 0.6
+		pm.spread = 60.0
+		flame.lifetime = 0.25
+		flame.position = spark_at
+		flame.name = "Flame"
+		root.add_child(flame)
+	root.scale = Vector3.ONE * model_scale
+	return root
+
+## 큼직한 충격파 링 (착탄 연출). 바닥과 평행하게 퍼지며 사라진다.
+static func shockwave(parent: Node, pos: Vector3, radius: float) -> void:
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.82
+	tm.outer_radius = 1.0
+	tm.rings = 24
+	tm.ring_segments = 4
+	ring.mesh = tm
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(1.0, 0.95, 0.8, 0.8)
+	ring.material_override = m
+	parent.add_child(ring)
+	ring.global_position = pos + Vector3(0, 0.2, 0)
+	ring.scale = Vector3.ONE * 0.3
+	var tw := ring.create_tween().set_parallel(true)
+	tw.tween_property(ring, "scale", Vector3(radius, radius * 0.4, radius), 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.35)
+	free_after(ring, 0.5)
+
+
+## 연기 구름 (착탄 연출, 짧게).
+static func smoke_puff(parent: Node, pos: Vector3, size: float) -> void:
+	var p := burst(int(10 + size * 6), 2.0 + size, 0.8 + size * 0.4, SMOKE_COLORS, false)
+	p.lifetime = 2.0
+	var pm: ParticleProcessMaterial = p.process_material
+	pm.gravity = Vector3(0, 0.6, 0)
+	pm.damping_min = 2.0
+	pm.damping_max = 3.0
+	parent.add_child(p)
+	p.global_position = pos
+	p.emitting = true
+	free_after(p, 2.5)
