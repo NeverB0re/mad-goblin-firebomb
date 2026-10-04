@@ -91,6 +91,14 @@ func _play_opening(first: bool) -> void:
 func _on_stage_chosen(index: int) -> void:
 	menus.hide_all()
 	get_tree().paused = false
+	# 월드의 첫 진지에 처음 들어가면 월드 시작 컷 (으름장 → 웃으며 새 무기에 불)
+	var w := Campaign.world_of(index)
+	if index % 10 == 0 and not (w in SaveData.worlds_seen):
+		SaveData.worlds_seen.append(w)
+		SaveData.save_all()
+		var card := Opening.new(Opening.Mode.WORLD, w)
+		add_child(card)
+		await card.finished
 	load_stage(index)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
@@ -223,7 +231,7 @@ func _on_stage_state(state: int, message: String) -> void:
 		add_child(result)
 		result.proceed.connect(_on_result_proceed)
 		hud.set_gameplay_visible(false)
-		result.play_failure(message, _fail_count)
+		result.play_failure(message, _fail_count, stage.world)
 		_fail_count += 1
 
 
@@ -240,6 +248,9 @@ func _on_result_proceed(action: String) -> void:
 		else:
 			show_title()
 			return
+	elif action == "next" and not test_mode:
+		_on_stage_chosen(stage_index + 1)
+		return
 	else:
 		load_stage(stage_index + (1 if action == "next" else 0))
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED

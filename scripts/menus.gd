@@ -135,24 +135,41 @@ func show_title() -> void:
 
 # ---------- 스테이지 선택 ----------
 
-func show_select(back_to: int) -> void:
+var _select_world := -1
+
+
+func show_select(back_to: int, world := -1) -> void:
 	screen = Screen.SELECT
 	_back_to = back_to
+	if world < 0:
+		world = clampi((SaveData.unlocked - 1) / 10, 0, Campaign.WORLDS.size() - 1)
+	_select_world = world
 	var box := _new_panel(0.6)
 	_title_label(box, Texts.t("menu_select"), 54)
+	# 월드 고르기 (열린 월드만)
+	var tabs := HBoxContainer.new()
+	tabs.alignment = BoxContainer.ALIGNMENT_CENTER
+	tabs.add_theme_constant_override("separation", 10)
+	box.add_child(tabs)
+	for w in Campaign.WORLDS.size():
+		var b := _button(tabs, "%d. %s" % [w + 1, Campaign.WORLDS[w]], func(): show_select(back_to, w), w * 10 < SaveData.unlocked)
+		b.custom_minimum_size = Vector2(0, 0)
+		b.add_theme_font_size_override("font_size", 18)
+		if w == world:
+			b.modulate = Color(1.3, 1.3, 1.0)
 	var grid := GridContainer.new()
-	grid.columns = 4
+	grid.columns = 5
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 14)
 	box.add_child(grid)
-	for i in Campaign.COUNT:
+	for i in range(world * 10, world * 10 + 10):
 		var open := i < SaveData.unlocked
 		var text := "%s\n%s" % [Campaign.label(i), Campaign.title(i) if open else Texts.t("locked")]
 		if SaveData.is_cleared(i):
 			text += "\n" + Texts.t("best_left") % int(SaveData.best[i])
 		var b := _button(grid, text, func(): stage_chosen.emit(i), open)
-		b.custom_minimum_size = Vector2(250, 118)
-		b.add_theme_font_size_override("font_size", 20)
+		b.custom_minimum_size = Vector2(230, 110)
+		b.add_theme_font_size_override("font_size", 18)
 	_button(box, Texts.t("menu_back"), _go_back)
 
 

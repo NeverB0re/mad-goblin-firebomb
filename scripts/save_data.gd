@@ -10,6 +10,8 @@ static var unlocked := 1
 ## 스테이지 번호 → 최고 기록 (클리어할 때 남은 탄 수, 클리어 못 했으면 없음)
 static var best := {}
 static var opening_seen := false
+## 시작 컷을 본 월드 번호들
+static var worlds_seen := []
 ## 설정
 static var mouse_sens := 1.0
 static var volume := 0.8
@@ -27,6 +29,7 @@ static func load_all() -> void:
 	unlocked = maxi(1, int(cfg.get_value("progress", "unlocked", 1)))
 	best = cfg.get_value("progress", "best", {})
 	opening_seen = bool(cfg.get_value("progress", "opening_seen", false))
+	worlds_seen = cfg.get_value("progress", "worlds_seen", [])
 	mouse_sens = float(cfg.get_value("settings", "mouse_sens", 1.0))
 	volume = float(cfg.get_value("settings", "volume", 0.8))
 	fullscreen = bool(cfg.get_value("settings", "fullscreen", false))
@@ -37,6 +40,7 @@ static func save_all() -> void:
 	cfg.set_value("progress", "unlocked", unlocked)
 	cfg.set_value("progress", "best", best)
 	cfg.set_value("progress", "opening_seen", opening_seen)
+	cfg.set_value("progress", "worlds_seen", worlds_seen)
 	cfg.set_value("settings", "mouse_sens", mouse_sens)
 	cfg.set_value("settings", "volume", volume)
 	cfg.set_value("settings", "fullscreen", fullscreen)

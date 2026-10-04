@@ -41,6 +41,7 @@ func _run() -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveData.path))
 	SaveData.load_all()
 	SaveData.opening_seen = true
+	SaveData.worlds_seen = [0, 1, 2, 3, 4]
 	change_scene_to_file("res://scenes/main.tscn")
 	await _frames(10)
 	var main := current_scene

@@ -280,7 +280,7 @@ static func _place(c: Control, anchors: Vector4, offsets := Vector4.ZERO) -> voi
 
 
 ## 실패: 고블린 그림 한 장과 원인 한 줄.
-func play_failure(cause_text: String, picture: int) -> void:
+func play_failure(cause_text: String, picture: int, world := 0) -> void:
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, 0.55)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -307,7 +307,7 @@ func play_failure(cause_text: String, picture: int) -> void:
 	vp.size = Vector2i(640, 450)
 	vp.own_world_3d = true
 	container.add_child(vp)
-	FailurePictures.build(vp, picture)
+	FailurePictures.build(vp, picture, world)
 	frame.pivot_offset = Vector2(320, 225)
 	frame.scale = Vector2.ONE * 0.9
 	_tween().tween_property(frame, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)

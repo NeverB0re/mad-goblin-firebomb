@@ -1,6 +1,7 @@
 class_name FailurePictures
 extends RefCounted
-## 실패 그림 (점령당한 목책 마을 월드). 상대의 해프닝으로 보이게 하고 플레이어를 놀리지 않는다.
+## 실패 그림. 상대의 해프닝으로 보이게 하고 플레이어를 놀리지 않는다.
+## 월드마다 배경 색과 소품이 다르다 (목책 마을, 강철 관문, 광산 보일러, 밤의 발리스타, 성채).
 ##  0. 무너진 목책 앞에 주저앉은 고블린
 ##  1. 폭탄을 분해하다 부품을 늘어놓은 고블린
 ##  2. 서로 손가락질하며 탓하는 고블린 둘
@@ -8,7 +9,43 @@ extends RefCounted
 const COUNT := 3
 
 
-static func build(vp: SubViewport, index: int) -> void:
+## 월드별 소품 (그림 뒤쪽).
+static func _world_prop(r: Node3D, world: int) -> void:
+	match world:
+		1:
+			var steel := Models.mat(Models.HUMAN_STEEL, 0.4, 0.6)
+			Models.box(r, Vector3(5.0, 2.6, 0.3), Vector3(0, 1.3, -2.6), steel)
+		2:
+			var iron := Models.mat(Color(0.25, 0.24, 0.24), 0.5, 0.5)
+			Models.cyl(r, 0.8, 0.8, 1.8, Vector3(2.2, 0.9, -2.2), iron, Vector3.ZERO, 10)
+			Models.cyl(r, 0.15, 0.15, 2.5, Vector3(2.2, 2.6, -2.2), iron)
+			var smoke := Fx.smoke_column(10)
+			smoke.position = Vector3(2.2, 3.8, -2.2)
+			r.add_child(smoke)
+		3:
+			var wood := Models.mat(Color(0.3, 0.2, 0.12))
+			Models.box(r, Vector3(0.2, 3.0, 0.2), Vector3(-2.4, 1.5, -2.4), wood)
+			Models.box(r, Vector3(1.6, 0.15, 0.15), Vector3(-2.4, 3.0, -2.4), wood, Vector3(0, 0, -0.4))
+		4:
+			r.add_child(Models.tower(4.0, Models.HUMAN_STEEL.lightened(0.2)))
+			r.get_child(r.get_child_count() - 1).position = Vector3(2.6, 0, -3.0)
+
+
+const SKY := [Color(0.62, 0.55, 0.5), Color(0.55, 0.6, 0.66), Color(0.45, 0.4, 0.38), Color(0.12, 0.13, 0.22), Color(0.5, 0.4, 0.5)]
+
+
+static func build(vp: SubViewport, index: int, world := 0) -> void:
+	_build(vp, index)
+	var root: Node3D = vp.get_child(vp.get_child_count() - 1) if vp.get_child_count() > 0 else null
+	if root:
+		_world_prop(root, world)
+		var env := root.find_children("*", "WorldEnvironment", true, false)
+		if not env.is_empty():
+			var e: Environment = env[0].environment
+			e.background_color = SKY[world % SKY.size()]
+
+
+static func _build(vp: SubViewport, index: int) -> void:
 	var wood := Models.mat(Color(0.42, 0.27, 0.15))
 	match index % COUNT:
 		0:
