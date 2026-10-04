@@ -15,9 +15,12 @@ var _core: MeshInstance3D
 var _sparks: GPUParticles3D
 
 
-func setup(p_height: float, p_duration: float) -> Flare:
+## 착탄 지점(at)에서 솟아오른다. 트리에 붙이고 위치를 정한 뒤에 부른다.
+func setup(at: Vector3, p_height: float, p_duration: float) -> Flare:
 	height = p_height
 	duration = p_duration
+	_base = at
+	global_position = at
 	for f in get_tree().get_nodes_in_group("flare"):
 		if f != self:
 			f.extinguish()
@@ -38,10 +41,6 @@ func setup(p_height: float, p_duration: float) -> Flare:
 
 func extinguish() -> void:
 	_t = maxf(_t, RISE_TIME + duration)
-
-
-func _ready() -> void:
-	_base = global_position
 
 
 func _process(delta: float) -> void:
