@@ -44,6 +44,63 @@ var stage: Node
 var initial_count := 0
 ## 플레이어의 투척으로는 부서지지 않는다 (E11 성문: 동료의 폭발통으로만). 강제 충격만 받는다
 var player_proof := false
+## 다리 묶음: [{legs: Array[Block], max_lost: int, done: bool}]. 다리를 max_lost개보다 많이 잃으면
+## 땅에서 떠 있는 블록 전체(남은 다리 포함)가 잃은 다리 쪽으로 한 몸처럼 기울어 넘어간다.
+var leg_groups: Array = []
+
+## 기울어 넘어가는 빠르기 (rad/s)
+const TOPPLE_SPIN := 0.9
+
+
+## 다리 묶음을 등록한다. 나무 다리 넷은 max_lost 1 (둘 잃으면 넘어감), 금 간 석재 기둥은 0 (하나만 잃어도 넘어감).
+func add_leg_group(legs: Array, max_lost: int) -> void:
+	var pos := []
+	for b in legs:
+		pos.append(b.position)
+	leg_groups.append({"legs": legs, "pos": pos, "max_lost": max_lost, "done": false})
+
+
+## 다리를 잃었는지 (다 타서 지워졌거나, 부서져 떨어졌거나).
+static func _leg_lost(b) -> bool:
+	return not is_instance_valid(b) or b.fallen or b.burnt
+
+
+## 다리를 너무 많이 잃은 묶음이 있으면 잃은 다리 쪽으로 기울여 넘어뜨린다.
+func _check_leg_groups() -> bool:
+	var toppled := false
+	for g in leg_groups:
+		if g.done:
+			continue
+		var lost := []
+		for k in g.legs.size():
+			if _leg_lost(g.legs[k]):
+				lost.append(k)
+		if lost.size() <= g.max_lost:
+			continue
+		g.done = true
+		toppled = true
+		var all_c := Vector3.ZERO
+		for p in g.pos:
+			all_c += p
+		all_c /= g.pos.size()
+		var lost_c := Vector3.ZERO
+		for k in lost:
+			lost_c += g.pos[k]
+		lost_c /= lost.size()
+		var dir := Vector3(lost_c.x - all_c.x, 0, lost_c.z - all_c.z)
+		if dir.length() < 0.05:
+			dir = Vector3(1, 0, 0)
+		dir = dir.normalized()
+		# 잃은 다리 쪽 땅을 축으로 돈다: 높은 곳일수록 그쪽으로 빨리 기운다
+		var pivot := Vector3(lost_c.x, 0.0, lost_c.z)
+		var spin := Vector3.UP.cross(dir) * TOPPLE_SPIN
+		for b in blocks:
+			if (b.fallen and not b.freeze) or (b.start_low < 0.05 and not (b in g.legs)):
+				continue
+			for j in b.joints:
+				j.broken = true
+			b.topple(spin.cross(b.position - pivot), spin)
+	return toppled
 
 
 func add_block(mat: int, center: Vector3, size: Vector3) -> Block:
@@ -233,6 +290,8 @@ func resolve(origin := Vector3.INF, strength := 0.0, radius := 0.0) -> void:
 				_drop(b, origin, strength, radius)
 				dropped += 1
 				changed = true
+	if _check_leg_groups():
+		dropped += 1
 	if dropped > 0:
 		var center := origin if origin != Vector3.INF else global_position
 		collapsed.emit(center, dropped)

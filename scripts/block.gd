@@ -59,6 +59,8 @@ var burn_time := 8.0
 var burn_rate := 1.0
 ## 기름이 묻었는지 (불이 빨리 붙고 빨리 약해진다)
 var oiled := false
+## 비에 젖은 화약통 (기름을 묻혀야 불이 붙는다)
+var wet_keg := false
 
 var _mesh: MeshInstance3D
 var _material: StandardMaterial3D
@@ -67,6 +69,9 @@ var _fire: GPUParticles3D
 var _last_velocity := Vector3.ZERO
 var _impact_cooldown := 0.0
 var _pending_impulse := Vector3.ZERO
+## 쓰러질 때 줄 회전 (INF = 충격 방향으로 알아서 굴림). 기울어 넘어가는 건물은 블록들이 한 몸처럼 돈다
+var _pending_spin := Vector3.INF
+var _topple_vel := Vector3.INF
 var _box: BoxShape3D
 var _impulse_delay := 0
 var _burn_clock := 0.0
@@ -141,14 +146,19 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 
 
 func is_flammable() -> bool:
-	if mat == Mat.WOOD_WET:
+	if mat == Mat.WOOD_WET or wet_keg:
 		return oiled
 	return INFO[mat].flammable
 
 
-## 비에 젖은 목재로 바꾼다 (기름을 묻혀야 탄다).
 ## 비에 젖는다 (나무와 짚). 그대로는 타지 않고 기름을 묻혀야 탄다.
+## 화약통은 덮개 없이 비를 맞는 것(rain_wets 메타)만 젖는다: 불로는 안 붙고 기름을 부어야 탄다 (폭발에는 그대로 터진다).
 func make_wet() -> void:
+	if mat == Mat.KEG and has_meta("rain_wets"):
+		wet_keg = true
+		_base_color = _base_color.lightened(0.15)
+		_material.albedo_color = _base_color
+		return
 	if not (mat in [Mat.WOOD_THIN, Mat.WOOD_BEAM, Mat.STRAW]):
 		return
 	mat = Mat.WOOD_WET
@@ -310,6 +320,16 @@ func drop(impulse := Vector3.ZERO) -> void:
 	_unfreeze.call_deferred(impulse)
 
 
+## 정해진 속도와 회전으로 떨어뜨린다 (건물이 한쪽으로 기울어 넘어갈 때).
+## 막 떨어지기 시작한(아직 풀리기 전인) 블록에도 덮어쓴다.
+func topple(velocity: Vector3, spin: Vector3) -> void:
+	if fallen and not freeze:
+		return
+	_pending_spin = spin
+	_topple_vel = velocity
+	drop()
+
+
 func _unfreeze(impulse: Vector3) -> void:
 	# 충돌 상자를 살짝 줄여 위아래 블록 사이에 끼어 버티지 않게 한다
 	if _box:
@@ -322,7 +342,7 @@ func _unfreeze(impulse: Vector3) -> void:
 	can_sleep = true
 	sleeping = false
 	# 충격은 정지 상태가 실제로 풀린 뒤(2틱 후)에 준다. 더 일찍 주면 상태 전환 때 속도가 0으로 초기화된다
-	_pending_impulse = impulse
+	_pending_impulse = impulse if _topple_vel == Vector3.INF else _topple_vel * mass + Vector3(0, 0.0001, 0)
 	_impulse_delay = 2
 
 
@@ -334,6 +354,9 @@ func _apply_pending_impulse() -> void:
 		return
 	sleeping = false
 	linear_velocity += impulse / mass
+	if _pending_spin != Vector3.INF:
+		angular_velocity = _pending_spin
+		return
 	# 날아가는 방향에 수직한 축으로 굴러가듯 회전 (결정적, 무작위 없음).
 	# 위에 무언가를 받치던 블록은 돌리지 않는다 (쓰러지며 위 블록에 걸려 끼지 않도록)
 	for j in joints:
