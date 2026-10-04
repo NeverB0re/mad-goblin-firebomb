@@ -65,8 +65,6 @@ func _ready() -> void:
 
 
 func track(p: Projectile) -> void:
-	if p.ammo.kind == AmmoType.Kind.FLARE:
-		return
 	_begin(p, Vector3(p.velocity.x, 0, p.velocity.z), false)
 	p.impacted.connect(_on_impacted)
 
