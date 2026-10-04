@@ -101,6 +101,19 @@ func _on_stage_chosen(index: int) -> void:
 		await card.finished
 	load_stage(index)
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	if show_opening and not test_mode:
+		play_intro()
+
+
+## 진지 시작 조망: 한 바퀴 돌며 배치를 보여 준 뒤 투척 시점으로 (아무 키나 누르면 건너뜀).
+func play_intro() -> void:
+	var cam := IntroCam.new()
+	stage.add_child(cam)
+	cam.setup(stage)
+	hud.set_gameplay_visible(false)
+	cam.finished.connect(func():
+		if is_instance_valid(stage) and stage.state == Stage.State.PLAYING:
+			hud.set_gameplay_visible(true))
 
 
 func _pause() -> void:
@@ -123,7 +136,7 @@ static func register_input() -> void:
 	var keys := {
 		"move_forward": [KEY_W], "move_back": [KEY_S], "move_left": [KEY_A], "move_right": [KEY_D],
 		"restart": [KEY_R], "next_stage": [KEY_ENTER, KEY_KP_ENTER],
-		"ammo_1": [KEY_1], "ammo_2": [KEY_2], "ammo_3": [KEY_3], "ammo_4": [KEY_4], "ammo_5": [KEY_5],
+		"ammo_1": [KEY_1], "ammo_2": [KEY_2], "ammo_3": [KEY_3], "ammo_4": [KEY_4], "ammo_5": [KEY_5], "interact": [KEY_E],
 	}
 	for action in keys:
 		if InputMap.has_action(action):

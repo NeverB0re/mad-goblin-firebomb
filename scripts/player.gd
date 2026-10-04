@@ -52,6 +52,8 @@ var release_requested := false
 var release_ticks := 0
 var zooming := false
 var _rmb_blocked := false
+## 진지 시작 조망 중에는 움직이거나 던지지 않는다
+var input_locked := false
 
 var _held: Node3D
 var _held_scale := 1.0
@@ -203,6 +205,8 @@ func _tick_throw() -> void:
 # ---------- 입력 ----------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if input_locked:
+		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var sens := MOUSE_SENS * SaveData.mouse_sens * (camera.fov / BASE_FOV)
 		if is_throwing():
@@ -287,7 +291,7 @@ func _physics_process(delta: float) -> void:
 	camera.fov = lerpf(camera.fov, target_fov, 1.0 - exp(-delta * 14.0))
 
 	var input := Vector2.ZERO
-	if InputMap.has_action("move_forward") and not zooming:
+	if InputMap.has_action("move_forward") and not zooming and not input_locked:
 		input = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var dir := (transform.basis * Vector3(input.x, 0, input.y))
 	dir.y = 0

@@ -52,6 +52,11 @@ func _run() -> void:
 	main.menus.start_requested.emit()
 	await _frames(10)
 	_check(not paused and main.stage.stage_id == "1-1" and main.menus.screen == Menus.Screen.NONE, "시작 → 1-1 (%s)" % main.stage.stage_id)
+	# 진지 시작 조망: 아무 키나 누르면 건너뛰고 투척 시점으로 (그동안 고블린 조작은 잠긴다)
+	var intro_locked: bool = main.stage.player.input_locked
+	await _key(KEY_SPACE)
+	await _frames(40)
+	_check(intro_locked and not main.stage.player.input_locked and main.stage.player.camera.current, "시작 조망 → 아무 키로 건너뛰기 → 투척 시점")
 	await _key(KEY_ESCAPE)
 	_check(paused and main.menus.screen == Menus.Screen.PAUSE, "Esc → 잠깐 메뉴")
 	await _key(KEY_ESCAPE)
