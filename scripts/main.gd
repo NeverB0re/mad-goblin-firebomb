@@ -32,7 +32,6 @@ static func register_input() -> void:
 		"move_forward": [KEY_W], "move_back": [KEY_S], "move_left": [KEY_A], "move_right": [KEY_D],
 		"restart": [KEY_R], "next_stage": [KEY_ENTER, KEY_KP_ENTER],
 		"ammo_1": [KEY_1], "ammo_2": [KEY_2], "ammo_3": [KEY_3], "ammo_4": [KEY_4],
-		"floor_up": [KEY_E], "floor_down": [KEY_Q],
 	}
 	for action in keys:
 		if InputMap.has_action(action):
@@ -108,17 +107,17 @@ func load_stage(index: int) -> void:
 	_apply_time_of_day(stage.night)
 	stage.player.camera.make_current()
 	stage.state_changed.connect(_on_stage_state)
-	stage.commander_down.connect(_on_commander_down)
+	stage.target_down.connect(_on_target_down)
 	hud.bind(stage)
 
 
-func _on_commander_down(c: Commander, _cause: String) -> void:
+func _on_target_down(target: Actor, cause: String, focus: Vector3) -> void:
 	result = ResultScreen.new()
 	add_child(result)
 	result.proceed.connect(_on_result_proceed)
 	var start_cam: Camera3D = hud.follow_cam.camera() if hud.follow_cam.visible else null
 	hud.set_gameplay_visible(false)
-	result.play_victory(stage, c, start_cam)
+	result.play_victory(stage, target, cause, focus, start_cam)
 
 
 func _on_stage_state(state: int, message: String) -> void:

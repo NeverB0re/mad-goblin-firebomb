@@ -15,9 +15,8 @@ signal slot_requested(index: int)
 signal slot_cycle_requested(step: int)
 signal windup_started
 signal throw_cancelled
-signal floor_changed(index: int)
 
-enum ThrowState { IDLE, WINDUP, RELEASING, CLIMBING }
+enum ThrowState { IDLE, WINDUP, RELEASING }
 
 const SPEED := 4.5
 const WINDUP_MOVE := 0.6
@@ -34,8 +33,6 @@ const FIRST_PERSON_Z := 0.1
 ## 놓은 뒤 병이 손을 떠나기까지의 고정 지연 (0.15초)
 const RELEASE_TICKS := 9
 const DEFAULT_WINDUP := 0.5
-## 망루·비계 한 층을 오르내리는 시간
-const CLIMB_TIME := 2.5
 
 var zone_min := Vector2(-3, -3)
 var zone_max := Vector2(3, 3)
@@ -53,12 +50,6 @@ var release_requested := false
 var release_ticks := 0
 var zooming := false
 var _rmb_blocked := false
-## 높이를 고를 수 있는 층 (월드 높이). 비어 있으면 층 선택 없음
-var floors: Array[float] = []
-var floor_index := 0
-var _climb_from := 0.0
-var _climb_to := 0.0
-var _climb_t := 0.0
 
 var _held: Node3D
 var _held_scale := 1.0
@@ -78,8 +69,7 @@ const HELD_FOLLOW := Vector3(0.3, -0.05, -0.75)
 
 func _init() -> void:
 	collision_layer = 4
-	# 1 = 지형/블록, 8 = 망루 층 바닥 (투척체는 통과)
-	collision_mask = 1 | 8
+	collision_mask = 1
 	var shape := CollisionShape3D.new()
 	var capsule := CapsuleShape3D.new()
 	capsule.radius = 0.35
@@ -191,22 +181,6 @@ func cancel_throw() -> bool:
 	return true
 
 
-## 망루·비계 층 이동 (오르는 동안은 던질 수 없다).
-func change_floor(step: int) -> bool:
-	if floors.size() < 2 or throw_state != ThrowState.IDLE:
-		return false
-	var target := clampi(floor_index + step, 0, floors.size() - 1)
-	if target == floor_index:
-		return false
-	floor_index = target
-	throw_state = ThrowState.CLIMBING
-	zooming = false
-	_climb_from = global_position.y
-	_climb_to = floors[target]
-	_climb_t = 0.0
-	return true
-
-
 func _tick_throw() -> void:
 	match throw_state:
 		ThrowState.WINDUP:
@@ -262,10 +236,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		for i in 4:
 			if event.is_action_pressed("ammo_%d" % (i + 1)):
 				slot_requested.emit(i)
-		if event.is_action_pressed("floor_up"):
-			change_floor(1)
-		elif event.is_action_pressed("floor_down"):
-			change_floor(-1)
 
 
 ## 화면 흔들림 (연출 전용. h/v_offset은 카메라 변환을 바꾸지 않아 투척 방향에 영향 없음)
@@ -282,7 +252,7 @@ func _process(delta: float) -> void:
 		pose = pose.lerp(HELD_FOLLOW, sin(_follow * PI) * 0.6)
 		_held.position = pose
 		_held.rotation = Vector3(-_wind * 0.9, 0, 0)
-		_held.visible = throw_state != ThrowState.CLIMBING and _recoil <= 0.3
+		_held.visible = _recoil <= 0.3
 	if _arm:
 		var hand := _held.position if _held else HELD_REST
 		var shoulder := Vector3(0.28, -0.22, 0.1)
@@ -313,16 +283,6 @@ func _physics_process(delta: float) -> void:
 	# 준비 자세에서는 시야각이 살짝 좁아진다
 	target_fov *= 1.0 - 0.08 * _wind
 	camera.fov = lerpf(camera.fov, target_fov, 1.0 - exp(-delta * 14.0))
-
-	if throw_state == ThrowState.CLIMBING:
-		_climb_t += delta
-		var k := clampf(_climb_t / CLIMB_TIME, 0.0, 1.0)
-		global_position.y = lerpf(_climb_from, _climb_to, k)
-		velocity = Vector3.ZERO
-		if k >= 1.0:
-			throw_state = ThrowState.IDLE
-			floor_changed.emit(floor_index)
-		return
 
 	var input := Vector2.ZERO
 	if InputMap.has_action("move_forward") and not zooming:
