@@ -175,7 +175,7 @@ func show_select(back_to: int, world := -1) -> void:
 		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		col.add_child(name_l)
 		if SaveData.is_cleared(i):
-			var n := int(SaveData.stars.get(i, 1))
+			var n := SaveData.star_count(i)
 			var st := UiStyle.label("★".repeat(n) + "☆".repeat(3 - n), 18, UiStyle.GOLD)
 			st.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			col.add_child(st)

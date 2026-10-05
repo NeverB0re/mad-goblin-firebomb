@@ -13,9 +13,10 @@ extends CanvasLayer
 signal proceed(action: String)
 
 ## 별 평가 (0이면 표시하지 않음: 시험 스테이지)
-var stars := 0
+## 지금까지 받은 별 (비트: 1 목표 달성, 2 폭탄 남김, 4 보조 목표)과 이번 클리어로 받은 별
+var star_bits := 0
+var new_bits := 0
 var bonus_text := ""
-var bonus_ok := false
 
 ## 날아가는 모습을 감상하는 시간 (현실 시간)과 그동안의 배속
 const FLY_WATCH := 1.5
@@ -244,7 +245,7 @@ func _smash(stage: Stage) -> void:
 	_tween().tween_property(smash, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await _wait_real(0.45)
 	# 별 셋: 목표 달성(깃발) · 폭탄 남김(폭탄 그림 ×남은 수) · 보조 목표(고블린 말)
-	if stars > 0:
+	if star_bits > 0:
 		# 별 판: 가운데 반투명 판 위에 별 셋과 그 아래 설명
 		var holder := CenterContainer.new()
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -260,13 +261,15 @@ func _smash(stage: Stage) -> void:
 		row.add_theme_constant_override("separation", 46)
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(row)
-		var got := [true, stage.total_ammo() > 0, bonus_ok]
 		for k in 3:
+			var got_k: bool = star_bits & (1 << k) != 0
+			# 이전에 받아 둔 별은 이번에 못 받아도 남는다
+			var kept: bool = got_k and new_bits & (1 << k) == 0
 			var col := VBoxContainer.new()
 			col.alignment = BoxContainer.ALIGNMENT_CENTER
 			col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row.add_child(col)
-			var star := _label("★" if got[k] else "☆", 84, UiStyle.GOLD if got[k] else UiStyle.MUTED)
+			var star := _label("★" if got_k else "☆", 84, (UiStyle.GOLD.darkened(0.25) if kept else UiStyle.GOLD) if got_k else UiStyle.MUTED)
 			star.reparent(col)
 			star.pivot_offset = Vector2(40, 50)
 			star.scale = Vector2.ZERO
@@ -282,7 +285,7 @@ func _smash(stage: Stage) -> void:
 					cap.add_child(UiIcon.make("he", 34.0))
 					_label("×%d" % stage.total_ammo(), 24, UiStyle.TEXT).reparent(cap)
 				2:
-					_label(bonus_text, 20, UiStyle.TEXT if bonus_ok else UiStyle.MUTED).reparent(cap)
+					_label(bonus_text, 20, UiStyle.TEXT if got_k else UiStyle.MUTED).reparent(cap)
 	else:
 		var left := HBoxContainer.new()
 		left.alignment = BoxContainer.ALIGNMENT_CENTER

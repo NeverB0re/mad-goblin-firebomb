@@ -238,7 +238,7 @@ func load_stage(index: int) -> void:
 	stage.state_changed.connect(_on_stage_state)
 	stage.target_down.connect(_on_target_down)
 	hud.bind(stage)
-	hud.set_bonus("" if test_mode else Campaign.bonus_text(stage_index))
+	hud.set_goals("" if test_mode else Campaign.bonus_text(stage_index), int(SaveData.star_bits.get(stage_index, 0)))
 
 
 ## 진지를 바꿀 때: 잠깐 어두워졌다가 (그동안 change로 진지를 만든다) 다시 밝아진다.
@@ -284,10 +284,11 @@ func _on_target_down(target: Actor, cause: String, focus: Vector3) -> void:
 	var start_cam: Camera3D = hud.follow_cam.camera() if hud.follow_cam.visible else null
 	hud.set_gameplay_visible(false)
 	if not test_mode:
-		SaveData.record_clear(stage_index, stage.total_ammo(), Campaign.stars(stage_index, stage))
-		result.stars = Campaign.stars(stage_index, stage)
+		var earned := Campaign.star_bits(stage_index, stage)
+		var total := SaveData.record_clear(stage_index, stage.total_ammo(), earned)
+		result.star_bits = total
+		result.new_bits = earned
 		result.bonus_text = Campaign.bonus_text(stage_index)
-		result.bonus_ok = Campaign.bonus_met(stage_index, stage)
 	result.play_victory(stage, target, cause, focus, start_cam)
 
 

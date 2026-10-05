@@ -9,7 +9,7 @@ $code = 0
 Start-Process -FilePath $godot -ArgumentList "--headless", "--path", "`"$root`"", "--import" -NoNewWindow -Wait `
 	-RedirectStandardOutput "$out\import.txt" -RedirectStandardError "$out\import_err.txt"
 
-foreach ($t in @("determinism_test", "stage_test", "campaign_test", "bonus_test", "clearance_test")) {
+foreach ($t in @("determinism_test", "star_test", "stage_test", "campaign_test", "bonus_test", "clearance_test")) {
 	$p = Start-Process -FilePath $godot -ArgumentList "--headless", "--path", "`"$root`"", "--fixed-fps", "60", "--script", "res://tests/$t.gd" `
 		-NoNewWindow -Wait -PassThru -RedirectStandardOutput "$out\$t.txt" -RedirectStandardError "$out\${t}_err.txt"
 	Get-Content "$out\$t.txt" -Encoding utf8 | Where-Object { $_ -notmatch "^Godot Engine" }

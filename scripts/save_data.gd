@@ -16,8 +16,8 @@ static func open_count() -> int:
 	return Campaign.COUNT if unlock_all else unlocked
 ## 스테이지 번호 → 최고 기록 (클리어할 때 남은 탄 수, 클리어 못 했으면 없음)
 static var best := {}
-## 스테이지 번호 → 받은 별 수 최고 기록 (1~3)
-static var stars := {}
+## 스테이지 번호 → 받은 별 (비트: 1 = 목표 달성, 2 = 폭탄 남김, 4 = 보조 목표). 한 번 받은 별은 다시 도전해도 남는다.
+static var star_bits := {}
 static var opening_seen := false
 ## 시작 컷을 본 월드 번호들
 static var worlds_seen := []
@@ -37,7 +37,13 @@ static func load_all() -> void:
 		return
 	unlocked = maxi(1, int(cfg.get_value("progress", "unlocked", 1)))
 	best = cfg.get_value("progress", "best", {})
-	stars = cfg.get_value("progress", "stars", {})
+	var old: Dictionary = cfg.get_value("progress", "stars", {})
+	for k in old:
+		# 옛 저장 (별 개수만 있던 것): 개수만큼 앞의 별부터 받은 것으로
+		star_bits[k] = (1 << int(old[k])) - 1
+	var bits: Dictionary = cfg.get_value("progress", "star_bits", {})
+	for k in bits:
+		star_bits[k] = int(star_bits.get(k, 0)) | int(bits[k])
 	opening_seen = bool(cfg.get_value("progress", "opening_seen", false))
 	worlds_seen = cfg.get_value("progress", "worlds_seen", [])
 	mouse_sens = float(cfg.get_value("settings", "mouse_sens", 1.0))
@@ -49,7 +55,7 @@ static func save_all() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("progress", "unlocked", unlocked)
 	cfg.set_value("progress", "best", best)
-	cfg.set_value("progress", "stars", stars)
+	cfg.set_value("progress", "star_bits", star_bits)
 	cfg.set_value("progress", "opening_seen", opening_seen)
 	cfg.set_value("progress", "worlds_seen", worlds_seen)
 	cfg.set_value("settings", "mouse_sens", mouse_sens)
@@ -58,12 +64,20 @@ static func save_all() -> void:
 	cfg.save(path)
 
 
-## 클리어 기록: 다음 스테이지를 열고 최고 기록(남은 탄, 별)을 갱신한다.
-static func record_clear(index: int, ammo_left: int, star_count := 1) -> void:
+## 클리어 기록: 다음 스테이지를 열고 최고 기록(남은 탄)을 갱신하고, 이번에 받은 별(비트)을 이미 받은 별에 더한다.
+## 더한 뒤의 별 비트를 돌려준다.
+static func record_clear(index: int, ammo_left: int, bits := 1) -> int:
 	unlocked = maxi(unlocked, index + 2)
 	best[index] = maxi(int(best.get(index, -1)), ammo_left)
-	stars[index] = maxi(int(stars.get(index, 0)), star_count)
+	star_bits[index] = int(star_bits.get(index, 0)) | bits
 	save_all()
+	return int(star_bits[index])
+
+
+## 받은 별 개수 (0~3).
+static func star_count(index: int) -> int:
+	var b := int(star_bits.get(index, 0))
+	return (b & 1) + ((b >> 1) & 1) + ((b >> 2) & 1)
 
 
 static func is_cleared(index: int) -> bool:

@@ -18,7 +18,7 @@ func _run() -> void:
 	await _frames(10)
 	var s: Stage = main.stage
 	s.wind = Vector3.ZERO
-	main.hud.set_bonus(Campaign.bonus_text(32))
+	main.hud.set_goals(Campaign.bonus_text(32), 1)
 	_select(s, AmmoType.Kind.FLARE)
 	_look(s, Vector3(-9, 4, -54))
 	await _real_wait(main, 0.6)

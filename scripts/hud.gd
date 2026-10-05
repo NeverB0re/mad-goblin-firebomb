@@ -280,10 +280,16 @@ func _flag_icon(alive: bool) -> Control:
 	return box
 
 
-## 보조 목표 한 줄 (빈 글이면 숨김).
-func set_bonus(text: String) -> void:
-	_bonus.text = ("☆ " + text) if text != "" else ""
-	_bonus.visible = text != "" and _top.visible
+## 별 조건 석 줄 (목표 달성 · 폭탄 남기고 클리어 · 보조 목표). 이미 받은 별(비트)은 ★로 표시한다. 빈 글이면 숨김.
+func set_goals(bonus: String, saved_bits: int) -> void:
+	if bonus == "":
+		_bonus.text = ""
+	else:
+		var lines := [Texts.t("goal_flags"), Texts.t("goal_ammo"), bonus]
+		for k in 3:
+			lines[k] = ("★ " if saved_bits & (1 << k) else "☆ ") + lines[k]
+		_bonus.text = "\n".join(lines)
+	_bonus.visible = _bonus.text != "" and _top.visible
 
 
 ## 승리·실패 화면은 ResultScreen이 그린다. 여기서는 아무것도 하지 않는다.
