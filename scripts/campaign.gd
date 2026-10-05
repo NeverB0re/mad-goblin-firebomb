@@ -114,7 +114,7 @@ const STAGES := [
 		"parts": [["courtyard", Vector3(2, 0, -42)], ["barn", Vector3(-13, 0, -38)]],
 		"story": "석벽 마당 안 젖은 막사와 바깥 광부 숙소. 벽을 부수고, 기름을 높이 띄워 막사에 붓고, 불을 넣는다."},
 	{"name": "정련소", "ammo": {"he": 2, "oil": 4, "fire": 4}, "perch": 12.0, "wind": [3, 1, 0],
-		"parts": [["fortress", Vector3(0, 0, -54), {"wet": true}], ["hopper", Vector3(-15, 0, -46)], ["barn", Vector3(15, 0, -46)]],
+		"parts": [["fortress", Vector3(0, 0, -54), {"wet": true}], ["hopper", Vector3(-18, 0, -46)], ["barn", Vector3(15, 0, -46)]],
 		"story": "클라이맥스: 정련소 석벽 안 젖은 증기탑 위의 지휘관, 석탄 호퍼 밑의 감독관, 숙소 안의 부관. 셋 다."},
 
 	# ---------- 3월드: 밤의 철벽 관문 (늘 밤: 조명탄은 짧고 좁다. 불빛을 보면 인간들이 구경하러 나온다) ----------
@@ -459,7 +459,8 @@ static func _extras(s: Stage, d: Dictionary, world: int) -> void:
 			"kegyard":
 				s.add_extra(c + Vector3(KEG_FUSE_X + 1.0, 0, 5.0), 200.0, GE.WAVE, c + Vector3(KEG_FUSE_X, 0, 5.4))
 			"hopper":
-				s.add_extra(c + Vector3(2.7, 0, 1.8), 210.0, GE.WAVE, c + Vector3(0, 4.4, 0))
+				var hs := _hopper_side(c)
+				s.add_extra(c + Vector3(hs * 5.2, 0, 0.8), 210.0 * hs, GE.WAVE, c + Vector3(hs * 2.7, 0.6, -1.9))
 		if world == 0 and n < 2 and part[0] != "fortress":
 			var side := -1.0 if c.x > 0.0 else 1.0
 			s.add_extra(c + Vector3(side * 4.5, 0, 6.0), 90.0 * side, GE.FIGHT)
@@ -611,10 +612,10 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 		"hopper":
 			if rain:
 				# 젖은 화약통에 기름을 붓고 불
-				out.append([K.OIL, c + Vector3(0, 4.4, 0.75), false, 0.3])
-				out.append([K.FIRE, c + Vector3(0, 4.4, 0.75), false, 0.0])
+				out.append([K.OIL, c + Vector3(_hopper_side(c) * 2.7, 0.6, -1.9), false, 0.3])
+				out.append([K.FIRE, c + Vector3(_hopper_side(c) * 2.7, 0.6, -1.9), false, 0.0])
 			else:
-				out.append([K.FIRE, c + Vector3(0, 1.5, 1.8), false, 0.0])
+				out.append([K.FIRE, c + Vector3(_hopper_side(c) * 2.7, 0.6, -1.9), false, 0.0])
 		"cave":
 			out.append([K.HE, c + Vector3(-3.2, 2.2, 2.05), false, 2.0])
 			burn.call(c + Vector3(3.2, 2.2, 1.9))
@@ -998,35 +999,24 @@ static func _part_barn(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	s.add_guard(c + Vector3(4, 0, 3), 180.0)
 
 
-## 석탄 호퍼: 나무 다리 넷 위 판자 바닥, 가운데는 석탄을 쏟는 구멍이 뚫렸고 그 위에 큰 화약통(발파용)이 걸쳐 있다.
-## 지휘관은 그 밑 돌 칸막이 안 (폭탄과 불이 옆에서 직접 안 닿는다).
-## 판자나 다리가 타서 불이 화약통에 옮겨 붙으면 머리 위에서 터진다 (구멍으로 그대로 내려친다).
-## 비가 오면 화약통도 젖어 기름을 부어야 탄다. 다리를 둘 이상 잃으면 기울어 넘어간다.
+## 석탄 호퍼: 돌집 안의 지휘관. 앞과 옆 벽, 지붕이 석재라 폭탄이 안 통하고 뒤쪽만 뚫려 있다.
+## 화약통은 집 뒤 땅에 놓여 플레이어 쪽 집 옆으로 삐져나와 보인다. 통을 터뜨리면 뚫린 뒤쪽으로 폭풍이 들어가 지휘관이 쓰러진다.
+## 비가 오면 화약통이 젖어 기름을 부어야 탄다.
+static func _hopper_side(c: Vector3) -> float:
+	return 1.0 if c.x <= 0.5 else -1.0
+
+
 static func _part_hopper(s: Stage, c: Vector3, _o: Dictionary) -> void:
-	var st := s.add_structure()
-	var legs := 3.6
-	var half := 1.8
+	var side := _hopper_side(c)
+	var house := s.add_structure()
+	house.add_block(M.STONE, c + Vector3(0, 1.2, 1.15), Vector3(3.6, 2.4, 0.3))
 	for sx in [-1, 1]:
-		for sz in [-1, 1]:
-			st.add_block(M.WOOD_BEAM, c + Vector3(sx * (half - 0.2), legs * 0.5, sz * (half - 0.2)), Vector3(0.4, legs, 0.4))
-	for sz in [-1, 1]:
-		st.add_block(M.WOOD_BEAM, c + Vector3(0, 1.5, sz * (half - 0.2)), Vector3(half * 2.0 - 0.8, 0.25, 0.25))
-	for i in 5:
-		if i == 2:
-			continue
-		var x := -half + (i + 0.5) * half * 2.0 / 5
-		st.add_block(M.WOOD_THIN, c + Vector3(x, legs + 0.15, 0), Vector3(half * 2.0 / 5, 0.3, half * 2.0))
-	var keg := st.add_block(M.KEG, c + Vector3(0, legs + 0.3 + 0.5, 0), Vector3(1.4, 1.0, 1.4))
+		house.add_block(M.STONE, c + Vector3(sx * 1.65, 1.2, 0), Vector3(0.3, 2.4, 2.6))
+	house.add_block(M.STONE, c + Vector3(0, 2.6, 0), Vector3(4.0, 0.4, 3.2))
+	var yard := s.add_structure()
+	var keg := yard.add_block(M.KEG, c + Vector3(side * 2.7, 0.6, -2.4), Vector3(1.2, 1.2, 1.2))
 	keg.set_meta("rain_wets", true)
-	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - legs * s.build_scale) < 0.01, 1)
-	var booth := s.add_structure()
-	# 돌 칸막이 (지휘관 키보다 높아 바깥 불길이 넘어오지 않는다. 쇠 통은 그 안으로 떨어진다)
-	var bh := 1.9
-	for sz in [-1, 1]:
-		booth.add_block(M.STONE, c + Vector3(0, bh * 0.5, sz * 1.2), Vector3(2.7, bh, 0.3))
-	for sx in [-1, 1]:
-		booth.add_block(M.STONE, c + Vector3(sx * 1.2, bh * 0.5, 0), Vector3(0.3, bh, 2.1))
-	s.add_commander(c, 180.0, Vector3(2.4, 0, 0.5))
+	s.add_commander(c + Vector3(side * 0.3, 0, -0.5), 180.0, Vector3(0.0, 0, 0.8))
 
 
 ## 절벽 밑 감시굴 (E6): 석재 덮개가 금 간 돌기둥(왼쪽)과 나무 버팀목(오른쪽)에만 얹혀 있다.
