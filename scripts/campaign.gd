@@ -388,6 +388,7 @@ static func paint_count(i: int) -> int:
 static func build(i: int, s: Stage) -> void:
 	var d: Dictionary = STAGES[i]
 	s.world = world_of(i)
+	s.outpost_props = true
 	if d.get("fixed", "") == "ally":
 		_ally_stage(s, label(i), d.name)
 	else:

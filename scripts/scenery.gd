@@ -24,6 +24,8 @@ var grass2 := Color(0.56, 0.68, 0.28)
 var dirt := Color(0.86, 0.64, 0.34)
 var rock := Color(0.55, 0.47, 0.43)
 var visuals := true
+## 전초기지 소품 발치 (나무와 풀을 두지 않는다)
+var prop_spots: Array[Rect2] = []
 
 
 static func build(stage: Stage) -> void:
@@ -51,6 +53,9 @@ func _build() -> void:
 		grass2 = Color(0.66, 0.66, 0.36)
 	_measure()
 	_collision()
+	# 소품은 진짜 블록이라 화면 없이(테스트)도 짓는다
+	if s.outpost_props:
+		prop_spots = OutpostProps.place(s, self)
 	if not visuals:
 		return
 	var ground := s.get_node_or_null("Ground")
@@ -351,7 +356,16 @@ func _clouds() -> void:
 
 # ---------- 나무, 바위, 풀 ----------
 
+func _near_prop(p: Vector2, grow := 0.0) -> bool:
+	for r in prop_spots:
+		if r.grow(grow).has_point(p):
+			return true
+	return false
+
+
 func _tree_ok(p: Vector2) -> bool:
+	if _near_prop(p, 2.0):
+		return false
 	if flat.grow(-6.0).has_point(p) and not _far_band(p):
 		return false
 	if _in_corridor(p, 9.0) or _in_yard(p, 6.0) or _road_dist(p.x, p.y) < 4.0:
@@ -466,7 +480,7 @@ func _ground_cover() -> void:
 	var flower_cols := [Color(0.98, 0.9, 0.35), Color(0.95, 0.95, 0.95), Color(0.9, 0.45, 0.55)]
 	for i in 420:
 		var p := Vector2(rng.randf_range(g.position.x, g.end.x), rng.randf_range(g.position.y, g.end.y))
-		if _in_yard(p, 0.8) or _road_dist(p.x, p.y) < 2.2:
+		if _in_yard(p, 0.8) or _road_dist(p.x, p.y) < 2.2 or _near_prop(p):
 			continue
 		var gp := _on_ground(p)
 		var r := rng.randf()

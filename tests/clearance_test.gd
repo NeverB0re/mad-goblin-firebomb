@@ -64,6 +64,15 @@ func _run() -> void:
 				if inter.size.x > GAP and inter.size.y > GAP and inter.size.z > GAP:
 					bad.append("%s(%s) ↔ %s %s 겹침 %s" % [a.get_class() if a.get_script() == null else a.get_script().get_global_name(), str(a.global_position.snapped(Vector3.ONE * 0.1)), Block.Mat.keys()[blk.mat], str(blk.size), str(inter.size.snapped(Vector3.ONE * 0.01))])
 		_check(bad.is_empty(), "%s 인물이 건물에 끼지 않는다%s" % [Campaign.label(i), "" if bad.is_empty() else ": " + "; ".join(bad.slice(0, 4))])
+		# 전초기지 소품: 진지마다 몇 개 있고, 사람 곁(2.5m 안)에는 없다
+		var props := s.structures.filter(func(st): return st.has_meta("prop"))
+		var close := []
+		for st in props:
+			for blk in st.blocks:
+				for a in actors:
+					if Vector2(blk.position.x - a.position.x, blk.position.z - a.position.z).length() < 2.5:
+						close.append("%s ↔ %s" % [st.get_meta("prop"), a.get_script().get_global_name()])
+		_check(props.size() >= 2 and close.is_empty(), "%s 소품 %d개, 사람 곁에 없음%s" % [Campaign.label(i), props.size(), "" if close.is_empty() else ": " + ", ".join(close.slice(0, 3))])
 		s.queue_free()
 		await process_frame
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)

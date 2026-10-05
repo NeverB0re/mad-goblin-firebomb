@@ -176,6 +176,8 @@ func _make_perch(center: Vector3, half_extents: Vector2) -> void:
 ## 블록·인물·소품의 자리와 블록·소품의 크기에 적용된다 (인물 크기는 그대로라 천장이 높아진다).
 var build_origin := Vector3.ZERO
 var build_scale := 1.0
+## 본편 진지: 풍경을 지을 때 인간 전초기지 소품(수레·나무통·상자·무기 거치대 등)도 둔다 (OutpostProps)
+var outpost_props := false
 
 
 ## 짓는 중인 부품 기준으로 키운 자리
