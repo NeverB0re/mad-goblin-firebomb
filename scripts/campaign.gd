@@ -436,7 +436,8 @@ static func _extras(s: Stage, d: Dictionary, world: int) -> void:
 			"fortress":
 				if not opts.get("wet", false):
 					# 성문 앞에서 방방 뛰며 도화선 끝을 가리킨다
-					s.add_extra(c + Vector3(FORT_FUSE_X - 2.6, 0, FORT_FUSE_Z + 0.6), 150.0, GE.WAVE, c + Vector3(FORT_FUSE_X, 0.1, FORT_FUSE_Z))
+					var fx := fort_fuse_x(c)
+					s.add_extra(c + Vector3(fx + 2.6 * crack_side(c), 0, FORT_FUSE_Z + 0.6), 150.0 * crack_side(c) * -1.0, GE.WAVE, c + Vector3(fx, 0.1, FORT_FUSE_Z))
 			"kegyard":
 				s.add_extra(c + Vector3(KEG_FUSE_X + 1.0, 0, 5.0), 200.0, GE.WAVE, c + Vector3(KEG_FUSE_X, 0, 5.4))
 			"hopper":
@@ -494,7 +495,7 @@ static func plan(i: int) -> Array:
 			out.append([K.HE, bp + Vector3(0, 1.5, 1.4), false, 0.0])
 			budget["he"] -= 1
 		else:
-			out.append([K.HE, bp + Vector3(-1.2, 1.0, 1.7), false, 0.0])
+			out.append([K.HE, bp + Vector3(crack_side(bp) * 1.2, 1.0, 1.7), false, 0.0])
 			budget["he"] = budget.get("he", 0) - 1
 	if not out.is_empty():
 		# 발리스타 탑이 다 타서 무너질 때까지 기다린다
@@ -573,17 +574,17 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 				out.append([K.OIL, c + Vector3(0, 2.9, 0), true, 0.3])
 			out.append([K.FIRE, ci, true, 0.0])
 		"pillars":
-			out.append([K.HE, c + Vector3(-1.4, 1.0, 1.9), false, 0.0])
+			out.append([K.HE, c + Vector3(crack_side(c) * 1.4, 1.0, 1.9), false, 0.0])
 		"fortress":
 			if o.get("wet", false):
 				out.append([K.OIL, c + Vector3(0, 1.5, 1.5), true, 0.3])
 				out.append([K.FIRE, c + Vector3(0, 1.5, 1.5), true, 0.0])
 			elif ammo.get("fire", 0) > 0:
 				# 성벽 앞으로 빠져나온 도화선 끝에 불 → 화약통이 터져 금 간 기둥이 부러진다
-				out.append([K.FIRE, c + Vector3(FORT_FUSE_X, 0.1, FORT_FUSE_Z - 0.4), false, 0.0])
+				out.append([K.FIRE, c + Vector3(fort_fuse_x(c), 0.1, FORT_FUSE_Z - 0.4), false, 0.0])
 			else:
 				# 성벽 너머로 높이 띄워 화약통에 폭탄
-				out.append([K.HE, c + Vector3(-0.75, 0.75, 2.3), true, 0.0])
+				out.append([K.HE, c + Vector3(fort_fuse_x(c), 0.75, 2.3), true, 0.0])
 		"oilhouse":
 			out.append([K.OIL, c + Vector3(0.3, 0.3, 5.0), false, 0.3])
 			out.append([K.FIRE, c + Vector3(0.3, 1.0, 7.6), false, 0.0])
@@ -734,7 +735,7 @@ static func _part_powder(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var h := 4.0
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			st.add_block(M.CRACKED if sx == 1 and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
+			st.add_block(M.CRACKED if sx == 1 and sz == crack_side(c) else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
 	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
 	deck.support_ratio = 1.0
 	for sx in [-1, 1]:
@@ -802,7 +803,7 @@ static func _part_pillars(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var h := 4.5
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			st.add_block(M.CRACKED if sx == -1 and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
+			st.add_block(M.CRACKED if sx == crack_side(c) and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
 	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
 	deck.support_ratio = 1.0
 	for sz in [-1, 1]:
@@ -812,9 +813,19 @@ static func _part_pillars(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	s.add_guard(c + Vector3(4, 0, 3), 180.0)
 
 
-## 공성탑 요새의 도화선이 성벽 앞으로 뻗어 나온 끝 z와 도화선 x (부품 중심 기준, 성벽은 +6)
+## 금 간 기둥이 앞 왼쪽(-1)인지 앞 오른쪽(+1)인지: 부품 자리로 정한다 (늘 같은 다리가 아니게. 설계 풀이와 탑이 같은 값을 쓴다).
+## 뒤쪽 다리는 앞 기둥에 가려 던져 맞힐 수 없으므로 고르지 않는다.
+static func crack_side(c: Vector3) -> float:
+	return -1.0 if hash(Vector2i(roundi(c.x), roundi(c.z))) % 2 == 0 else 1.0
+
+
+## 공성탑 요새의 도화선이 성벽 앞으로 뻗어 나온 끝 z와 도화선 x (부품 중심 기준, 성벽은 +6).
+## 도화선과 화약통은 금 간 기둥 쪽에 있다.
 const FORT_FUSE_Z := 9.4
-const FORT_FUSE_X := -0.75
+
+
+static func fort_fuse_x(c: Vector3) -> float:
+	return crack_side(c) * 0.75
 
 
 ## 공성탑 요새: 앞 성벽(반듯한 흰 돌, 강철 문) 너머 안뜰의 망루.
@@ -845,7 +856,7 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	var h := 6.0
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			st.add_block(M.CRACKED if sx == -1 and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
+			st.add_block(M.CRACKED if sx == crack_side(c) and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
 	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
 	deck.support_ratio = 1.0
 	# 앞면: 창 난 돌벽 (창으로 지휘관이 보인다), 옆과 뒤는 낮은 돌 난간
@@ -857,9 +868,9 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	s.add_commander(c + Vector3(0, h + 0.4, -0.2), 180.0, Vector3(1.0, 0, -0.9))
 	var yard := s.add_structure()
 	for k in 3:
-		yard.add_block(M.KEG, c + Vector3(-1.5 + k * 0.75, 0.375, 2.3), Vector3(0.75, 0.75, 0.75))
+		yard.add_block(M.KEG, c + Vector3(crack_side(c) * (1.5 - k * 0.75), 0.375, 2.3), Vector3(0.75, 0.75, 0.75))
 	# 도화선: 가운데 화약통에서 강철 문 밑 틈을 지나 성벽 앞까지 (끝에 불을 붙이면 타 들어가 화약통이 터진다)
-	_fuse(yard, c + Vector3(FORT_FUSE_X, 0, 2.675), c + Vector3(FORT_FUSE_X, 0, FORT_FUSE_Z), 11)
+	_fuse(yard, c + Vector3(fort_fuse_x(c), 0, 2.675), c + Vector3(fort_fuse_x(c), 0, FORT_FUSE_Z), 11)
 	s.add_guard(c + Vector3(5, 0, 2), 180.0)
 
 
@@ -1243,7 +1254,7 @@ static func _ballista(s: Stage, pos: Vector3, kind: String) -> void:
 	var wood := kind == "wood"
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			var leg_mat := M.WOOD_BEAM if wood else (M.CRACKED if sx == -1 and sz == 1 else M.STONE)
+			var leg_mat := M.WOOD_BEAM if wood else (M.CRACKED if sx == crack_side(pos) and sz == 1 else M.STONE)
 			st.add_block(leg_mat, pos + Vector3(sx * 1.2, legs * 0.5, sz * 1.2), Vector3(0.5, legs, 0.5) if wood else Vector3(0.7, legs, 0.7))
 	if wood:
 		for sz in [-1, 1]:

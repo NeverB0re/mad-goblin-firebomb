@@ -295,10 +295,11 @@ func _run() -> void:
 		for b in s.structures[0].blocks:
 			if b.mat == Block.Mat.STONE and b.size.x > 3.0 and b.size.y < 0.5:
 				deck = b
-		await _throw_plan(s, AmmoType.Kind.HE, c + Vector3(-1.4, 1.0, 1.9), false)
+		var side := Campaign.crack_side(c)
+		await _throw_plan(s, AmmoType.Kind.HE, c + Vector3(side * 1.4, 1.0, 1.9), false)
 		await _wait(s, 3.0)
 		var moved := Vector3.ZERO if not is_instance_valid(deck) else deck.global_position - (c + Vector3(0, 4.7, 0))
-		_check(moved.x < -0.8 and moved.z > 0.5, "3-3 금 간 앞 왼쪽 기둥이 부러지면 망대가 앞 왼쪽으로 기운다 (바닥 이동 %s)" % str(moved.snapped(Vector3.ONE * 0.1)))
+		_check(moved.x * side > 0.8 and moved.z > 0.5, "3-3 금 간 앞 %s 기둥이 부러지면 망대가 그쪽으로 기운다 (바닥 이동 %s)" % ["오른쪽" if side > 0 else "왼쪽", str(moved.snapped(Vector3.ONE * 0.1))])
 	# 1-1 나무 망루: 한쪽 다리 둘이 타 없어지면 그쪽으로 넘어가 지휘관이 떨어진다
 	if _only <= 0 or _only == 1:
 		var s := _campaign(0)
@@ -310,6 +311,23 @@ func _run() -> void:
 				b.ignite(4.0)
 		await _wait(s, 12.0)
 		_check(s.commanders[0].dead, "1-1 망루 오른쪽 다리 둘이 타면 넘어가 지휘관이 떨어진다 (%s)" % s.commanders[0].defeat_cause)
+	# 금 간 기둥이 늘 같은 다리에 있지 않다 (앞 왼쪽/앞 오른쪽이 섞여 나온다)
+	var left := 0
+	var right := 0
+	for i in Campaign.COUNT:
+		for part in Campaign.STAGES[i].get("parts", []):
+			if part[0] in ["pillars", "fortress"] and not (part.size() > 2 and part[2].get("wet", false)):
+				if Campaign.crack_side(part[1]) < 0.0:
+					left += 1
+				else:
+					right += 1
+		for bl in Campaign.STAGES[i].get("ballistas", []):
+			if bl[1] == "stone":
+				if Campaign.crack_side(bl[0]) < 0.0:
+					left += 1
+				else:
+					right += 1
+	_check(left >= 4 and right >= 4, "금 간 기둥이 왼쪽 %d곳, 오른쪽 %d곳으로 섞여 있다" % [left, right])
 	# 데이터 규칙
 	for i in Campaign.COUNT:
 		var d: Dictionary = Campaign.STAGES[i]
