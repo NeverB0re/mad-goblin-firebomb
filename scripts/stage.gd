@@ -25,7 +25,7 @@ enum State { PLAYING, CLEARED, FAILED }
 enum Goal { COMMANDER, MESSENGER }
 
 const TRACE_TIME := 30.0
-const FAIL_QUIET_TIME := 4.0
+const FAIL_QUIET_TIME := 2.5
 const STARTLE_RANGE := 14.0
 ## 히트스톱 (현실 시간)
 const HITSTOP := 0.07
