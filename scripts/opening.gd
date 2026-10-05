@@ -12,6 +12,7 @@ extends CanvasLayer
 ## 엔딩: 후방의 탄도미사일 발사 → 본진이 박살 나며 지휘관이 날아감 → 그을린 부족장과 고블린들이 기뻐한다.
 ## 월드 시작 (두 칸): 그 월드의 인간 지휘관이 부족장을 내세워 으름장 → 고블린들이 새 무기에 불을 붙이며 웃는다.
 ## 4월드만 세 칸: 으름장 → 그을린 동료가 글라이더를 메고 폭탄을 안은 채 자랑한다 → 동료가 조명탄을 건넨다 (조명탄 불빛 위에서 폭탄을 안고 뛰어내린다).
+##   거리·발리스타·폭격이 한꺼번에 바뀌므로, 마지막 칸이 열리면 칸 아래에 안내 두 줄을 띄운다.
 
 signal finished
 
@@ -29,6 +30,8 @@ var _panels: Array[Control] = []
 var _revealed := 0
 var _done := false
 var _root: Control
+## 4월드 시작 안내 (마지막 칸과 함께 나타난다)
+var _tip: Label
 
 
 func _init(p_mode := Mode.OPENING, p_world := 0) -> void:
@@ -116,6 +119,22 @@ func _ready() -> void:
 	hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(hint)
 
+	if mode == Mode.WORLD and world == 3:
+		_tip = Label.new()
+		_tip.text = Texts.t("world4_tip")
+		_tip.add_theme_font_size_override("font_size", 24)
+		_tip.add_theme_color_override("font_color", Color(0.18, 0.15, 0.12))
+		_tip.add_theme_font_override("font", UiStyle.BOLD)
+		_tip.anchor_left = MARGIN
+		_tip.anchor_right = 1.0 - MARGIN
+		_tip.anchor_top = 0.84
+		_tip.anchor_bottom = bottom
+		_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_tip.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_tip.visible = false
+		_root.add_child(_tip)
+
 	get_tree().create_timer(0.35, true, false, true).timeout.connect(reveal_next)
 
 
@@ -135,6 +154,8 @@ func reveal_next() -> void:
 	tw.tween_property(panel, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_property(panel, "modulate:a", 1.0, 0.18)
 	_revealed += 1
+	if _tip and _revealed == panel_count():
+		_tip.visible = true
 
 
 func finish() -> void:
