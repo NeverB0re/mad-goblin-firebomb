@@ -29,7 +29,7 @@ const T := {
 	"menu_settings": "이것저것 만지기",
 	"menu_quit": "그만 잘래",
 	"menu_back": "뒤로!",
-	"menu_resume": "다시 던지자!",
+	"menu_resume": "계속 던져!",
 	"menu_restart": "처음부터 다시!",
 	"menu_title": "첫 화면으로 도망!",
 	"paused": "잠깐! 숨 좀 돌리자",

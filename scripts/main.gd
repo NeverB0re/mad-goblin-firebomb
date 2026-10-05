@@ -17,8 +17,10 @@ var _sky_mat: ProceduralSkyMaterial
 var _sun: DirectionalLight3D
 var _fail_count := 0
 var menus: Menus
-## 다음 진지로 넘어갈 때 덮는 막 (메뉴·결과 화면 위, 월드 시작 컷 아래)
+## 진지를 바꿀 때 덮는 막 (메뉴·결과 화면 위, 월드 시작 컷 아래)
 var _curtain: ColorRect
+## 막을 덮고 걷는 중 (그사이 다시 누른 것은 무시)
+var _changing := false
 
 
 func _ready() -> void:
@@ -29,11 +31,11 @@ func _ready() -> void:
 	menus = Menus.new()
 	add_child(menus)
 	menus.start_requested.connect(_on_start)
-	menus.stage_chosen.connect(_on_stage_chosen)
+	menus.stage_chosen.connect(func(i): _with_fade(func(): await _on_stage_chosen(i)))
 	menus.resume_requested.connect(_resume)
-	menus.restart_requested.connect(func():
+	menus.restart_requested.connect(func(): _with_fade(func():
 		_resume()
-		load_stage(stage_index))
+		load_stage(stage_index)))
 	menus.title_requested.connect(show_title)
 	menus.opening_requested.connect(func(): _play_opening(false))
 	if test_mode:
@@ -68,7 +70,7 @@ func show_title() -> void:
 func _on_start() -> void:
 	if not SaveData.opening_seen:
 		await _play_opening(true)
-	_on_stage_chosen(_first_unfinished())
+	_with_fade(func(): await _on_stage_chosen(_first_unfinished()))
 
 
 func _first_unfinished() -> int:
@@ -239,6 +241,23 @@ func load_stage(index: int) -> void:
 	hud.set_bonus("" if test_mode else Campaign.bonus_text(stage_index))
 
 
+## 진지를 바꿀 때: 잠깐 어두워졌다가 (그동안 change로 진지를 만든다) 다시 밝아진다.
+## 시험 모드(자동 테스트)에서는 막 없이 바로 바꾼다.
+func _with_fade(change: Callable) -> void:
+	if test_mode:
+		await change.call()
+		return
+	if _changing:
+		return
+	_changing = true
+	await _fade(1.0, 0.2)
+	# 검은 화면이 한 번 그려진 뒤에 만든다 (만드는 동안 멈춘 화면이 보이지 않게)
+	await get_tree().process_frame
+	await change.call()
+	_changing = false
+	_fade(0.0, 0.35)
+
+
 ## 화면을 막으로 덮거나(1) 걷는다(0).
 func _fade(to: float, seconds: float) -> void:
 	if _curtain == null:
@@ -303,14 +322,10 @@ func _on_result_proceed(action: String) -> void:
 			show_title()
 			return
 	elif action == "next" and not test_mode:
-		# 잠깐 어두워졌다가 (그동안 다음 진지를 만든다) 다시 밝아진다
-		await _fade(1.0, 0.2)
-		await get_tree().process_frame
-		await _on_stage_chosen(stage_index + 1)
-		_fade(0.0, 0.35)
+		_with_fade(func(): await _on_stage_chosen(stage_index + 1))
 		return
 	else:
-		load_stage(stage_index + (1 if action == "next" else 0))
+		await _with_fade(func(): load_stage(stage_index + (1 if action == "next" else 0)))
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
@@ -318,7 +333,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if stage == null or menus.screen != Menus.Screen.NONE:
 		return
 	if event.is_action_pressed("restart"):
-		load_stage(stage_index)
+		_with_fade(func(): load_stage(stage_index))
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_ESCAPE:
 			if test_mode:
