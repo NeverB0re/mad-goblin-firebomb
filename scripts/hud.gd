@@ -367,9 +367,6 @@ func set_gameplay_visible(on: bool) -> void:
 
 func _process(delta: float) -> void:
 	_prompt.visible = is_instance_valid(_stage) and _title.visible and _stage.near_button()
-	if _prompt.visible:
-		var lock := _stage.button_lock()
-		_prompt.text = Texts.t(lock if lock != "" else "press_button")
 	# 진지 소개는 조작할 수 있을 때만 시간이 간다 (시작 조망 동안은 멈춤)
 	if _brief_time > 0.0 and _title.visible and is_instance_valid(_stage):
 		_brief_time -= delta

@@ -671,27 +671,16 @@ func near_button() -> bool:
 	return Vector2(d.x, d.z).length() < 2.4
 
 
-## 발사 버튼 안전장치: 발리스타가 하나라도 서 있거나 발사대 경비대장(gate_guard 지휘관)이 살아 있으면 걸린다.
-## 걸렸으면 그 까닭의 문구 키, 풀렸으면 "".
-func button_lock() -> String:
-	if aa_alive():
-		return "button_locked"
-	if commanders.any(func(c): return c.has_meta("gate_guard") and not c.dead):
-		return "button_guarded"
-	return ""
-
-
-## 발사 버튼을 누른다. 안전장치(button_lock)가 걸려 있으면 눌리지 않는다 (한 발뿐인 궁극기를 헛되이 날리지 않게).
+## 발사 버튼을 누른다. 발리스타가 하나라도 서 있으면 안전장치가 걸려 눌리지 않는다 (한 발뿐인 궁극기를 헛되이 날리지 않게).
 func press_button() -> bool:
 	if not near_button():
 		return false
 	var tw := _button_cap.create_tween()
 	tw.tween_property(_button_cap, "position:y", 1.12, 0.06)
 	tw.tween_property(_button_cap, "position:y", 1.22, 0.15)
-	var lock := button_lock()
-	if lock != "":
+	if aa_alive():
 		Sfx.play(self, "fizzle", _button.global_position, 0.0)
-		toast.emit(Texts.t(lock))
+		toast.emit(Texts.t("button_locked"))
 		return false
 	_button_used = true
 	Sfx.play(self, "win", _button.global_position, 2.0)
@@ -1074,12 +1063,12 @@ func aa_alive() -> bool:
 func ballista_alive(b) -> bool:
 	if not is_instance_valid(b) or b.fallen or b.burnt:
 		return false
-	var op: Guard = b.get_meta("operator", null)
+	var op: Actor = b.get_meta("operator", null)
 	return op == null or (is_instance_valid(op) and not op.dead)
 
 
-## 대공 발리스타 탑의 발리스타를 등록한다.
-func add_ballista(b: Block) -> void:
+## 대공 발리스타 탑의 발리스타를 등록한다. gunner: 조종하는 인물 (없으면 궁병을 세운다. 5-10은 지휘관이 직접 쏜다).
+func add_ballista(b: Block, gunner: Actor = null) -> void:
 	ballistas.append(b)
 	var wood := Models.mat(Color(0.32, 0.22, 0.14))
 	var iron := Models.mat(Models.HUMAN_STEEL, 0.4, 0.6)
@@ -1095,6 +1084,9 @@ func add_ballista(b: Block) -> void:
 	Models.cyl(bow, 0.05, 0.12, 0.25, Vector3(0, 0.17, -1.15), iron, Vector3(PI * 0.5, 0, 0), 6)
 	b.set_meta("bow", bow)
 	# 조종하는 궁병: 석궁 뒤에 선다. 직격하거나 쓰러뜨리면 발리스타는 아무도 못 쏜다
+	if gunner:
+		b.set_meta("operator", gunner)
+		return
 	var op := Guard.new().setup(false, true)
 	op.position = b.position + Vector3(0, -b.size.y * 0.5, -1.05)
 	op.rotation.y = PI

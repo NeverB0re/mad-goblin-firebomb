@@ -273,9 +273,9 @@ const STAGES := [
 		"story": "비 오는 성채 포대. 발리스타 둘이 지키는 먼 벙커는 폭격으로, 가까운 석벽 초소와 젖은 망루는 직접."},
 	{"name": "왕국 성채 본진", "ammo": {"he": 4, "fire": 1}, "launch_button": true, "perch": 20.0, "final": true, "wind": [5, 1, 0],
 		"ballistas": [[Vector3(-5, 0, -52), "wood"], [Vector3(12, 0, -54), "stone"]],
-		"parts": [["bunker", Vector3(0, 0, -96), {"win": [1, 3]}], ["fortress", Vector3(-16, 0, -66), {"gate_guard": true}], ["pillars", Vector3(15, 0, -57), {"gate_guard": true}]],
+		"parts": [["bunker", Vector3(0, 0, -96), {"win": [1, 3]}], ["fortress", Vector3(-16, 0, -66), {"ballista": true}], ["pillars", Vector3(15, 0, -57), {"ballista": true}]],
 		"brief": "부족장이 갇힌 성채. 고블린의 로켓은 딱 한 발.",
-		"story": "최종: 부족장이 갇힌 성채. 고블린들의 비장의 거대 로켓이 딱 한 발 있다. 발리스타와 성채 앞의 경비대장 둘(돌 망루, 금 간 기둥 망대)을 모두 무너뜨린 뒤 옆의 크고 빨간 발사 버튼을 누르면, 성채에 남은 장군을 모두 한꺼번에 날려 버린다 (부족장이 휘말려도 고블린은 개의치 않는다)."},
+		"story": "최종: 부족장이 갇힌 성채. 고블린들의 비장의 거대 로켓이 딱 한 발 있다. 발리스타 넷이 로켓을 노린다: 들판의 탑 둘은 궁병이, 돌 망루(도화선)와 금 간 기둥 망대 위의 발리스타는 지휘관이 직접 쏜다. 넷을 모두 멈춘 뒤 옆의 크고 빨간 발사 버튼을 누르면, 성채에 남은 장군을 모두 한꺼번에 날려 버린다 (부족장이 휘말려도 고블린은 개의치 않는다)."},
 ]
 const COUNT := 50
 
@@ -510,9 +510,6 @@ static func build(i: int, s: Stage) -> void:
 			Callable(Campaign, "_part_" + part[0]).call(s, part[1], opts)
 			for k in range(before, s.commanders.size()):
 				s.commanders[k].set_meta("part", part[0])
-				# 최종 진지: 이 지휘관이 서 있으면 발사 버튼이 잠긴다 (Stage.button_lock)
-				if opts.get("gate_guard", false):
-					s.commanders[k].set_meta("gate_guard", true)
 		_frame(s, Vector3.ZERO, 1.0)
 		if d.get("final", false):
 			_cage(s, part_at(d.parts[0][1], Vector3(-6.5, 0, 1.0)))
@@ -655,7 +652,7 @@ const TENT_LEGS := Vector3(0, 0.3, -0.3)
 ## 설계상 풀이: [[탄종, 목표, 높이 띄우기, 던진 뒤 기다림(초)], ...] (테스트가 실제로 던져 본다).
 ## 목표가 정수면 그 번호 지휘관의 지금 자리. ["ally"]는 지원형 풀이.
 ## 순서: 발리스타 → 폭격 무리 밖의 부품 → 폭격 무리 한가운데에 조명탄 한 발 (발리스타가 다 쓰러진 뒤).
-## 최종 진지: 발리스타 → 경비대장(gate_guard 부품) → ["button"] (발사 버튼을 누른다).
+## 최종 진지: 들판 발리스타 → 지휘관이 발리스타를 조종하는 부품(ballista 옵션) → ["button"] (발사 버튼을 누른다).
 ## bonus: 보조 목표 풀이 (BONUS_PLAN의 부품은 그 단계로 바꾸거나 앞에 붙인다).
 static func plan(i: int, bonus := false) -> Array:
 	var d: Dictionary = STAGES[i]
@@ -698,7 +695,7 @@ static func plan(i: int, bonus := false) -> Array:
 			var opts: Dictionary = part[2] if part.size() > 2 else {}
 			if extra.has(k):
 				out.append_array(_bonus_steps(extra[k], part[1], budget))
-			elif opts.get("gate_guard", false):
+			elif opts.get("ballista", false):
 				out.append_array(_part_plan(part[0], part[1], opts, rain, gi, budget))
 			gi += _commanders_in(part)
 		# 도화선이 타 들어가 망루가 무너질 때까지 기다린다
@@ -1058,7 +1055,12 @@ static func _part_pillars(s: Stage, c: Vector3, o: Dictionary) -> void:
 	for sz in [-1, 1]:
 		st.add_block(M.STONE, c + Vector3(0, h + 0.8, sz * 1.65), Vector3(3.6, 0.8, 0.3))
 	_legs(st, func(b): return b.start_low < 0.05, 0)
-	s.add_commander(c + Vector3(0, h + 0.4, 0), 180.0, Vector3(1.0, 0, 0.9))
+	if o.get("ballista", false):
+		# 바닥 위 발리스타를 지휘관이 직접 조종한다 (망대가 기울어 넘어가면 발리스타도 지휘관도 함께)
+		var gun := st.add_block(M.WOOD_BEAM, c + Vector3(0, h + 0.65, 0.55), Vector3(0.6, 0.5, 0.6))
+		s.add_ballista(gun, s.add_commander(c + Vector3(0, h + 0.4, -0.5), 180.0, Vector3(1.0, 0, 0.9)))
+	else:
+		s.add_commander(c + Vector3(0, h + 0.4, 0), 180.0, Vector3(1.0, 0, 0.9))
 	s.add_guard(c + Vector3(4, 0, 3), 180.0)
 
 
@@ -1109,13 +1111,21 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
 	deck.support_ratio = 1.0
 	StageDefs.deck_ladder(deck, -crack_side(c))
-	# 앞면: 창 난 돌벽 (창으로 지휘관이 보인다), 옆과 뒤는 낮은 돌 난간
-	StageDefs.window_wall(st, M.STONE, c + Vector3(0, h + 0.4, 1.65), 3.6, [0.9, 0.6, 0.9], 5, [2], 0.3)
+	# 앞면: 창 난 돌벽 (창으로 지휘관이 보인다), 옆과 뒤는 낮은 돌 난간. 발리스타를 얹으면 석궁이 보이게 앞도 낮은 난간
+	if o.get("ballista", false):
+		st.add_block(M.STONE, c + Vector3(0, h + 0.8, 1.65), Vector3(3.6, 0.8, 0.3))
+	else:
+		StageDefs.window_wall(st, M.STONE, c + Vector3(0, h + 0.4, 1.65), 3.6, [0.9, 0.6, 0.9], 5, [2], 0.3)
 	st.add_block(M.STONE, c + Vector3(0, h + 0.8, -1.65), Vector3(3.6, 0.8, 0.3))
 	for sx in [-1, 1]:
 		st.add_block(M.STONE, c + Vector3(sx * 1.65, h + 0.8, 0), Vector3(0.3, 0.8, 3.0))
 	_legs(st, func(b): return b.start_low < 0.05, 0)
-	s.add_commander(c + Vector3(0, h + 0.4, -0.2), 180.0, Vector3(1.0, 0, -0.9))
+	if o.get("ballista", false):
+		# 덱 위 발리스타를 지휘관이 직접 조종한다 (망루가 기울어 넘어가면 발리스타도 지휘관도 함께)
+		var gun := st.add_block(M.WOOD_BEAM, c + Vector3(0, h + 0.65, 0.55), Vector3(0.6, 0.5, 0.6))
+		s.add_ballista(gun, s.add_commander(c + Vector3(0, h + 0.4, -0.5), 180.0, Vector3(1.0, 0, -0.9)))
+	else:
+		s.add_commander(c + Vector3(0, h + 0.4, -0.2), 180.0, Vector3(1.0, 0, -0.9))
 	var yard := s.add_structure()
 	var kegs: Array[Block] = []
 	for k in 3:
