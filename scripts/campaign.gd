@@ -286,7 +286,7 @@ const BONUS := [
 	["indirect"], ["direct"], ["throws", 1], ["without", "fire"], ["he_two"],
 	# 2월드
 	["window"], ["window"], ["window"], ["keg"], ["direct", 2],
-	["direct", 2], ["window"], ["direct"], ["window"], ["window"],
+	["direct", 2], ["direct"], ["direct"], ["direct", 2], ["throws", 5],
 	# 3월드
 	["without", "flare"], ["direct"], ["direct", 2], ["throws", 1], ["throws", 1],
 	["direct"], ["direct"], ["direct", 2], ["without", "he"], ["without", "fire"],
@@ -626,8 +626,8 @@ const BONUS_PLAN := {
 	13: {0: [true, [K.FIRE, Vector3(1.3, 0.0, -1.6), false, 5.0]]},
 	14: {0: [false, [K.FIRE, 0, false, 0.0]], 1: [false, [K.FIRE, 1, false, 0.0]]},
 	15: {0: [false, [K.FIRE, 0, false, 0.0]], 1: [false, [K.FIRE, 1, false, 0.0]]},
-	16: {0: [false, [K.FIRE, HOPPER_WINDOW, false, 0.0]]},
-	18: {1: [false, [K.FIRE, Vector3(-0.8, 1.45, 2.0), false, 0.0]]},
+	16: {1: [true, [K.FIRE, Vector3(4, 1.0, 3), false, 0.0]]},
+	18: {1: [true, [K.HE, Vector3(4, 1.0, 3), false, 0.0]]},
 	19: {1: [false, [K.FIRE, HOPPER_WINDOW, false, 0.0]]},
 	22: {0: [false, [K.HE, 0, true, 0.0]], 1: [false, [K.HE, 1, true, 0.0]]},
 	25: {1: [false, [K.FIRE, TENT_LEGS, false, 0.0]]},

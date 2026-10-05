@@ -383,6 +383,13 @@ func _run() -> void:
 				seen[key] = int(seen.get(key, 0)) + 1
 		var over := seen.keys().filter(func(k): return seen[k] > 2)
 		_check(over.is_empty(), "%d월드 같은 부품·옵션 조합은 두 번까지 (넘는 것 %s)" % [w + 1, over])
+		# 같은 보조 목표는 한 월드에 세 번까지
+		var goals := {}
+		for i in range(w * 10, w * 10 + 10):
+			var g := Campaign.bonus_text(i)
+			goals[g] = int(goals.get(g, 0)) + 1
+		var many := goals.keys().filter(func(k): return goals[k] > 3)
+		_check(many.is_empty(), "%d월드 같은 보조 목표는 세 번까지 (넘는 것 %s)" % [w + 1, many])
 	# 3-2 불빛 구경꾼: 조명탄이 없으면 강철 초소 안에 그대로, 문 앞에 켜지면 걸어 나와 구경하고, 꺼지면 다시 들어간다
 	if _only <= 0 or _only == 3:
 		var s := _campaign(21)
