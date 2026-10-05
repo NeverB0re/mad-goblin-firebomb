@@ -835,8 +835,8 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			add_child(pool)
 			pool.global_position = pos + normal * 0.05
 			if on_steel:
-				# 강철에는 불이 붙지 않고 금방 꺼진다 (바로 보이게)
-				pool.setup(ammo.pool_radius * 0.6, 0.6, 0.0)
+				# 강철 자체는 안 타고 불이 금방 꺼지지만, 튄 불이 바로 곁 가연물(문 밑으로 뻗은 도화선 등)에는 붙는다
+				pool.setup(ammo.pool_radius * 0.6, 0.6, 1.0)
 				Sfx.play_delayed(self, "fizzle", pos, -2.0, _listener())
 				Fx.smoke_puff(self, pos, 0.6)
 			else:

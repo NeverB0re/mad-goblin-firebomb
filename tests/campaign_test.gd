@@ -421,6 +421,19 @@ func _run() -> void:
 				if blk.mat == Block.Mat.KEG:
 					remain += 1
 		_check(kegs == 3 and remain == 0, "1-9 도화선 조각이 흩어져도 불이 타 들어가 화약통 %d개가 모두 터진다 (남음 %d)" % [kegs, remain])
+	# 1-9 강철 문에 불항아리가 깨져도 문 밑으로 뻗은 도화선에 불이 붙어 화약통이 터진다
+	if _only <= 0 or _only == 1:
+		var s := _campaign(8)
+		await physics_frame
+		var c := Vector3(0, 0, -54)
+		await _throw_plan(s, AmmoType.Kind.FIRE, Campaign.part_at(c, Vector3(Campaign.fort_fuse_x(c), 0.5, 6.4)), false)
+		await _wait(s, 14.0)
+		var kegs_left := 0
+		for st in s.structures:
+			for blk in st.blocks:
+				if blk.mat == Block.Mat.KEG:
+					kegs_left += 1
+		_check(kegs_left == 0, "1-9 철문 바로 앞 도화선 곁(문)에 불항아리를 던져도 화약통이 터진다 (남음 %d)" % kegs_left)
 	# 손짓하는 고블린은 플레이어를 바라본다 (1-6)
 	if _only <= 0 or _only == 1:
 		var s := _campaign(5)
