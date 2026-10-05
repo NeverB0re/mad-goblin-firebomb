@@ -134,6 +134,7 @@ func bind(stage: Stage) -> void:
 	_stage = stage
 	_seen_dead.clear()
 	_title.text = stage.stage_id
+	_help.text = Texts.t("help")
 	_help.visible = true
 	stage.projectile_thrown.connect(func(_p): _help.visible = false)
 	_banner.text = ""
@@ -152,6 +153,12 @@ func bind(stage: Stage) -> void:
 	stage.bomber_launched.connect(follow_cam.track_bomber)
 	stage.shake_requested.connect(follow_cam.shake)
 	_refresh_ammo()
+
+
+## 조작 안내 줄을 다른 안내로 바꾼다 (첫 투척 뒤 사라지는 것은 같다).
+func show_help(text: String) -> void:
+	_help.text = text
+	_help.visible = true
 
 
 func show_toast(text: String) -> void:

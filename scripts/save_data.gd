@@ -21,6 +21,8 @@ static var star_bits := {}
 static var opening_seen := false
 ## 시작 컷을 본 월드 번호들
 static var worlds_seen := []
+## 첫 밤 안내(번쩍봉)를 봤는지
+static var night_seen := false
 ## 설정
 static var mouse_sens := 1.0
 static var volume := 0.8
@@ -46,6 +48,7 @@ static func load_all() -> void:
 		star_bits[k] = int(star_bits.get(k, 0)) | int(bits[k])
 	opening_seen = bool(cfg.get_value("progress", "opening_seen", false))
 	worlds_seen = cfg.get_value("progress", "worlds_seen", [])
+	night_seen = bool(cfg.get_value("progress", "night_seen", false))
 	mouse_sens = float(cfg.get_value("settings", "mouse_sens", 1.0))
 	volume = float(cfg.get_value("settings", "volume", 0.8))
 	fullscreen = bool(cfg.get_value("settings", "fullscreen", false))
@@ -59,6 +62,7 @@ static func save_all() -> void:
 	cfg.set_value("progress", "star_bits", star_bits)
 	cfg.set_value("progress", "opening_seen", opening_seen)
 	cfg.set_value("progress", "worlds_seen", worlds_seen)
+	cfg.set_value("progress", "night_seen", night_seen)
 	cfg.set_value("settings", "mouse_sens", mouse_sens)
 	cfg.set_value("settings", "volume", volume)
 	cfg.set_value("settings", "fullscreen", fullscreen)
@@ -89,6 +93,7 @@ static func reset_progress() -> void:
 	star_bits = {}
 	opening_seen = false
 	worlds_seen = []
+	night_seen = false
 	unlock_all = false
 	save_all()
 

@@ -56,6 +56,14 @@ func _initialize() -> void:
 	SaveData.reset_progress()
 	_check(SaveData.unlocked == 1 and SaveData.best.is_empty() and SaveData.star_bits.is_empty() and not SaveData.opening_seen and not SaveData.unlock_all and SaveData.open_count() == 1, "저장 지우기: 진행·별·오프닝·전체 개방이 처음으로")
 	_check(is_equal_approx(SaveData.volume, 0.3), "저장 지우기는 음량 같은 설정은 남긴다")
+	SaveData.night_seen = true
+	SaveData.save_all()
+	SaveData._loaded = false
+	SaveData.night_seen = false
+	SaveData.load_all()
+	var kept := SaveData.night_seen
+	SaveData.reset_progress()
+	_check(kept and not SaveData.night_seen, "첫 밤 안내를 본 기록은 저장되고, 저장 지우기로 지워진다")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_star.cfg"))
 	# 둘째 별은 쾅쾅알·불항아리가 남았을 때만: 4-1에서 번쩍봉만 남으면 못 받는다 (실패 판정에는 번쩍봉도 센다)
 	var s := Stage.new()

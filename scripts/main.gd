@@ -182,21 +182,21 @@ func _setup_environment() -> void:
 	_apply_time_of_day(false)
 
 
-## 밤은 거의 캄캄하다. 적의 횃불이 지휘관 둘레만 어렴풋이 밝혀 대략 어디쯤인지만 알 수 있고,
-## 무엇이 나무고 무엇이 강철인지는 조명탄으로 비춰 봐야 구분된다.
+## 밤은 어둡다. 푸른 달빛에 건물 개수와 대략의 모양(윤곽)만 보이고, 적의 횃불이 지휘관 둘레를 어렴풋이 밝힌다.
+## 무엇이 나무고 무엇이 강철인지는 조명탄으로 비춰 봐야 구분된다 (값은 tests/night_shot.gd 비교 화면으로 골랐다).
 func _apply_time_of_day(night: bool, rain := false) -> void:
 	_env.fog_depth_begin = 25.0 if night else 70.0
 	_env.fog_depth_end = 110.0 if night else 400.0
 	_env.fog_density = 0.9 if night else 0.35
 	if night:
 		_sky_mat.sky_top_color = Color(0.004, 0.006, 0.016)
-		_sky_mat.sky_horizon_color = Color(0.012, 0.014, 0.03)
+		_sky_mat.sky_horizon_color = Color(0.03, 0.036, 0.07)
 		_sky_mat.ground_horizon_color = Color(0.008, 0.008, 0.014)
 		_sky_mat.ground_bottom_color = Color(0.0, 0.0, 0.0)
-		_env.ambient_light_energy = 0.015
-		_env.fog_light_color = Color(0.004, 0.005, 0.01)
+		_env.ambient_light_energy = 0.03
+		_env.fog_light_color = Color(0.015, 0.018, 0.035)
 		_sun.light_color = Color(0.55, 0.65, 0.9)
-		_sun.light_energy = 0.012
+		_sun.light_energy = 0.05
 	else:
 		_sky_mat.sky_top_color = Color(0.32, 0.52, 0.84)
 		_sky_mat.sky_horizon_color = Color(0.9, 0.87, 0.8)
@@ -239,6 +239,11 @@ func load_stage(index: int) -> void:
 	stage.target_down.connect(_on_target_down)
 	hud.bind(stage)
 	hud.set_goals("" if test_mode else Campaign.bonus_text(stage_index), int(SaveData.star_bits.get(stage_index, 0)))
+	# 처음 들어간 밤 진지: 조작 안내 줄에 번쩍봉 안내를 한 번만
+	if stage.night and not test_mode and not SaveData.night_seen:
+		SaveData.night_seen = true
+		SaveData.save_all()
+		hud.show_help(Texts.t("night_hint"))
 
 
 ## 진지를 바꿀 때: 잠깐 어두워졌다가 (그동안 change로 진지를 만든다) 다시 밝아진다.
