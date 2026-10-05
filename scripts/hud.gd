@@ -24,6 +24,8 @@ var _targets: HBoxContainer
 var _seen_dead := {}
 ## 발사 버튼 곁에서 뜨는 안내 (최종 진지)
 var _prompt: Label
+## 1-1 단계 안내: 몇 번째 문구인지 (lesson_0~2). -1이면 안내 없음 (조작 안내는 첫 투척 뒤 사라진다)
+var _lesson := -1
 
 
 func _ready() -> void:
@@ -136,7 +138,8 @@ func bind(stage: Stage) -> void:
 	_title.text = stage.stage_id
 	_help.text = Texts.t("help")
 	_help.visible = true
-	stage.projectile_thrown.connect(func(_p): _help.visible = false)
+	_lesson = -1
+	stage.projectile_thrown.connect(_on_thrown)
 	_banner.text = ""
 	_sub.text = ""
 	_toast.text = ""
@@ -153,6 +156,33 @@ func bind(stage: Stage) -> void:
 	stage.bomber_launched.connect(follow_cam.track_bomber)
 	stage.shake_requested.connect(follow_cam.shake)
 	_refresh_ammo()
+
+
+## 1-1을 아직 못 깼을 때: 조작 안내 줄이 투척 결과에 따라 바뀐다 (시작 → 빗나감 → 또 빗나감). 맞히면 숨긴다.
+func start_lesson() -> void:
+	_lesson = 0
+	show_help(Texts.t("lesson_0"))
+
+
+func _on_thrown(p: Projectile) -> void:
+	if _lesson < 0:
+		_help.visible = false
+		return
+	p.impacted.connect(func(_p, _pos, _n, _col): _after_lesson_throw(), CONNECT_ONE_SHOT)
+
+
+## 떨어지고 망루가 무너질 틈을 둔 뒤, 지휘관이 아직 서 있으면 빗나간 것으로 보고 다음 안내로.
+func _after_lesson_throw() -> void:
+	var stage := _stage
+	await get_tree().create_timer(2.0).timeout
+	if _lesson < 0 or stage != _stage:
+		return
+	if stage.commanders_left() == 0:
+		_help.visible = false
+		_lesson = -1
+		return
+	_lesson = mini(_lesson + 1, 2)
+	show_help(Texts.t("lesson_%d" % _lesson))
 
 
 ## 조작 안내 줄을 다른 안내로 바꾼다 (첫 투척 뒤 사라지는 것은 같다).

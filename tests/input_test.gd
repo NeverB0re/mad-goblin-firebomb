@@ -90,5 +90,28 @@ func _run() -> void:
 	_check(player.zooming, "우클릭을 떼고 다시 누르면 관찰 줌")
 	root.push_input(rmb_up.duplicate())
 
+	# 1-1 단계 안내: 1-1을 깨기 전에는 조작 안내 줄이 투척 결과(빗나감)에 따라 바뀌고, 깬 뒤에는 원래 한 줄 안내
+	preload("res://scripts/main.gd").test_mode = false
+	SaveData.path = "user://test_input.cfg"
+	SaveData.best = {}
+	main.load_stage(0)
+	await _frames(2)
+	var help: Label = main.hud._help
+	var seen := [help.text]
+	for k in 2:
+		# 망루 반대쪽 들판으로 빗나가게 던진다
+		main.stage.try_throw(main.stage.player.throw_origin(), Vector3(-1, 0.6, 0.3).normalized())
+		for i in 600:
+			await process_frame
+			if help.text != seen[seen.size() - 1]:
+				break
+		seen.append(help.text)
+	_check(seen == [Texts.t("lesson_0"), Texts.t("lesson_1"), Texts.t("lesson_2")] and help.visible, "1-1 안내: 시작 → 빗나감 → 또 빗나감 (%s)" % [seen])
+	SaveData.record_clear(0, 1, 1)
+	main.load_stage(0)
+	await _frames(2)
+	_check(main.hud._help.text == Texts.t("help"), "1-1을 깬 뒤에는 원래 조작 안내 한 줄")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_input.cfg"))
+
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)
