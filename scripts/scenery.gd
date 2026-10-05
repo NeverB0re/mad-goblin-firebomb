@@ -1,7 +1,8 @@
 class_name Scenery
 extends RefCounted
-## 진지 둘레 풍경 (로우폴리 목업): 구릉 지형, 건물 밑 흙마당과 흙길, 나무·바위·풀, 울타리, 먼 산과 구름,
-## 월드마다 마을(1~3월드)·야영지(4월드)·성채(5월드).
+## 진지 둘레 풍경 (로우폴리 목업): 구릉 지형, 건물 밑 흙마당과 흙길, 나무·바위·풀, 울타리, 먼 산과 구름.
+## 월드마다 배경이 다르다: 1 고블린 평원(낮은 초록 언덕, 고블린 흙집과 목책, 토템), 2 광산 도시(가까이 솟은 험한 바위 산줄기,
+## 절벽의 광산 입구), 3 인간 요새 근처(멀리 어두운 요새 성벽과 탑), 4 대공 요새(야영지 천막, 더 가까운 요새 성벽과 깃발), 5 왕국 성채.
 ## 게임플레이를 해치지 않게: 진지(구조물·인물·투척 언덕)를 감싼 평지 안은 높이 0 그대로 평평하고,
 ## 큰 나무와 건물은 그 밖에, 투척 언덕과 각 구조물 사이 시야 통로를 피해서 둔다. 풍경 소품은 충돌이 없다.
 ## 평지 밖 구릉만 충돌이 있다 (멀리 빗나간 폭탄이 언덕 속으로 사라지지 않게. 평지 높이보다 낮게 두어 블록과는 닿지 않는다).
@@ -144,6 +145,9 @@ func height(x: float, z: float) -> float:
 	var n := noise.get_noise_2d(x, z) * 0.5 + 0.5
 	var n2 := noise.get_noise_2d(x * 3.1 + 50.0, z * 3.1) * 0.5 + 0.5
 	var h := pow(d, 1.3) * 0.075 * (0.55 + n) + smoothstep(0.0, 25.0, d) * (n2 * 4.0 + n * 6.0)
+	# 1월드 고블린 평원은 낮고 완만하게
+	if s.world == 0:
+		h *= 0.35
 	# 흙길은 언덕을 깎아 지나간다
 	if _road_dist(x, z) < 4.0:
 		h *= 0.75
@@ -277,21 +281,40 @@ func _mountains() -> void:
 	if fwd == Vector2.ZERO:
 		fwd = Vector2(0, -1)
 	var base_r := maxf(flat.size.length() * 0.5, 60.0) + SPAN + 40.0
-	for i in 14:
-		var a := (i / 14.0) * TAU + rng.randf_range(-0.15, 0.15)
+	# [개수, 높이, 밑둘레 반지름, 꼭대기 비율, 더 가까이(m), 산 색, 꼭대기 색]
+	var look: Array = [14, Vector2(70.0, 150.0), Vector2(60.0, 110.0), Vector2(0.04, 0.14), 0.0, Color(0.56, 0.47, 0.45), Color(0.74, 0.66, 0.6)]
+	match s.world:
+		0:
+			# 고블린 평원: 낮고 둥근 초록 언덕만 멀리
+			look = [16, Vector2(22.0, 45.0), Vector2(70.0, 120.0), Vector2(0.35, 0.55), 0.0, Color(0.42, 0.58, 0.3), Color(0.5, 0.66, 0.34)]
+		1:
+			# 광산 도시: 가까이 빽빽하게 솟은 뾰족하고 험한 바위 산줄기
+			look = [24, Vector2(130.0, 240.0), Vector2(40.0, 75.0), Vector2(0.02, 0.07), 45.0, Color(0.42, 0.38, 0.36), Color(0.62, 0.6, 0.6)]
+	var rock_col: Color = look[5]
+	var top_col: Color = look[6]
+	if s.rain:
+		rock_col = rock_col.lerp(Color(0.42, 0.42, 0.44), 0.6)
+		top_col = top_col.lerp(Color(0.6, 0.6, 0.62), 0.6)
+	var count: int = look[0]
+	var h_range: Vector2 = look[1]
+	var r_range: Vector2 = look[2]
+	var top_ratio: Vector2 = look[3]
+	var nearer: float = look[4]
+	for i in count:
+		var a := (float(i) / count) * TAU + rng.randf_range(-0.15, 0.15)
 		var dir := Vector2(cos(a), sin(a))
-		var dist := base_r + rng.randf_range(0.0, 120.0)
+		var dist := base_r - nearer + rng.randf_range(0.0, 120.0)
 		var p := c + dir * dist
-		var r := rng.randf_range(60.0, 110.0)
-		var h := rng.randf_range(70.0, 150.0) * (1.15 if dir.dot(fwd) > 0.3 else 0.85)
+		var r := rng.randf_range(r_range.x, r_range.y)
+		var h := rng.randf_range(h_range.x, h_range.y) * (1.15 if dir.dot(fwd) > 0.3 else 0.85)
 		var cone := CylinderMesh.new()
-		cone.top_radius = r * rng.randf_range(0.04, 0.14)
+		cone.top_radius = r * rng.randf_range(top_ratio.x, top_ratio.y)
 		cone.bottom_radius = r
 		cone.height = h
 		cone.radial_segments = 7
 		cone.rings = 3
 		var xf := Transform3D(Basis(Vector3.UP, rng.randf() * TAU), Vector3(p.x, h * 0.5 - 6.0, p.y))
-		b.add_prim(cone, xf, Color(0.56, 0.47, 0.45) if not s.rain else Color(0.42, 0.42, 0.44), 0.12, r * 0.09, float(i))
+		b.add_prim(cone, xf, rock_col, 0.12, r * 0.09, float(i))
 		# 밝은 꼭대기
 		var top := CylinderMesh.new()
 		top.top_radius = cone.top_radius
@@ -299,7 +322,7 @@ func _mountains() -> void:
 		top.height = h * 0.3
 		top.radial_segments = 7
 		top.rings = 1
-		b.add_prim(top, xf.translated(Vector3(0, h * 0.36, 0)), Color(0.74, 0.66, 0.6) if not s.rain else Color(0.6, 0.6, 0.62), 0.1, r * 0.03, float(i) + 0.5)
+		b.add_prim(top, xf.translated(Vector3(0, h * 0.36, 0)), top_col, 0.1, r * 0.03, float(i) + 0.5)
 	var mi := _add_mesh(b.commit(mat), false)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
@@ -560,18 +583,163 @@ func _settlement() -> void:
 					continue
 				spots.append(p)
 	match s.world:
-		0, 1, 2:
+		0:
+			# 고블린 평원: 둥근 흙집과 목책, 토템 기둥
 			for p in spots.slice(0, 7):
+				_goblin_hut(b, p)
+			_palisade_ring(b, pp)
+		1:
+			for p in spots.slice(0, 6):
+				_house(b, p, pp, true)
+			_mine(b, pp)
+		2:
+			for p in spots.slice(0, 5):
 				_house(b, p, pp)
+			_fort_line(b, pp, 70.0, 0.75)
 		3:
 			for p in spots.slice(0, 8):
 				_tent(b, p)
+			_fort_line(b, pp, 45.0, 1.0)
 		4:
 			_castle(b, pp)
 	_add_mesh(b.commit(mat))
 
 
-func _house(b: LowPoly.Builder, p: Vector2, look: Vector2) -> void:
+## 1월드: 고블린 흙집 (둥근 흙벽, 짚 원뿔 지붕, 낮은 문)
+func _goblin_hut(b: LowPoly.Builder, p: Vector2) -> void:
+	var gy := height(p.x, p.y)
+	var r := rng.randf_range(1.8, 2.6)
+	var wall := CylinderMesh.new()
+	wall.top_radius = r * 0.95
+	wall.bottom_radius = r
+	wall.height = 1.6
+	wall.radial_segments = 8
+	wall.rings = 0
+	b.add_prim(wall, Transform3D(Basis(), Vector3(p.x, gy + 0.8, p.y)), Color(0.6, 0.44, 0.3), 0.1, 0.06, p.x)
+	var roof := CylinderMesh.new()
+	roof.top_radius = 0.05
+	roof.bottom_radius = r * 1.25
+	roof.height = r * 1.2
+	roof.radial_segments = 8
+	roof.rings = 1
+	b.add_prim(roof, Transform3D(Basis(Vector3.UP, rng.randf()), Vector3(p.x, gy + 1.6 + roof.height * 0.5, p.y)), Color(0.82, 0.68, 0.36), 0.12, 0.12, p.y)
+	var door_dir := Vector2(rng.randf_range(-1, 1), 1.0).normalized()
+	var dp := p + door_dir * r * 0.98
+	_box(b, Color(0.25, 0.17, 0.1), Transform3D(Basis(Vector3.UP, atan2(door_dir.x, door_dir.y)), Vector3(dp.x, gy + 0.5, dp.y)), Vector3(0.7, 1.0, 0.1), 0.02)
+
+
+## 1월드: 진지 뒤 멀리 고블린 마을을 두르는 뾰족한 목책 (군데군데 끊긴 곳)과 토템 기둥
+func _palisade_ring(b: LowPoly.Builder, pp: Vector2) -> void:
+	var c := flat.get_center()
+	var away := (c - pp).normalized()
+	var center := c + away * (flat.size.length() * 0.5 + 30.0)
+	var wood := Color(0.48, 0.33, 0.2)
+	var radius := 26.0
+	for k in 64:
+		if k % 13 == 0:
+			continue
+		var a := TAU * k / 64.0
+		var q := center + Vector2(cos(a), sin(a)) * radius
+		if _in_corridor(q, 10.0) or flat.grow(6.0).has_point(q):
+			continue
+		var gy := height(q.x, q.y)
+		var hgt := rng.randf_range(2.4, 3.2)
+		var stake := CylinderMesh.new()
+		stake.top_radius = 0.0
+		stake.bottom_radius = 0.2
+		stake.height = 0.6
+		stake.radial_segments = 5
+		stake.rings = 0
+		_box(b, wood, Transform3D(Basis(Vector3.UP, a), Vector3(q.x, gy + hgt * 0.5, q.y)), Vector3(0.36, hgt, 0.36), 0.04)
+		b.add_prim(stake, Transform3D(Basis(), Vector3(q.x, gy + hgt + 0.3, q.y)), wood.lightened(0.1), 0.05)
+	# 토템: 쌓은 머리 셋과 뿔
+	var tp := center - away * (radius - 4.0)
+	if not _in_corridor(tp, 8.0):
+		var gy := height(tp.x, tp.y)
+		_box(b, Color(0.4, 0.28, 0.16), Transform3D(Basis(), Vector3(tp.x, gy + 2.5, tp.y)), Vector3(0.6, 5.0, 0.6), 0.05)
+		for k in 3:
+			_box(b, [Color(0.45, 0.62, 0.28), Color(0.75, 0.3, 0.2), Color(0.85, 0.75, 0.4)][k], Transform3D(Basis(), Vector3(tp.x, gy + 1.4 + k * 1.3, tp.y)), Vector3(1.0, 1.0, 1.0), 0.12)
+		for sx in [-1.0, 1.0]:
+			_box(b, Color(0.92, 0.88, 0.78), Transform3D(Basis(Vector3.BACK, sx * 0.5), Vector3(tp.x + sx * 0.75, gy + 5.0, tp.y)), Vector3(0.18, 1.0, 0.18), 0.03)
+
+
+## 2월드: 진지 뒤 산기슭의 광산 입구 (바위 절벽에 뚫린 검은 굴, 나무 받침틀, 레일과 광차, 버력 더미)
+func _mine(b: LowPoly.Builder, pp: Vector2) -> void:
+	var c := flat.get_center()
+	var away := (c - pp).normalized()
+	var side := Vector2(-away.y, away.x)
+	for k in 2:
+		var base := c + away * (flat.size.length() * 0.5 + 38.0 + k * 22.0) + side * (18.0 if k == 0 else -26.0)
+		var gy := height(base.x, base.y)
+		var yaw := -atan2(away.x, -away.y)
+		var basis := Basis(Vector3.UP, yaw + PI)
+		var o := Vector3(base.x, gy, base.y)
+		var rock := Color(0.4, 0.37, 0.35)
+		# 절벽 (울퉁불퉁한 바위 덩어리)
+		var cliff := MeshInstance3D.new()
+		cliff.mesh = LowPoly.rock_mesh(Vector3(24.0, 15.0, 9.0), base.x + base.y, false)
+		cliff.material_override = Models.mat(rock, 1.0)
+		cliff.transform = Transform3D(basis, o + basis * Vector3(0, 6.5, 4.6))
+		s.add_child(cliff)
+		# 검은 굴 입구
+		_box(b, Color(0.04, 0.03, 0.03), Transform3D(basis, o + basis * Vector3(0, 1.8, -0.02)), Vector3(3.6, 3.6, 0.2), 0.05)
+		# 나무 받침틀 (기둥 둘과 인방)
+		var timber := Color(0.42, 0.28, 0.16)
+		for sx in [-1.0, 1.0]:
+			_box(b, timber, Transform3D(basis, o + basis * Vector3(sx * 2.0, 2.0, -0.25)), Vector3(0.4, 4.0, 0.4), 0.04)
+		_box(b, timber, Transform3D(basis, o + basis * Vector3(0, 4.15, -0.25)), Vector3(4.8, 0.45, 0.5), 0.04)
+		# 레일과 광차
+		for sx in [-0.5, 0.5]:
+			_box(b, Color(0.35, 0.33, 0.32), Transform3D(basis, o + basis * Vector3(sx, 0.08, -4.5)), Vector3(0.08, 0.1, 9.0), 0.01)
+		for z in range(1, 9):
+			_box(b, timber.darkened(0.2), Transform3D(basis, o + basis * Vector3(0, 0.04, -z * 1.0)), Vector3(1.5, 0.08, 0.25), 0.01)
+		_box(b, Color(0.3, 0.28, 0.27), Transform3D(basis, o + basis * Vector3(0, 0.75, -5.5)), Vector3(1.3, 0.9, 1.8), 0.06)
+		_box(b, Color(0.55, 0.48, 0.38), Transform3D(basis, o + basis * Vector3(0, 1.25, -5.5)), Vector3(1.1, 0.3, 1.6), 0.15)
+		# 버력 더미
+		var heap := CylinderMesh.new()
+		heap.top_radius = 0.6
+		heap.bottom_radius = 4.0
+		heap.height = 2.6
+		heap.radial_segments = 7
+		heap.rings = 1
+		b.add_prim(heap, Transform3D(basis, o + basis * Vector3(5.5, 1.2, -3.0)), Color(0.5, 0.45, 0.4), 0.12, 0.3, base.x)
+
+
+## 3·4월드: 진지 뒤로 멀리 이어진 어두운 인간 요새 성벽과 네모 탑 (밤에는 탑 꼭대기에 불빛). dist: 진지 가장자리에서의 거리
+func _fort_line(b: LowPoly.Builder, pp: Vector2, dist: float, scale: float) -> void:
+	var c := flat.get_center()
+	var away := (c - pp).normalized()
+	var side := Vector2(-away.y, away.x)
+	var base := c + away * (flat.size.length() * 0.5 + dist)
+	var stone := Color(0.5, 0.5, 0.52)
+	var yaw := -atan2(side.y, side.x)
+	var basis := Basis(Vector3.UP, yaw)
+	var gy := height(base.x, base.y)
+	var wall_len := 140.0
+	var wh := 10.0 * scale
+	_box(b, stone, Transform3D(basis, Vector3(base.x, gy + wh * 0.5, base.y)), Vector3(wall_len, wh, 4.0), 0.3)
+	var n := 22
+	for k in n:
+		var t := -wall_len * 0.5 + wall_len * (k + 0.5) / n
+		var q := base + side * t
+		_box(b, stone, Transform3D(basis, Vector3(q.x, gy + wh + 0.6, q.y)), Vector3(wall_len / n * 0.55, 1.2, 4.2), 0.1)
+	for k in 6:
+		var t := -wall_len * 0.5 + wall_len * (k + 0.5) / 6.0
+		var q := base + side * t
+		var th := (16.0 if k % 2 == 0 else 13.0) * scale
+		_box(b, stone.darkened(0.08), Transform3D(basis, Vector3(q.x, gy + th * 0.5, q.y)), Vector3(6.0, th, 6.0), 0.2)
+		for e in 4:
+			var ex := (e - 1.5) * 1.5
+			_box(b, stone.darkened(0.08), Transform3D(basis, Vector3(q.x, gy + th + 0.5, q.y) + Vector3(side.x, 0, side.y) * ex), Vector3(0.8, 1.0, 6.0), 0.05)
+		if s.night:
+			_box(b, Color(2.2, 1.3, 0.5), Transform3D(basis, Vector3(q.x, gy + th + 0.4, q.y)), Vector3(0.8, 0.8, 0.8), 0.05)
+		else:
+			_box(b, Models.FLAG_RED, Transform3D(basis, Vector3(q.x, gy + th + 3.0, q.y) + Vector3(side.x, 0, side.y) * 0.9), Vector3(1.8, 1.1, 0.1), 0.02)
+			_box(b, Color(0.3, 0.3, 0.3), Transform3D(basis, Vector3(q.x, gy + th + 2.0, q.y)), Vector3(0.15, 3.0, 0.15), 0.01)
+
+
+## stone: 광산 도시의 어두운 돌집 (회색 벽, 짙은 지붕)
+func _house(b: LowPoly.Builder, p: Vector2, look: Vector2, stone := false) -> void:
 	var gy := height(p.x, p.y)
 	var yaw := -atan2(look.y - p.y, look.x - p.x) + PI * 0.5 + rng.randf_range(-0.3, 0.3)
 	var basis := Basis(Vector3.UP, yaw)
@@ -579,8 +747,12 @@ func _house(b: LowPoly.Builder, p: Vector2, look: Vector2) -> void:
 	var w := rng.randf_range(3.6, 5.0)
 	var d := rng.randf_range(3.0, 4.0)
 	var wall := Color(0.93, 0.86, 0.72) if not s.rain else Color(0.7, 0.66, 0.58)
+	if stone:
+		wall = Color(0.55, 0.53, 0.5)
 	var beam := Color(0.45, 0.3, 0.18)
 	var roof: Color = [Color(0.78, 0.3, 0.2), Color(0.62, 0.38, 0.28), Color(0.85, 0.55, 0.3)][rng.randi() % 3]
+	if stone:
+		roof = [Color(0.3, 0.3, 0.33), Color(0.36, 0.3, 0.27)][rng.randi() % 2]
 	_box(b, wall, Transform3D(basis, o + basis * Vector3(0, 1.3, 0)), Vector3(w, 2.6, d), 0.05)
 	for sx in [-1.0, 1.0]:
 		for sz in [-1.0, 1.0]:
