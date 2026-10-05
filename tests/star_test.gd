@@ -57,5 +57,17 @@ func _initialize() -> void:
 	_check(SaveData.unlocked == 1 and SaveData.best.is_empty() and SaveData.star_bits.is_empty() and not SaveData.opening_seen and not SaveData.unlock_all and SaveData.open_count() == 1, "저장 지우기: 진행·별·오프닝·전체 개방이 처음으로")
 	_check(is_equal_approx(SaveData.volume, 0.3), "저장 지우기는 음량 같은 설정은 남긴다")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_star.cfg"))
+	# 둘째 별은 쾅쾅알·불항아리가 남았을 때만: 4-1에서 번쩍봉만 남으면 못 받는다 (실패 판정에는 번쩍봉도 센다)
+	var s := Stage.new()
+	root.add_child(s)
+	Campaign.build(30, s)
+	for slot in s.ammo_slots:
+		if slot.type.kind == AmmoType.Kind.HE or slot.type.kind == AmmoType.Kind.FLARE:
+			slot.count = 1
+	_check(Campaign.star_bits(30, s) & 2 != 0, "4-1 쾅쾅알이 남으면 둘째 별")
+	for slot in s.ammo_slots:
+		if slot.type.kind == AmmoType.Kind.HE:
+			slot.count = 0
+	_check(Campaign.star_bits(30, s) & 2 == 0 and s.total_ammo() > 0, "4-1 쾅쾅알을 다 쓰고 번쩍봉만 남으면 둘째 별 없음 (실패 판정에는 남은 탄 %d)" % s.total_ammo())
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

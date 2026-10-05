@@ -562,6 +562,11 @@ func total_ammo() -> int:
 	return n
 
 
+## 둘째 별("폭탄 남기고 클리어")에 세는 탄: 쾅쾅알과 불항아리만. 번쩍봉·발사 버튼은 실패 판정(total_ammo)에서만 센다.
+func spare_ammo() -> int:
+	return ammo_count(AmmoType.Kind.HE) + ammo_count(AmmoType.Kind.FIRE)
+
+
 ## 이 탄종이 몇 발 남았는지.
 func ammo_count(kind: int) -> int:
 	var n := 0

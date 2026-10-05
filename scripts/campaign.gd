@@ -381,7 +381,7 @@ static func _foes(s: Stage) -> Array:
 
 ## 이번 클리어로 받은 별 (비트: 1 = 목표 달성, 2 = 폭탄 남김, 4 = 보조 목표). 클리어했으니 1은 늘 켜진다.
 static func star_bits(i: int, s: Stage) -> int:
-	return 1 | (2 if s.total_ammo() > 0 else 0) | (4 if bonus_met(i, s) else 0)
+	return 1 | (2 if s.spare_ammo() > 0 else 0) | (4 if bonus_met(i, s) else 0)
 
 
 ## 바람 깃발 자리: 투척 구역에서 진지 쪽으로 7할쯤 간 길목에서 옆으로 비켜, 부품·발리스타에서 넉넉히 떨어진 땅.

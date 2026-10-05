@@ -283,7 +283,7 @@ func _smash(stage: Stage) -> void:
 					cap.add_child(_flag_icon())
 				1:
 					cap.add_child(UiIcon.make("he", 34.0))
-					_label("×%d" % stage.total_ammo(), 24, UiStyle.TEXT).reparent(cap)
+					_label("×%d" % stage.spare_ammo(), 24, UiStyle.TEXT).reparent(cap)
 				2:
 					_label(bonus_text, 20, UiStyle.TEXT if got_k else UiStyle.MUTED).reparent(cap)
 	else:
@@ -293,7 +293,7 @@ func _smash(stage: Stage) -> void:
 		_root.add_child(left)
 		_place(left, Vector4(0, 0.62, 1, 0.7))
 		left.add_child(UiIcon.make("he", 40.0))
-		var n := _label("×%d" % stage.total_ammo(), 30, Color(1, 1, 1))
+		var n := _label("×%d" % stage.spare_ammo(), 30, Color(1, 1, 1))
 		n.reparent(left)
 	_buttons([[Texts.t("next"), "next"], [Texts.t("retry") + " (R)", "retry"], [Texts.t("menu_select"), "select"]])
 	_ready_for_input = true

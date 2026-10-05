@@ -102,6 +102,8 @@ func _play(i: int) -> void:
 		if step[3] > 0.0:
 			await _wait(s, step[3])
 	await _expect(s, Stage.State.CLEARED, "%s %s 풀이 (지휘관 %d)" % [Campaign.label(i), Campaign.title(i), s.commanders.size()], 60.0)
+	# 정답 풀이로 깨면 둘째 별(쾅쾅알·불항아리 남김)을 받을 수 있어야 한다
+	_check(s.spare_ammo() >= 1, "%s 정답 풀이 뒤 쾅쾅알·불항아리 %d개 남음 (둘째 별)" % [Campaign.label(i), s.spare_ammo()])
 	if s.state != Stage.State.CLEARED:
 		var left := []
 		for k in s.commanders.size():
