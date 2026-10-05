@@ -74,6 +74,11 @@ func target_pos() -> Vector3:
 	return _target
 
 
+## 추적 화면이 따라갈 대상: 폭탄을 안고 매달린 고블린 (글라이더가 아니다). 뛰어내린 뒤에도 그 고블린이다.
+func focus() -> Node3D:
+	return _pilot if is_instance_valid(_pilot) else self
+
+
 func _pos(k: float) -> Vector3:
 	return _from.lerp(_release, k) + Vector3.UP * ARC * sin(PI * k)
 

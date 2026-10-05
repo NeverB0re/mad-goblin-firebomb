@@ -6,14 +6,24 @@ extends Control
 
 const START_DISTANCE := 0.0
 const HOLD_TIME := 6.0
-const VIEW_SIZE := Vector2i(512, 288)
+const VIEW_SIZE := Vector2i(432, 243)
+## 착탄 이만큼 앞에서 카메라 위치를 고정한다 (바짝 따라가다 멈추고, 폭발은 조금 떨어져서 본다). 카메라는 계속 폭탄을 바라본다.
+const STOP_DISTANCE := 9.0
+const STOP_DISTANCE_ROCKET := 16.0
+const STOP_DISTANCE_BOMBER := 12.0
 const MARGIN := 20.0
 
 var _viewport: SubViewport
 var _camera: Camera3D
 ## 따라가는 것: 투척체(Projectile) 또는 로켓(Missile). 둘 다 done이 있다
 var _target: Node3D
+## 카메라가 실제로 바라보는 것 (글라이더 폭격은 매달린 고블린, 나머지는 _target과 같다)
+var _focus: Node3D
 var _rocket := false
+## 착탄 직전 고정 거리 (착탄을 미리 알 수 있는 거리: 투척체는 0 = 앞쪽 광선으로 찾는다)
+var _stop_distance := STOP_DISTANCE
+var _aim_point := Vector3.INF
+var _frozen := false
 var _last_pos := Vector3.ZERO
 var _origin := Vector3.ZERO
 var _dir := Vector3.FORWARD
@@ -66,23 +76,32 @@ func _ready() -> void:
 
 func track(p: Projectile) -> void:
 	_begin(p, Vector3(p.velocity.x, 0, p.velocity.z), false)
+	_stop_distance = STOP_DISTANCE
 	p.impacted.connect(_on_impacted)
 
 
 ## 조명탄을 보고 발사대를 떠난 로켓을 따라간다.
 func track_rocket(m: Missile) -> void:
 	_begin(m, m.target_pos() - m.global_position, true)
+	_stop_distance = STOP_DISTANCE_ROCKET
+	_aim_point = m.target_pos()
 	m.exploded.connect(_on_rocket_exploded.bind(m))
 
 
 ## 조명탄을 보고 날아오른 글라이더 폭격 고블린을 따라간다.
 func track_bomber(b: Bomber) -> void:
 	_begin(b, b.target_pos() - b.global_position, true)
+	_focus = b.focus()
+	_stop_distance = STOP_DISTANCE_BOMBER
+	_aim_point = b.target_pos()
 	b.exploded.connect(_on_rocket_exploded.bind(b))
 
 
 func _begin(node: Node3D, heading: Vector3, rocket: bool) -> void:
 	_target = node
+	_focus = node
+	_aim_point = Vector3.INF
+	_frozen = false
 	_rocket = rocket
 	_origin = node.global_position
 	_last_pos = _origin
@@ -99,6 +118,7 @@ func camera() -> Camera3D:
 
 func reset() -> void:
 	_target = null
+	_frozen = false
 	_hold = 0.0
 	_set_shown(false)
 
@@ -152,26 +172,47 @@ func _process(delta: float) -> void:
 		return
 
 	if is_instance_valid(_target) and not _target.get("done"):
-		var p := _target.global_position
+		if _target is Bomber:
+			_focus = (_target as Bomber).focus()
+		var p := _focus.global_position if is_instance_valid(_focus) else _target.global_position
 		if not visible and Vector2(p.x - _origin.x, p.z - _origin.z).length() >= START_DISTANCE:
 			_set_shown(true)
 		if visible:
 			var vel := (p - _last_pos) / maxf(delta, 0.001)
 			_last_pos = p
 			var side := _dir.cross(Vector3.UP).normalized()
+			if not _frozen and _near_impact(p, vel):
+				_frozen = true
 			if _rocket:
 				# 로켓 꽁무니 옆뒤에서 (불꽃이 화면을 가리지 않게) 표적 쪽을 본다
 				var fwd := vel.normalized() if vel.length() > 0.5 else _dir
-				_camera.global_position = p - fwd * 10.0 + side * 4.0 + Vector3.UP * 3.0
-				_camera.look_at(p + fwd * 12.0, Vector3.UP)
+				if _frozen:
+					_camera.look_at(p, Vector3.UP)
+				else:
+					_camera.global_position = p - fwd * 10.0 + side * 4.0 + Vector3.UP * 3.0
+					_camera.look_at(p + fwd * 12.0, Vector3.UP)
 				_apply_shake(0.5)
 			else:
-				# 폭탄에 바짝 붙어 옆뒤에서 따라가며 진행 방향 앞을 본다
-				_camera.global_position = p - _dir * 2.6 + side * 0.9 + Vector3.UP * 0.7
-				_camera.look_at(p + _dir * 5.0 + Vector3.DOWN * 0.3, Vector3.UP)
+				# 폭탄에 바짝 붙어 옆뒤에서 따라가며 진행 방향 앞을 본다. 착탄 직전에는 멈춰 서서 폭탄이 떨어지는 것을 바라본다
+				if _frozen:
+					_camera.look_at(p, Vector3.UP)
+				else:
+					_camera.global_position = p - _dir * 2.6 + side * 0.9 + Vector3.UP * 0.7
+					_camera.look_at(p + _dir * 5.0 + Vector3.DOWN * 0.3, Vector3.UP)
 				_apply_shake(0.25)
 	elif visible:
 		_set_shown(false)
+
+
+## 곧 닿을 때가 되었는지: 폭탄·글라이더는 진행 방향 앞으로 쏜 광선이 무언가에 닿는 거리, 로켓·글라이더는 표적까지의 거리.
+func _near_impact(p: Vector3, vel: Vector3) -> bool:
+	if _aim_point != Vector3.INF:
+		return p.distance_to(_aim_point) <= _stop_distance
+	if vel.length() < 1.0:
+		return false
+	var space := _camera.get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(p, p + vel.normalized() * _stop_distance, Projectile.HIT_MASK)
+	return not space.intersect_ray(query).is_empty()
 
 
 ## 흔들림: 착탄 충격(_shake)과 날아가는 동안의 잔떨림(base), 기울기(롤)로 속도감을 준다.
