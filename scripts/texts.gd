@@ -18,6 +18,7 @@ const T := {
 	"kill_one": "하나 박살!",
 	"button_fire": "발사!!!",
 	"button_locked": "꼬챙이 쏘는 놈(발리스타)부터 부숴! 단추가 꿈쩍 안 해",
+	"button_guarded": "경비대장 둘이 발사대를 막고 있다! 그놈들부터 날려",
 	# 메뉴 (그림으로 바꾸기 애매한 것은 고블린 말투로)
 	"game_title": "미친 고블린",
 	"game_subtitle": "부족장 내놔! 안 내놓으면, 펑!",

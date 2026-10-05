@@ -242,6 +242,14 @@ func _run() -> void:
 		_to_button(s)
 		var fired := s.press_button()
 		_check(not fired and s.button_ready(), "5-10 발리스타가 서 있으면 발사 버튼이 안 눌린다")
+		# 발리스타를 다 멈춰도 경비대장(돌 망루, 금 간 기둥 망대)이 서 있으면 안 눌리고, 둘 다 쓰러지면 눌린다
+		for b in s.ballistas:
+			b.get_meta("operator").defeat("direct")
+		var guards: Array = s.commanders.filter(func(c): return c.has_meta("gate_guard"))
+		var guarded := s.button_lock() == "button_guarded" and not s.press_button()
+		for c in guards:
+			c.defeat("direct")
+		_check(guards.size() == 2 and guarded and s.press_button(), "5-10 경비대장 %d명이 서 있으면 발사 버튼이 안 눌리고(%s), 쓰러지면 눌린다" % [guards.size(), guarded])
 	# 페인트탄은 아무것도 부수지 않고 물감 자국만 남기며, 페인트탄·조명탄만 남으면 실패한다 (3-6)
 	if _only <= 0 or _only == 3:
 		var s := _campaign(25)

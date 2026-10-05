@@ -309,6 +309,9 @@ func set_gameplay_visible(on: bool) -> void:
 
 func _process(delta: float) -> void:
 	_prompt.visible = is_instance_valid(_stage) and _title.visible and _stage.near_button()
+	if _prompt.visible:
+		var lock := _stage.button_lock()
+		_prompt.text = Texts.t(lock if lock != "" else "press_button")
 	if _toast_time > 0.0:
 		_toast_time -= delta
 		_toast.modulate.a = clampf(_toast_time / 0.6, 0.0, 1.0)
