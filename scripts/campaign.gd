@@ -67,15 +67,15 @@ const STAGES := [
 	{"name": "흰 돌 망대", "ammo": {"he": 2},
 		"parts": [["pillars", Vector3(0, 0, -38)]],
 		"story": "반듯한 흰 돌은 무엇으로도 안 부서진다. 그런데 이 망대 기둥 넷 중 하나만 누렇게 금이 갔다. 그 하나만 부러뜨리면 망대가 그쪽으로 기운다."},
-	{"name": "마을 종탑", "ammo": {"he": 2},
-		"parts": [["bell", Vector3(0, 0, -38)]],
-		"story": "마을 종탑 아래 석조 초소에 지휘관이 숨었다. 벽은 흰 돌이라 안 깨진다. 그런데 머리 위 나무 종틀에 커다란 쇠종이 밧줄 하나에 매달려 있다."},
+	{"name": "마을 종탑", "ammo": {"he": 3},
+		"parts": [["bell", Vector3(-7, 0, -38)], ["rampart", Vector3(9, 0, -44)]],
+		"story": "마을 종탑 아래 석조 초소에 지휘관이 숨었다. 벽은 흰 돌이라 안 깨진다. 그런데 머리 위 나무 종틀에 커다란 쇠종이 밧줄 하나에 매달려 있다. 옆 마을 담 위 돌 보행로에는 부관이 섰는데, 그 밑동 한 칸이 누렇게 금이 갔다 (밧줄 + 금 간 벽)."},
 	{"name": "고블린 화약 창고", "ammo": {"he": 2},
 		"parts": [["powder", Vector3(-2, 0, -40)]],
 		"story": "인간들이 고블린의 화약 창고 옆에 금 간 석재 망대를 세웠다. 창고 안 화약통에 폭탄이 닿으면 쾅, 쾅, 쾅. 그 화약이 누구 것이었는지 잊은 모양이다."},
-	{"name": "강철 성벽 막사", "ammo": {"fire": 3},
-		"parts": [["steelhut", Vector3(0, 0, -38)]],
-		"story": "강철 성벽은 폭탄으로 못 뚫는다. 하지만 성벽 위로 솟은 막사 짚 지붕은 탄다. 새 탄: 화염 항아리. 묵직해서 덜 날아가지만, 불은 맞닿은 짚과 나무를 타고 번진다."},
+	{"name": "강철 성벽 막사", "ammo": {"he": 1, "fire": 3},
+		"parts": [["steelhut", Vector3(-7, 0, -38)], ["pillars", Vector3(9, 0, -44)]],
+		"story": "강철 성벽은 폭탄으로 못 뚫는다. 하지만 성벽 위로 솟은 막사 짚 지붕은 탄다. 새 탄: 화염 항아리. 묵직해서 덜 날아가지만, 불은 맞닿은 짚과 나무를 타고 번진다. 부관은 옆 흰 돌 망대 위에 있다: 기둥 하나만 금이 갔다 (불 + 금 간 기둥)."},
 	{"name": "짚 지붕 줄집", "ammo": {"fire": 2}, "wind": [2, 1, 0],
 		"parts": [["rowhouses", Vector3(0, 0, -38)]],
 		"story": "흰 돌담 안에 지붕이 잇닿은 짚 지붕 집 세 채, 집마다 지휘관이 하나. 한 채에 불이 붙으면 옆집으로 번진다. 산바람이 불기 시작했다: 들판의 깃발이 펴진 폭 수만큼 비켜 던진다. 이제부터는 늘 깃발을 본다."},
@@ -232,7 +232,7 @@ const COUNT := 50
 const BONUS := [
 	# 1월드
 	["direct"], ["ally"], ["window"], ["direct"], ["indirect"],
-	["indirect"], ["throws", 1], ["throws", 1], ["without", "fire"], ["he_two"],
+	["indirect"], ["direct"], ["throws", 1], ["without", "fire"], ["he_two"],
 	# 2월드
 	["window"], ["window"], ["window"], ["keg"], ["direct", 2],
 	["direct", 2], ["window"], ["direct"], ["window"], ["window"],
@@ -564,6 +564,7 @@ static func _in_rocket_cluster(d: Dictionary, pos: Vector3) -> bool:
 ## 여기 없는 부품은 설계상 풀이 그대로 (그것만으로 보조 목표가 채워지는 진지는 아예 없다).
 const BONUS_PLAN := {
 	1: {0: [true, [K.HE, "ally_foe", false, 0.0]]},
+	6: {1: [false, [K.HE, 1, true, 3.0]]},
 	10: {0: [true, [K.FIRE, Vector3(0, 1.85, 3.0), false, 0.0]]},
 	11: {0: [true, [K.FIRE, Vector3(-0.8, 1.45, 2.0), false, 0.0]]},
 	12: {0: [true, [K.FIRE, HOPPER_WINDOW, false, 0.0]]},
