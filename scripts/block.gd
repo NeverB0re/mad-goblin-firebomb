@@ -299,9 +299,12 @@ func ignite(rate := 1.0) -> void:
 
 
 ## 화약통 연쇄: 폭발이 닿으면 짧은 지연 뒤 터진다.
-func fuse(seconds: float) -> void:
+## tid: 이 화약통을 터뜨린 플레이어 투척 번호 (그 폭발에 쓰러진 인물도 그 투척의 것으로 친다)
+func fuse(seconds: float, tid := -1) -> void:
 	if burnt:
 		return
+	if tid >= 0 and not has_meta("blast_tid"):
+		set_meta("blast_tid", tid)
 	if not burning:
 		burning = true
 		var f := Fx.fire(size * 0.4, 12, 0.4)
@@ -385,8 +388,12 @@ func _physics_process(delta: float) -> void:
 			if global_position.distance_to(n.global_position) <= reach:
 				n.add_heat(delta, burn_rate)
 	for n in fuse_links:
-		if is_instance_valid(n) and not n.burnt and not n.burning and n.is_flammable():
-			n.add_heat(delta, burn_rate)
+		if is_instance_valid(n) and not n.burnt and not n.burning and (n.is_flammable() or n.wet_keg):
+			if n.wet_keg and not n.is_flammable():
+				# 도화선은 통 속까지 이어져 있어 젖은 화약통도 도화선 불로는 터진다
+				n.fuse(0.3)
+			else:
+				n.add_heat(delta, burn_rate)
 	_material.albedo_color = _base_color.lerp(CHAR_COLOR, clampf(1.0 - health, 0.0, 1.0))
 	if health < 0.2 and mat != Mat.KEG:
 		# 끊어지기 직전에 흔들린다

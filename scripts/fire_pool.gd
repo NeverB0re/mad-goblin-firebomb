@@ -8,6 +8,8 @@ extends Node3D
 var radius := 2.5
 var duration := 5.0
 var burn_multiplier := 1.0
+## 이 불을 낸 플레이어 투척 번호 (기름 불 등은 -1)
+var tid := -1
 var active := true
 var _t := 0.0
 var _fire: GPUParticles3D
@@ -41,7 +43,7 @@ func _physics_process(delta: float) -> void:
 		var ap: Vector3 = a.global_position
 		var flat := Vector2(ap.x - p.x, ap.z - p.z).length()
 		if flat <= radius + 0.35 and ap.y > p.y - 2.0 and ap.y < p.y + 1.5 and FirePool.clear_line(self, p, a.chest()):
-			a.on_fire_touch()
+			a.on_fire_touch(tid)
 	if _t >= duration:
 		active = false
 		remove_from_group("fire_pool")

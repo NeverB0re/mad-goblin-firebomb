@@ -96,7 +96,7 @@ const STAGES := [
 		"parts": [["hopper", Vector3(-3, 0, -40)]],
 		"story": "지휘관이 석탄 호퍼 밑 돌 칸막이 안에서 비를 피한다. 머리 위에는 젖은 화약을 채운 쇠 통, 그 아래는 젖은 나무 다리 넷."},
 	{"name": "무너진 갱도 입구", "ammo": {"he": 2, "oil": 1, "fire": 2}, "wind": [2, -1, 0],
-		"parts": [["cave", Vector3(0, 0, -40)]],
+		"parts": [["cave", Vector3(0, 0, -40), {"keg": true}]],
 		"story": "갱도 입구의 석재 덮개가 금 간 돌기둥과 젖은 나무 버팀목에 얹혀 있다. 기둥은 폭탄, 젖은 버팀목은 기름과 불로."},
 	{"name": "갱도 감시탑 둘", "ammo": {"oil": 3, "fire": 3}, "wind": [2, 1, 0],
 		"parts": [["tower", Vector3(-9, 0, -38), {"parapet": true}], ["tower", Vector3(10, 0, -44), {"legs": 5.0, "parapet": true}]],
@@ -231,20 +231,20 @@ const COUNT := 50
 ## 진지별 보조 목표 (별 셋째). 예상 정답과 다른 길, 정통 직격, 간접으로만, 적은 투척 등 진지에 맞춰 하나씩.
 const BONUS := [
 	# 1월드
-	["direct"], ["throws", 2], ["throws", 2], ["direct"], ["indirect"],
-	["indirect"], ["throws", 1], ["throws", 1], ["without", "fire"], ["throws", 3],
+	["direct"], ["ally"], ["window"], ["direct"], ["indirect"],
+	["indirect"], ["throws", 1], ["throws", 1], ["without", "fire"], ["he_two"],
 	# 2월드
-	["throws", 2], ["throws", 2], ["throws", 2], ["throws", 3], ["throws", 4],
-	["throws", 3], ["throws", 4], ["direct"], ["throws", 5], ["without", "he"],
+	["window"], ["window"], ["window"], ["keg"], ["direct", 2],
+	["direct", 2], ["window"], ["direct"], ["window"], ["window"],
 	# 3월드
-	["without", "flare"], ["direct"], ["throws", 2], ["throws", 1], ["throws", 1],
-	["throws", 3], ["throws", 2], ["throws", 3], ["without", "he"], ["without", "fire"],
+	["without", "flare"], ["direct"], ["direct", 2], ["throws", 1], ["throws", 1],
+	["direct"], ["direct"], ["direct", 2], ["without", "he"], ["without", "fire"],
 	# 4월드
-	["no_shotdown"], ["throws", 1], ["no_shotdown"], ["throws", 2], ["direct"],
-	["no_shotdown"], ["throws", 2], ["no_shotdown"], ["throws", 4], ["no_shotdown"],
+	["no_shotdown"], ["throws", 1], ["no_shotdown"], ["sky_two"], ["direct"],
+	["no_shotdown"], ["sky_two"], ["no_shotdown"], ["sky_two"], ["no_shotdown"],
 	# 5월드
-	["throws", 4], ["throws", 5], ["throws", 5], ["throws", 6], ["no_shotdown"],
-	["direct"], ["throws", 6], ["without", "he"], ["no_shotdown"], ["throws", 2],
+	["direct", 2], ["window"], ["direct", 2], ["he_two"], ["no_shotdown"],
+	["direct"], ["direct", 2], ["window"], ["no_shotdown"], ["direct"],
 ]
 
 
@@ -278,7 +278,12 @@ static func wind_of(i: int) -> Vector3:
 ## ---------- 별 평가 ----------
 ## 별 하나: 목표 달성(클리어). 별 둘: 폭탄을 남기고 클리어. 별 셋: 진지마다 하나씩 정한 보조 목표 (BONUS).
 ## 보조 목표 종류:
-## - ["direct"]: 지휘관 하나 이상을 폭탄·항아리로 정통 맞힘
+## - ["direct", n]: 폭탄·항아리 직격으로 n명(지휘관과 병사, 기본 1) 이상 잡기
+## - ["window"]: 창문 난 건물 안의 지휘관을 창문으로 집어넣은 투척으로 잡기 (벽이 멀쩡할 때 방 안에 떨어진 투척)
+## - ["ally"]: 아군 고블린과 싸우는 병사(ally_foe 메타)를 잡기
+## - ["he_two"]: 쾅쾅알 하나로 둘 이상 (지휘관과 병사) 잡기
+## - ["sky_two"]: 하늘쾅 한 발로 지휘관 둘 이상 (깃발 둘) 쓰러뜨리기
+## - ["keg"]: 보조 목표 폭발통(bonus_keg 메타)을 터뜨리기
 ## - ["indirect"]: 모든 지휘관을 맞히지 않고 무너뜨리거나(깔림·추락) 태워서만
 ## - ["without", 탄종]: 그 탄종을 한 번도 안 던지고 (예상 정답과 다른 길)
 ## - ["throws", n]: 폭탄·항아리·기름 단지를 n번 이하로 던져서 (물감탄·조명탄은 안 셈)
@@ -294,7 +299,9 @@ static func bonus_text(i: int) -> String:
 	var b := bonus_of(i)
 	match b[0]:
 		"direct":
-			return Texts.t("bonus_direct")
+			return Texts.t("bonus_direct") if b.size() < 2 else Texts.t("bonus_direct_n") % b[1]
+		"window", "ally", "he_two", "sky_two", "keg":
+			return Texts.t("bonus_" + str(b[0]))
 		"indirect":
 			return Texts.t("bonus_indirect")
 		"without":
@@ -312,7 +319,22 @@ static func bonus_met(i: int, s: Stage) -> bool:
 	var b := bonus_of(i)
 	match b[0]:
 		"direct":
-			return s.commanders.any(func(c): return c.dead and c.defeat_cause == "direct")
+			var need: int = b[1] if b.size() > 1 else 1
+			return _foes(s).filter(func(a): return a.dead and a.defeat_cause == "direct").size() >= need
+		"window":
+			return s.commanders.any(func(c): return c.dead and c.throw_id >= 0 and c.throw_id == c.get_meta("window_tid", -2))
+		"ally":
+			return _foes(s).any(func(a): return a.dead and a.has_meta("ally_foe"))
+		"he_two":
+			var kills := {}
+			for a in _foes(s):
+				if a.dead and a.throw_id >= 0 and s.throw_kinds.get(a.throw_id, -1) == K.HE:
+					kills[a.throw_id] = int(kills.get(a.throw_id, 0)) + 1
+			return kills.values().any(func(n): return n >= 2)
+		"sky_two":
+			return s.best_strike >= 2
+		"keg":
+			return s.bonus_keg_blown
 		"indirect":
 			return s.commanders.all(func(c): return c.defeat_cause in ["fall", "crush", "fire"])
 		"without":
@@ -329,6 +351,11 @@ static func bonus_met(i: int, s: Stage) -> bool:
 			var times: Array = s.commanders.map(func(c): return float(c.get_meta("down_at", 0.0)))
 			return times.max() - times.min() <= 3.0
 	return false
+
+
+## 판정 대상 인간들 (지휘관, 병사, 궁병). 동료 고블린은 뺀다.
+static func _foes(s: Stage) -> Array:
+	return s.get_tree().get_nodes_in_group("actors").filter(func(a): return a is Commander or a is Guard)
 
 
 ## 클리어한 진지의 별 수 (1~3).
@@ -404,7 +431,7 @@ static func build(i: int, s: Stage) -> void:
 		_frame(s, Vector3.ZERO, 1.0)
 		if d.get("final", false):
 			_cage(s, part_at(d.parts[0][1], Vector3(-6.5, 0, 1.0)))
-		_extras(s, d, world_of(i))
+		_extras(s, d, world_of(i), bonus_of(i)[0] == "ally")
 		_frame(s, Vector3.ZERO, 1.0)
 	s.ammo_slots.clear()
 	var ammo_of := {"fire": FIRE, "he": HE, "oil": OIL, "flare": FLARE}
@@ -421,6 +448,8 @@ static func build(i: int, s: Stage) -> void:
 		# 비 맞는 나무와 짚은 모두 젖는다 (화약통·연료관·도화선은 그대로)
 		for st in s.structures:
 			for b in st.blocks:
+				if b.mat == M.KEG and not b.has_meta("dry"):
+					b.set_meta("rain_wets", true)
 				b.make_wet()
 	if is_night(i):
 		s.night = true
@@ -440,7 +469,8 @@ static func _frame(s: Stage, origin: Vector3, k := PART_SCALE) -> void:
 
 ## 배경 고블린 (판정과 무관). 1월드의 화약통·폭발통 곁에서는 "여기야!" 하고 손짓하는 고블린 (휘말려도 개의치 않는다),
 ## 1월드에서는 인간 건물 앞에서 병사와 싸우거나 돌멩이를 던지는 마을 고블린.
-static func _extras(s: Stage, d: Dictionary, world: int) -> void:
+## ally_foe: 첫 싸움 고블린의 상대를 진짜 병사로 (보조 목표 "아군 고블린 돕기").
+static func _extras(s: Stage, d: Dictionary, world: int, ally_foe := false) -> void:
 	var GE := GoblinExtra.Mode
 	var n := 0
 	for part in d.parts:
@@ -463,7 +493,9 @@ static func _extras(s: Stage, d: Dictionary, world: int) -> void:
 				s.add_extra(c + Vector3(hs * 5.2, 0, 0.8), 210.0 * hs, GE.WAVE, c + Vector3(hs * 2.7, 0.6, -1.9))
 		if world == 0 and n < 2 and part[0] != "fortress":
 			var side := -1.0 if c.x > 0.0 else 1.0
-			s.add_extra(c + Vector3(side * 4.5, 0, 6.0), 90.0 * side, GE.FIGHT)
+			var fighter := s.add_extra(c + Vector3(side * 4.5, 0, 6.0), 90.0 * side, GE.FIGHT, Vector3.INF, ally_foe and n == 0)
+			if fighter.real_foe:
+				fighter.real_foe.set_meta("ally_foe", true)
 			s.add_extra(c + Vector3(-side * 3.0, 0, 7.5), 0.0, GE.THROW)
 			n += 1
 
@@ -488,11 +520,44 @@ static func _in_rocket_cluster(d: Dictionary, pos: Vector3) -> bool:
 	return false
 
 
+## 보조 목표 풀이 (테스트가 실제로 던져 본다): {진지: {부품 번호: [main 풀이도 이어 던질지, 단계...]}}.
+## 단계의 목표: 정수 = 그 번호 지휘관, Vector3 = 부품 중심 기준 자리 (부품 배율 전), "ally_foe" = 아군 고블린과 싸우는 병사.
+## 여기 없는 부품은 설계상 풀이 그대로 (그것만으로 보조 목표가 채워지는 진지는 아예 없다).
+const BONUS_PLAN := {
+	1: {0: [true, [K.HE, "ally_foe", false, 0.0]]},
+	10: {0: [true, [K.FIRE, Vector3(0, 1.85, 3.0), false, 0.0]]},
+	11: {0: [true, [K.FIRE, Vector3(-0.8, 1.45, 2.0), false, 0.0]]},
+	12: {0: [true, [K.FIRE, HOPPER_WINDOW, false, 0.0]]},
+	13: {0: [true, [K.FIRE, Vector3(1.3, 0.0, -1.6), false, 5.0]]},
+	14: {0: [false, [K.FIRE, 0, false, 0.0]], 1: [false, [K.FIRE, 1, false, 0.0]]},
+	15: {0: [false, [K.FIRE, 0, false, 0.0]], 1: [false, [K.FIRE, 1, false, 0.0]]},
+	16: {0: [false, [K.FIRE, HOPPER_WINDOW, false, 0.0]]},
+	18: {1: [false, [K.FIRE, Vector3(-0.8, 1.45, 2.0), false, 0.0]]},
+	19: {1: [false, [K.FIRE, HOPPER_WINDOW, false, 0.0]]},
+	22: {0: [false, [K.HE, 0, true, 0.0]], 1: [false, [K.HE, 1, true, 0.0]]},
+	25: {1: [false, [K.FIRE, TENT_LEGS, false, 0.0]]},
+	26: {1: [false, [K.HE, 1, true, 0.0]]},
+	27: {0: [false, [K.HE, 0, false, 0.0]], 1: [false, [K.HE, 1, true, 0.0]]},
+	40: {1: [false, [K.HE, 1, true, 0.0]], 2: [false, [K.HE, 2, false, 0.0]]},
+	41: {1: [false, [K.FIRE, HOPPER_WINDOW, false, 0.0]]},
+	42: {1: [false, [K.FIRE, 1, false, 0.0], [K.HE, Vector3(-4, 0.95, 3), false, 0.0]]},
+	43: {1: [false, [K.HE, Vector3(0, 1.2, 0.8), true, 0.0]]},
+	46: {1: [false, [K.FLARE, Vector3(5.2, 0.1, 1.2), false, 6.5], [K.HE, 1, false, 0.0]], 3: [false, [K.HE, 3, true, 0.0]]},
+	47: {1: [false, [K.FIRE, HOPPER_WINDOW, false, 0.0]]},
+	49: {2: [false, [K.HE, 2, true, 3.0]]},
+}
+## 호퍼 돌집 앞벽의 작은 창 가운데 (불항아리는 가파르게 떨어지므로 지휘관 가슴이 아니라 창을 겨눈다)
+const HOPPER_WINDOW := Vector3(0, 1.3, 1.3)
+## 천막 문 너머 지휘관의 다리 (가슴을 겨누면 가파르게 떨어지는 항아리가 앞벽 위에 걸린다)
+const TENT_LEGS := Vector3(0, 0.3, -0.3)
+
+
 ## 설계상 풀이: [[탄종, 목표, 높이 띄우기, 던진 뒤 기다림(초)], ...] (테스트가 실제로 던져 본다).
 ## 목표가 정수면 그 번호 지휘관의 지금 자리. ["ally"]는 지원형 풀이.
 ## 순서: 발리스타 → 폭격 무리 밖의 부품 → 폭격 무리 한가운데에 조명탄 한 발 (발리스타가 다 쓰러진 뒤).
 ## 최종 진지: 발리스타 → ["button"] (발사 버튼을 누른다).
-static func plan(i: int) -> Array:
+## bonus: 보조 목표 풀이 (BONUS_PLAN의 부품은 그 단계로 바꾸거나 앞에 붙인다).
+static func plan(i: int, bonus := false) -> Array:
 	var d: Dictionary = STAGES[i]
 	if d.get("fixed", "") == "ally":
 		# 병사 셋 한가운데 폭탄 → 망루 통나무 문에 불 → 금 간 성벽에 폭탄 → 동료가 성문 앞에서 스스로 터진다
@@ -519,13 +584,22 @@ static func plan(i: int) -> Array:
 	if not out.is_empty():
 		# 발리스타 탑이 다 타서 무너질 때까지 기다린다
 		out[out.size() - 1][3] = 10.0
+	var extra: Dictionary = BONUS_PLAN.get(i, {}) if bonus else {}
 	if d.get("launch_button", false):
+		for k in extra:
+			out.append_array(_bonus_steps(extra[k], d.parts[k][1], budget))
 		out.append(["button"])
 		return out
 	var ci := 0
 	var cluster := []
-	for part in d.parts:
+	for k in d.parts.size():
+		var part: Array = d.parts[k]
 		var opts: Dictionary = part[2] if part.size() > 2 else {}
+		if extra.has(k):
+			out.append_array(_bonus_steps(extra[k], part[1], budget))
+			if not extra[k][0]:
+				ci += _commanders_in(part)
+				continue
 		if part[0] == "bunker" or _in_rocket_cluster(d, part[1]):
 			cluster.append(part[1])
 		else:
@@ -537,6 +611,19 @@ static func plan(i: int) -> Array:
 			center += p
 		center /= cluster.size()
 		out.append([K.FLARE, center + Vector3(0, 0.3, 0), false, 0.0])
+	return out
+
+
+## BONUS_PLAN 한 부품의 단계 (자리는 부품 배율만큼 키운다. 폭탄 수는 budget에서 뺀다).
+static func _bonus_steps(entry: Array, c: Vector3, budget: Dictionary) -> Array:
+	var out := []
+	for step in entry.slice(1):
+		var s: Array = step.duplicate()
+		if s[1] is Vector3:
+			s[1] = c + s[1] * PART_SCALE
+		if s[0] == K.HE:
+			budget["he"] = budget.get("he", 0) - 1
+		out.append(s)
 	return out
 
 
@@ -680,8 +767,10 @@ static func _part_tower(s: Stage, c: Vector3, o: Dictionary) -> void:
 
 ## 짚 지붕 판자 오두막 (앞벽 가운데 창문). 벽이 타면 안의 지휘관도 탄다.
 static func _part_hut(s: Stage, c: Vector3, _o: Dictionary) -> void:
-	StageDefs.hut(s.add_structure(), c, 2.0, 2.6)
-	s.add_commander(c + Vector3(0, 0, -0.3), 180.0, Vector3(2.8, 0, 1.0))
+	var st := s.add_structure()
+	StageDefs.hut(st, c, 2.0, 2.6)
+	var cm := s.add_commander(c + Vector3(0, 0, -0.3), 180.0, Vector3(2.8, 0, 1.0))
+	_room(s, cm, c, Vector3(-1.8, 0, -1.8), Vector3(1.8, 2.6, 1.8), st)
 
 
 ## 대장간 차양: 목책(문 열림) 뒤 석재 기둥 위 두꺼운 나무 지붕.
@@ -834,7 +923,9 @@ static func _part_courtyard(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	StageDefs.hut(st, c, 2.0, 2.6)
 	# 마당을 두르는 흰 돌담 (앞벽만 낡아 금이 갔다)
 	s.add_enclosure(c + Vector3(0, 0, 0.5), Vector2(4.5, 4.25), 3.0, "stone", 0.5)
-	s.add_commander(c, 180.0, Vector3(3.0, 0, -0.5))
+	var cm := s.add_commander(c, 180.0, Vector3(3.0, 0, -0.5))
+	# 방은 안쪽 막사 (앞 석벽 창과 막사 창을 둘 다 지나야 한다)
+	_room(s, cm, c, Vector3(-1.8, 0, -1.8), Vector3(1.8, 2.6, 1.8), st)
 
 
 ## 석재 망대 (기둥 넷 위 석재 바닥과 난간). 앞 왼쪽 기둥 하나만 금이 갔다.
@@ -918,6 +1009,13 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	s.add_guard(c + Vector3(5, 0, 2), 180.0)
 
 
+## 창문 판정용 방: 지휘관이 든 방(부품 기준 lo~hi)과 그 벽 (Stage._mark_window_entry).
+static func _room(s: Stage, cm: Commander, c: Vector3, lo: Vector3, hi: Vector3, walls: Structure) -> void:
+	var a := s.at(c + lo)
+	cm.set_meta("room", AABB(a, s.at(c + hi) - a))
+	cm.set_meta("room_walls", walls.blocks.duplicate())
+
+
 ## 석재 망대의 기둥: 강철 기둥은 폭발통 같은 큰 폭발에만 부러지지만 겉모양은 깨끗한 흰 석재로 맞춘다.
 static func _pillar(st: Structure, mat: int, center: Vector3, size: Vector3) -> void:
 	var b := st.add_block(mat, center, size)
@@ -975,7 +1073,8 @@ static func _part_oilhouse(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	_fuse(st, c + Vector3(0.3, 0, half - 1.0), c + Vector3(0.3, 0, half + 4.0), 5, true)
 	for i in 4:
 		st.add_block(M.FUEL, c + Vector3(0.3, 0.15, half - 1.4 - i * 0.8), Vector3(0.3, 0.3, 0.8))
-	s.add_commander(c + Vector3(-1.0, 0, -1.2), 180.0, Vector3(-1.2, 0, -0.4))
+	var cm := s.add_commander(c + Vector3(-1.0, 0, -1.2), 180.0, Vector3(-1.2, 0, -0.4))
+	_room(s, cm, c, Vector3(-2.4, 0, -2.4), Vector3(2.4, 3.0, 2.4), st)
 
 
 ## 숙소·창고: 판자 벽(창문 둘) + 기와(석재) 지붕. 벽이 타면 안의 지휘관도 탄다.
@@ -995,11 +1094,13 @@ static func _part_barn(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	for sx in [-1, 1]:
 		st.add_block(M.WOOD_THIN, c + Vector3(sx * (half - 0.1), height * 0.5, 0), Vector3(0.2, height, half * 2.0 - 0.4))
 	st.add_block(M.STONE, c + Vector3(0, height + 0.15, 0), Vector3(half * 2.0 + 0.3, 0.3, half * 2.0 + 0.3))
-	s.add_commander(c + Vector3(0, 0, -0.5), 180.0, Vector3(2.8, 0, 2.8))
+	var cm := s.add_commander(c + Vector3(0, 0, -0.5), 180.0, Vector3(2.8, 0, 2.8))
+	_room(s, cm, c, Vector3(-half + 0.2, 0, -half + 0.2), Vector3(half - 0.2, height, half - 0.2), st)
 	s.add_guard(c + Vector3(4, 0, 3), 180.0)
 
 
 ## 석탄 호퍼: 돌집 안의 지휘관. 앞과 옆 벽, 지붕이 석재라 폭탄이 안 통하고 뒤쪽만 뚫려 있다.
+## 앞벽 가운데 작은 창으로 안의 지휘관이 보인다 (창으로 집어넣으면 보조 목표).
 ## 화약통은 집 뒤 땅에 놓여 플레이어 쪽 집 옆으로 삐져나와 보인다. 통을 터뜨리면 뚫린 뒤쪽으로 폭풍이 들어가 지휘관이 쓰러진다.
 ## 비가 오면 화약통이 젖어 기름을 부어야 탄다.
 static func _hopper_side(c: Vector3) -> float:
@@ -1009,18 +1110,22 @@ static func _hopper_side(c: Vector3) -> float:
 static func _part_hopper(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var side := _hopper_side(c)
 	var house := s.add_structure()
-	house.add_block(M.STONE, c + Vector3(0, 1.2, 1.15), Vector3(3.6, 2.4, 0.3))
+	# 앞벽 가운데 폭탄이 겨우 들어가는 작은 창 (안의 지휘관이 보인다)
+	StageDefs.window_wall(house, M.STONE, c + Vector3(0, 0, 1.15), 3.6, [1.0, 0.6, 0.8], 5, [2], 0.3)
 	for sx in [-1, 1]:
 		house.add_block(M.STONE, c + Vector3(sx * 1.65, 1.2, 0), Vector3(0.3, 2.4, 2.6))
 	house.add_block(M.STONE, c + Vector3(0, 2.6, 0), Vector3(4.0, 0.4, 3.2))
 	var yard := s.add_structure()
 	var keg := yard.add_block(M.KEG, c + Vector3(side * 2.7, 0.6, -2.4), Vector3(1.2, 1.2, 1.2))
 	keg.set_meta("rain_wets", true)
-	s.add_commander(c + Vector3(side * 0.3, 0, -0.5), 180.0, Vector3(0.0, 0, 0.8))
+	var cm := s.add_commander(c + Vector3(0, 0, -0.5), 180.0, Vector3(0.0, 0, 0.8))
+	_room(s, cm, c, Vector3(-1.5, 0, -1.3), Vector3(1.5, 2.4, 1.0), house)
 
 
 ## 절벽 밑 감시굴 (E6): 석재 덮개가 금 간 돌기둥(왼쪽)과 나무 버팀목(오른쪽)에만 얹혀 있다.
-static func _part_cave(s: Stage, c: Vector3, _o: Dictionary) -> void:
+## o.keg: 갱도 입구 앞 돌무더기 위에 비 안 맞는 폭발통 (덮개와 앞 바위 사이 틈으로 불항아리를 넣어 통 앞 바닥에 떨어뜨리면 불웅덩이에 터진다: 보조 목표).
+##   이때 지휘관은 불에 안 탄다 (불항아리 웅덩이로 먼저 쓰러지지 않게).
+static func _part_cave(s: Stage, c: Vector3, o: Dictionary) -> void:
 	# 무너진 갱도 입구: 절벽 한가운데 뚫린 검은 굴, 부러져 기운 나무 받침틀, 입구를 반쯤 메운 돌무더기
 	var cliff := Color(0.55, 0.47, 0.43)
 	var timber := Color(0.36, 0.24, 0.13)
@@ -1046,7 +1151,12 @@ static func _part_cave(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	st.add_block(M.STONE, c + Vector3(-0.8, 3.95, -0.8), Vector3(1.6, 0.7, 1.4))
 	st.add_block(M.STONE, c + Vector3(1.4, 3.85, 0.2), Vector3(1.1, 0.5, 1.0))
 	s.add_rock(c + Vector3(0, 0.8, 2.8), Vector3(7.0, 1.6, 0.8), Color(0.5, 0.43, 0.4))
-	s.add_commander(c + Vector3(0, 0, -0.8), 180.0, Vector3(1.0, 0, -0.6))
+	var cm := s.add_commander(c + Vector3(0, 0, -0.8), 180.0, Vector3(1.0, 0, -0.6))
+	if o.get("keg", false):
+		cm.fireproof = true
+		var keg := s.add_structure().add_block(M.KEG, c + Vector3(1.3, 1.6, -3.6), Vector3(1.0, 1.0, 1.0))
+		keg.set_meta("bonus_keg", true)
+		keg.set_meta("dry", true)
 
 
 ## 강철 성벽 뒤 나무 막사 (짚 지붕). 성벽은 폭탄으로 안 부서지지만 가운데 작은 창으로 막사 창 너머 지휘관이 보이고,

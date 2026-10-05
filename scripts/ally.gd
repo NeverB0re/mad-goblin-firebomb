@@ -67,21 +67,21 @@ func blocked() -> bool:
 
 
 ## 성문 앞에서만 폭발통이 불에 반응한다. 그 전에는 그을릴 뿐이다.
-func on_fire_touch() -> void:
+func on_fire_touch(_tid := -1) -> void:
 	if at_gate and not exploded:
 		_detonate()
 	else:
 		singe()
 
 
-func on_direct_hit(ammo: AmmoType) -> void:
+func on_direct_hit(ammo: AmmoType, _tid := -1) -> void:
 	if at_gate and not exploded and ammo.kind == AmmoType.Kind.FIRE:
 		_detonate()
 	else:
 		singe()
 
 
-func on_blast(pos: Vector3, radius: float) -> void:
+func on_blast(pos: Vector3, radius: float, _tid := -1) -> void:
 	if chest().distance_to(pos) <= radius:
 		singe()
 

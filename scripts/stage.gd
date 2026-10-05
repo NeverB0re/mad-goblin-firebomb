@@ -64,6 +64,12 @@ var throws := 0
 var thrown := {}
 ## 발리스타에 격추된 글라이더 수
 var shot_down := 0
+## 투척 번호(1부터)별 탄종 (보조 목표: 쾅쾅알 하나로 둘 잡기)
+var throw_kinds := {}
+## 하늘쾅 한 발에 쓰러진 지휘관 수의 최댓값 (보조 목표: 깃발 두 개 꺾기)
+var best_strike := 0
+## 보조 목표 폭발통(bonus_keg 메타)이 터졌는지
+var bonus_keg_blown := false
 var elapsed := 0.0
 var _projectiles: Array[Projectile] = []
 var _quiet := 0.0
@@ -744,9 +750,11 @@ func rocket_strike(pos: Vector3, radius: float, strength: float, kill_radius: fl
 	column.global_position = pos
 	get_tree().create_timer(3.0, false, true).timeout.connect(Callable(column, "set").bind("emitting", false))
 	Fx.free_after(column, 12.0)
+	var before := commanders.filter(func(c): return c.dead).size()
 	for a in get_tree().get_nodes_in_group("actors"):
 		if not a.dead and a.chest().distance_to(pos) < kill_radius:
 			a.defeat("blast")
+	best_strike = maxi(best_strike, commanders.filter(func(c): return c.dead).size() - before)
 	Sfx.play_delayed(self, "boom", pos, 12.0, _listener())
 	shake_requested.emit(1.0)
 	if player:
@@ -788,7 +796,9 @@ func try_throw(origin: Vector3, direction: Vector3) -> bool:
 	slot.count -= 1
 	throws += 1
 	thrown[slot.type.kind] = int(thrown.get(slot.type.kind, 0)) + 1
+	throw_kinds[throws] = slot.type.kind
 	var p := Projectile.new()
+	p.set_meta("tid", throws)
 	add_child(p)
 	var excluded: Array[RID] = []
 	if player:
@@ -818,8 +828,10 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 	if collider == null:
 		return
 	var ammo := p.ammo
+	var tid: int = p.get_meta("tid", -1)
+	_mark_window_entry(pos, tid)
 	if collider is Actor:
-		collider.on_direct_hit(ammo)
+		collider.on_direct_hit(ammo, tid)
 	match ammo.kind:
 		AmmoType.Kind.FIRE:
 			Sfx.play_delayed(self, "break", pos, 0.0, _listener())
@@ -829,9 +841,10 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			Fx.flash(self, pos, 3.0, 9.0, 0.35)
 			for s in structures:
 				s.apply_impact(pos, ammo.impact_radius, ammo.impact_strength)
-			_blast_actors(pos, ammo.kill_radius)
+			_blast_actors(pos, ammo.kill_radius, tid)
 			var on_steel: bool = collider is Block and collider.mat == Block.Mat.STEEL
 			var pool := FirePool.new()
+			pool.tid = tid
 			add_child(pool)
 			pool.global_position = pos + normal * 0.05
 			if on_steel:
@@ -858,8 +871,8 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 			Fx.free_after(fireball, 2.0)
 			for s in structures:
 				s.apply_impact(pos, ammo.impact_radius, ammo.impact_strength)
-			_blast_actors(pos, ammo.kill_radius)
-			_detonate_kegs(pos, ammo.impact_radius)
+			_blast_actors(pos, ammo.kill_radius, tid)
+			_detonate_kegs(pos, ammo.impact_radius, tid)
 		AmmoType.Kind.OIL:
 			Sfx.play_delayed(self, "break", pos, -4.0, _listener())
 			var slick := OilSlick.new()
@@ -890,6 +903,21 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 	Fx.free_after(smoke, TRACE_TIME)
 
 
+## 창문 진지: 투척이 지휘관의 방(room 메타) 안에 떨어졌고 그 순간 벽(room_walls)이 멀쩡하면 창문으로 들어간 것이다.
+## 그 투척으로 쓰러지면 보조 목표 "창문으로 집어넣기" (Campaign.bonus_met).
+func _mark_window_entry(pos: Vector3, tid: int) -> void:
+	for c in commanders:
+		if c.dead or not c.has_meta("room") or not (c.get_meta("room") as AABB).grow(0.05).has_point(pos):
+			continue
+		var intact := true
+		for b in c.get_meta("room_walls", []):
+			if not is_instance_valid(b) or b.fallen or b.burnt:
+				intact = false
+				break
+		if intact:
+			c.set_meta("window_tid", tid)
+
+
 func _listener() -> Vector3:
 	return player.global_position if player else Vector3.ZERO
 
@@ -902,16 +930,17 @@ func _shards(pos: Vector3, color: Color) -> void:
 	Fx.free_after(shards, 2.0)
 
 
-func _blast_actors(pos: Vector3, radius: float) -> void:
+func _blast_actors(pos: Vector3, radius: float, tid := -1) -> void:
 	for a in get_tree().get_nodes_in_group("actors"):
-		a.on_blast(pos, radius)
+		a.on_blast(pos, radius, tid)
 	# 배경 고블린(과 같이 싸우던 병사)은 휘말리면 날아간다
 	for e in get_tree().get_nodes_in_group("goblin_extras"):
 		e.on_blast(pos, maxf(radius, 2.5))
 
 
 ## 배경 고블린 (판정과 무관). point_at: 손짓해 가리킬 곳 (화약통).
-func add_extra(pos: Vector3, yaw_deg: float, mode: int, point_at := Vector3.INF) -> GoblinExtra:
+## real_foe (FIGHT): 상대가 장식이 아닌 진짜 병사 (잡을 수 있다. 보조 목표 "아군 고블린 돕기").
+func add_extra(pos: Vector3, yaw_deg: float, mode: int, point_at := Vector3.INF, real_foe := false) -> GoblinExtra:
 	pos = at(pos)
 	if point_at != Vector3.INF:
 		point_at = at(point_at)
@@ -919,22 +948,31 @@ func add_extra(pos: Vector3, yaw_deg: float, mode: int, point_at := Vector3.INF)
 	e.position = pos
 	e.rotation.y = deg_to_rad(yaw_deg)
 	add_child(e)
+	if real_foe:
+		# 고블린 앞 1.3m에서 고블린을 마주 보고 창을 찌른다
+		var g := Guard.new().setup(false)
+		g.position = pos + e.basis * Vector3(0, 0, -1.3)
+		g.rotation.y = e.rotation.y + PI
+		add_child(g)
+		g.watch = e
+		e.real_foe = g
 	e.setup(mode, point_at)
 	return e
 
 
 ## 폭발이 화약통에 닿으면 0.15초 간격으로 연쇄 폭발한다 (쾅, 쾅, 쾅).
-func _detonate_kegs(pos: Vector3, radius: float) -> void:
+func _detonate_kegs(pos: Vector3, radius: float, tid := -1) -> void:
 	for b in get_tree().get_nodes_in_group("flammable"):
 		var block := b as Block
 		if block.mat == Block.Mat.KEG and not block.burnt and block.distance_to_point(pos) <= radius:
-			block.fuse(0.15)
+			block.fuse(0.15, tid)
 
 
 ## 화약통·폭발통 폭발: 석재 벽에도 통하는 큰 충격, 주변 점화, 기름 점화, 인물 판정.
 ## forced: 플레이어 투척으로는 안 부서지는 구조(성문)에도 통하는 폭발 (동료의 폭발통).
 ## 큰 폭발은 강철판도 날린다 (explosive). 흰 석재는 그대로.
-func explode(pos: Vector3, radius: float, strength: float, forced := false, rings := true) -> void:
+## tid: 이 폭발을 일으킨 플레이어 투척 번호 (쾅쾅알이 터뜨린 화약통). 쓰러진 인물과 이어 터지는 통에 넘긴다.
+func explode(pos: Vector3, radius: float, strength: float, forced := false, rings := true, tid := -1) -> void:
 	if not is_inside_tree():
 		return
 	Fx.scorch(self, Vector3(pos.x, 0.05, pos.z), radius * 0.6, 40.0)
@@ -961,8 +999,8 @@ func explode(pos: Vector3, radius: float, strength: float, forced := false, ring
 	for o in get_tree().get_nodes_in_group("oil"):
 		if o.global_position.distance_to(pos) <= radius:
 			o.ignite_after(0.05)
-	_blast_actors(pos, radius * 0.8)
-	_detonate_kegs(pos, radius)
+	_blast_actors(pos, radius * 0.8, tid)
+	_detonate_kegs(pos, radius, tid)
 
 
 ## 과장된 착탄 연출: 히트스톱, 땅을 쓰는 흙먼지, 불덩이, 거리 비례 흔들림, 병사 반응 (판정과 무관).
@@ -1064,9 +1102,11 @@ func on_block_burnt(b: Block) -> void:
 	Fx.free_after(embers, 2.0)
 	match b.mat:
 		Block.Mat.KEG:
+			if b.has_meta("bonus_keg"):
+				bonus_keg_blown = true
 			# 화약통: 석재 벽에도 통하는 큰 충격. 큰 화약통(blast 메타)은 더 크게 터진다
 			var blast: Array = b.get_meta("blast", [6.0, 450.0])
-			explode.call_deferred(b.global_position, blast[0], blast[1])
+			explode.call_deferred(b.global_position, blast[0], blast[1], false, true, b.get_meta("blast_tid", -1))
 		Block.Mat.FUEL:
 			# 연료 배관이 다 타면 그 자리에서 불길이 확 솟는다
 			var pool := FirePool.new()

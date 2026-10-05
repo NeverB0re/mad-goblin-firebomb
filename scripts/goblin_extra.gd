@@ -13,6 +13,8 @@ var mode: int = Mode.WAVE
 var point_at := Vector3.INF
 var _body: Node3D
 var _foe: Node3D
+## 진짜 병사 상대 (Stage.add_extra의 real_foe). 이 고블린은 폭발에 날아가지 않고, 병사가 쓰러지면 만세를 부른다
+var real_foe: Guard
 var _club: Node3D
 var _t := 0.0
 var _flying := false
@@ -31,6 +33,7 @@ func setup(p_mode: int, p_point_at := Vector3.INF) -> GoblinExtra:
 	if mode == Mode.FIGHT:
 		var arm: Node3D = _body.get_node("ArmR")
 		_club = Models.box(arm, Vector3(0.12, 0.7, 0.12), Vector3(0, -0.7, 0), Models.mat(Color(0.4, 0.27, 0.15)))
+	if mode == Mode.FIGHT and real_foe == null:
 		_foe = Models.human(Models.HUMAN_STEEL, Models.Hat.HELMET)
 		_foe.position = Vector3(0, 0, -1.3)
 		_foe.rotation.y = PI
@@ -41,7 +44,7 @@ func setup(p_mode: int, p_point_at := Vector3.INF) -> GoblinExtra:
 
 ## 근처 폭발: 반경 안이면 과장되게 날아간다 (판정과 무관한 연출).
 func on_blast(pos: Vector3, radius: float) -> void:
-	if _flying or global_position.distance_to(pos) > radius * 1.3 + 1.0:
+	if real_foe or _flying or global_position.distance_to(pos) > radius * 1.3 + 1.0:
 		return
 	_flying = true
 	var away := global_position - pos
@@ -83,6 +86,12 @@ func _process(delta: float) -> void:
 				arm_l.rotation = Vector3(0, 0, -2.4 + sin(_t * 12.0) * 0.6)
 				arm_r.rotation = Vector3(0, 0, 2.4 + sin(_t * 12.0 + 1.5) * 0.6)
 		Mode.FIGHT:
+			if real_foe and real_foe.dead:
+				# 도와줘서 고마워! 몽둥이를 치켜들고 펄쩍펄쩍
+				_body.position = Vector3(0, absf(sin(_t * 8.0)) * 0.45, 0)
+				arm_r.rotation = Vector3(0, 0, 2.6 + sin(_t * 16.0) * 0.4)
+				arm_l.rotation = Vector3(0, 0, -2.6 - sin(_t * 16.0) * 0.4)
+				return
 			# 몽둥이를 휘두르고, 병사는 창을 찌르며 들썩
 			var swing := sin(_t * 6.0)
 			arm_r.rotation = Vector3(-1.2 - swing * 1.0, 0, 0.3)

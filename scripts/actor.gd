@@ -14,6 +14,10 @@ var dead := false
 var defeat_cause := ""
 ## 판정 대상이 아님 (동료 고블린: 그을리기만 한다)
 var invulnerable := false
+## 불에 안 탄다 (그을리기만 한다: 2-4의 갱도 지휘관)
+var fireproof := false
+## 쓰러뜨린 플레이어 투척 번호 (직격, 그 투척의 폭발, 그 투척이 남긴 불웅덩이). 그 밖의 원인이면 -1
+var throw_id := -1
 var visual: Node3D
 var uses_gravity := true
 var _rest_y := INF
@@ -51,23 +55,24 @@ func chest() -> Vector3:
 
 # ---------- 판정 ----------
 
-func on_fire_touch() -> void:
-	if invulnerable:
+## tid: 불을 낸 플레이어 투척 번호 (타는 블록 등 다른 불이면 -1)
+func on_fire_touch(tid := -1) -> void:
+	if invulnerable or fireproof:
 		singe()
 		return
-	defeat("fire")
+	defeat("fire", tid)
 
 
-func on_direct_hit(ammo: AmmoType) -> void:
+func on_direct_hit(ammo: AmmoType, tid := -1) -> void:
 	if ammo.kind == AmmoType.Kind.FIRE or ammo.kind == AmmoType.Kind.HE:
 		if invulnerable:
 			singe()
 		else:
-			defeat("direct")
+			defeat("direct", tid)
 
 
 ## 폭발 반경 판정. 착탄점과 가슴 사이를 블록이 가리면 엄폐되어 살아남는다.
-func on_blast(pos: Vector3, radius: float) -> void:
+func on_blast(pos: Vector3, radius: float, tid := -1) -> void:
 	if dead or radius <= 0.0:
 		return
 	if chest().distance_to(pos) > radius:
@@ -80,14 +85,15 @@ func on_blast(pos: Vector3, radius: float) -> void:
 	if invulnerable:
 		singe()
 	else:
-		defeat("blast")
+		defeat("blast", tid)
 
 
-func defeat(cause: String) -> void:
+func defeat(cause: String, tid := -1) -> void:
 	if dead or invulnerable:
 		return
 	dead = true
 	defeat_cause = cause
+	throw_id = tid
 	collision_layer = 0
 	_on_defeated(cause)
 	defeated.emit(self, cause)
@@ -135,7 +141,10 @@ func launch(dir: Vector3, style: int, power := 1.0) -> void:
 	_fly_vel *= power
 
 
-## 불타며 허둥댄다 (승리 연출: 날아가지 않고 불탄 경우). 쓰러진 뒤에도 몸짓을 계속한다.
+## 불타며 허둥대다가 잠시 뒤 털썩 쓰러진다 (날아가지 않고 불탄 경우).
+const BURN_PANIC_TIME := 2.2
+
+
 func burn_panic() -> void:
 	_burn_panic = true
 	var fire := Fx.fire(Vector3(0.3, 0.7, 0.3), 36, 0.45)
@@ -229,6 +238,16 @@ func _process(delta: float) -> void:
 		# 팔을 마구 휘두르며 제자리에서 펄쩍펄쩍
 		var t := _anim_t + _fly_time
 		_fly_time += delta
+		if _fly_time >= BURN_PANIC_TIME:
+			# 그을린 채 앞으로 털썩 (불은 몸 위에서 계속 탄다)
+			_burn_panic = false
+			var tw := create_tween().set_parallel(true)
+			tw.tween_property(visual, "rotation", Vector3(-PI * 0.5, visual.rotation.y, 0), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+			tw.tween_property(visual, "position", Vector3(0, 0.2, 0), 0.35)
+			for child in get_children():
+				if child is GPUParticles3D:
+					tw.tween_property(child, "position:y", 0.4, 0.35)
+			return
 		visual.position = Vector3(sin(t * 17.0) * 0.12, absf(sin(t * 11.0)) * 0.35, 0)
 		visual.rotation = Vector3(-0.15, sin(t * 7.0) * 0.6, sin(t * 13.0) * 0.12)
 		for arm_name in ["ArmL", "ArmR"]:
