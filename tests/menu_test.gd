@@ -75,6 +75,19 @@ func _run() -> void:
 	main.menus.stage_chosen.emit(1)
 	await _frames(10)
 	_check(main.stage.stage_id == "1-2" and not paused, "진지 고르기 → 1-2")
+	# 승리 → "다음 진지로!" → 잠깐 어두워졌다가 1-3이 밝아진다
+	main.stage.commander.defeat("direct")
+	for i in 1200:
+		if main.result and main.result._ready_for_input:
+			break
+		await process_frame
+	main.result._choose("next")
+	await _frames(3)
+	var dark: float = main._curtain.color.a
+	for i in 120:
+		await process_frame
+	_check(main.stage.stage_id == "1-3" and dark > 0.0 and main._curtain.color.a == 0.0,
+		"다음 진지로 → 막이 덮였다가(%.2f) 걷히고 1-3 (%s)" % [dark, main.stage.stage_id])
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveData.path))
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

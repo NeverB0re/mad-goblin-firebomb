@@ -17,6 +17,8 @@ var _sky_mat: ProceduralSkyMaterial
 var _sun: DirectionalLight3D
 var _fail_count := 0
 var menus: Menus
+## 다음 진지로 넘어갈 때 덮는 막 (메뉴·결과 화면 위, 월드 시작 컷 아래)
+var _curtain: ColorRect
 
 
 func _ready() -> void:
@@ -237,6 +239,23 @@ func load_stage(index: int) -> void:
 	hud.set_bonus("" if test_mode else Campaign.bonus_text(stage_index))
 
 
+## 화면을 막으로 덮거나(1) 걷는다(0).
+func _fade(to: float, seconds: float) -> void:
+	if _curtain == null:
+		var layer := CanvasLayer.new()
+		layer.layer = 9
+		layer.process_mode = Node.PROCESS_MODE_ALWAYS
+		add_child(layer)
+		_curtain = ColorRect.new()
+		_curtain.color = Color(UiStyle.INK, 0.0)
+		_curtain.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_curtain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(_curtain)
+	var tw := _curtain.create_tween().set_ignore_time_scale(true)
+	tw.tween_property(_curtain, "color:a", to, seconds)
+	await tw.finished
+
+
 func _on_target_down(target: Actor, cause: String, focus: Vector3) -> void:
 	result = ResultScreen.new()
 	add_child(result)
@@ -284,7 +303,11 @@ func _on_result_proceed(action: String) -> void:
 			show_title()
 			return
 	elif action == "next" and not test_mode:
-		_on_stage_chosen(stage_index + 1)
+		# 잠깐 어두워졌다가 (그동안 다음 진지를 만든다) 다시 밝아진다
+		await _fade(1.0, 0.2)
+		await get_tree().process_frame
+		await _on_stage_chosen(stage_index + 1)
+		_fade(0.0, 0.35)
 		return
 	else:
 		load_stage(stage_index + (1 if action == "next" else 0))
