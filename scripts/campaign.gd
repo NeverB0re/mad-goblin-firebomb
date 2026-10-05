@@ -1434,7 +1434,7 @@ static func _part_tent(s: Stage, c: Vector3, o: Dictionary) -> void:
 
 ## 4-10 탄두 창고 자리 (창문이 쾅쾅알 최대 사거리 가까이에 오게) 와 창문 가운데 (부품 기준, 배율 전)
 const DEPOT_AT := Vector3(0, 0, -73.4)
-const DEPOT_WINDOW := Vector3(0, 3.95, 2.0)
+const DEPOT_WINDOW := Vector3(0, 4.0, 2.0)
 
 
 ## 4-10 탄두 창고: 거대 로켓의 탄두를 보관한 2층 강철 창고 (폭발물 딱지투성이). 2층 앞벽 작은 창 너머로 탄두와 화약통이 보인다.
@@ -1444,12 +1444,12 @@ static func _part_depot(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var st := s.add_structure()
 	var half := 2.0
 	var h := 5.6
-	# 앞벽: 아래 큰 판, 창 양옆 판 둘, 위 판 (블록 수를 아낀다). 창은 가운데 0.8 x 0.7
+	# 앞벽: 아래 큰 판, 창 양옆 판 둘, 위 판 (블록 수를 아낀다). 창은 가운데 1.6 x 1.0 (폭탄이 들어가기 쉽게)
 	var fz := half - 0.15
-	st.add_block(M.STEEL, c + Vector3(0, 1.8, fz), Vector3(half * 2.0, 3.6, 0.3))
+	st.add_block(M.STEEL, c + Vector3(0, 1.75, fz), Vector3(half * 2.0, 3.5, 0.3))
 	for sx in [-1, 1]:
-		st.add_block(M.STEEL, c + Vector3(sx * (0.4 + (half - 0.4) * 0.5), 3.95, fz), Vector3(half - 0.4, 0.7, 0.3))
-	st.add_block(M.STEEL, c + Vector3(0, 4.95, fz), Vector3(half * 2.0, 1.3, 0.3))
+		st.add_block(M.STEEL, c + Vector3(sx * (0.8 + (half - 0.8) * 0.5), 4.0, fz), Vector3(half - 0.8, 1.0, 0.3))
+	st.add_block(M.STEEL, c + Vector3(0, 5.05, fz), Vector3(half * 2.0, 1.1, 0.3))
 	st.add_block(M.STEEL, c + Vector3(0, h * 0.5, -half + 0.15), Vector3(half * 2.0, h, 0.3))
 	for sx in [-1, 1]:
 		st.add_block(M.STEEL, c + Vector3(sx * (half - 0.15), h * 0.5, 0), Vector3(0.3, h, half * 2.0 - 0.6))

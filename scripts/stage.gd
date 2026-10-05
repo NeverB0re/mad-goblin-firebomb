@@ -1150,7 +1150,7 @@ func on_block_burnt(b: Block) -> void:
 				mega_strike.call_deferred(b.global_position)
 			# 화약통: 석재 벽에도 통하는 큰 충격. 큰 화약통(blast 메타)은 더 크게 터진다
 			var blast: Array = b.get_meta("blast", [6.0, 450.0])
-			explode.call_deferred(b.global_position, blast[0], blast[1], false, true, b.get_meta("blast_tid", -1))
+			explode.call_deferred(b.get_meta("blast_at", b.global_position), blast[0], blast[1], false, true, b.get_meta("blast_tid", -1))
 		Block.Mat.FUEL:
 			# 연료 배관이 다 타면 그 자리에서 불길이 확 솟는다
 			var pool := FirePool.new()

@@ -390,6 +390,19 @@ func _run() -> void:
 			goals[g] = int(goals.get(g, 0)) + 1
 		var many := goals.keys().filter(func(k): return goals[k] > 3)
 		_check(many.is_empty(), "%d월드 같은 보조 목표는 세 번까지 (넘는 것 %s)" % [w + 1, many])
+	# 5-2 석탄 호퍼: 쾅쾅알로 폭발통을 터뜨려도 (충격에 통이 밀려 나가기 전 자리에서 터져) 옆 돌집의 지휘관이 쓰러진다
+	if _only <= 0 or _only == 5:
+		var s := _campaign(41)
+		await physics_frame
+		var keg: Block
+		for st in s.structures:
+			for b in st.blocks:
+				if b.mat == Block.Mat.KEG:
+					keg = b
+		var hopper: Commander = s.commanders.filter(func(c): return c.get_meta("part", "") == "hopper")[0]
+		await _throw_plan(s, AmmoType.Kind.HE, keg.global_position, false)
+		await _wait(s, 3.0)
+		_check(hopper.dead and hopper.defeat_cause == "blast", "5-2 쾅쾅알로 폭발통을 터뜨리면 옆 돌집 지휘관이 쓰러진다 (%s)" % hopper.defeat_cause)
 	# 3-2 불빛 구경꾼: 조명탄이 없으면 강철 초소 안에 그대로, 문 앞에 켜지면 걸어 나와 구경하고, 꺼지면 다시 들어간다
 	if _only <= 0 or _only == 3:
 		var s := _campaign(21)

@@ -190,13 +190,13 @@ func _apply_time_of_day(night: bool, rain := false) -> void:
 	_env.fog_density = 0.9 if night else 0.35
 	if night:
 		_sky_mat.sky_top_color = Color(0.004, 0.006, 0.016)
-		_sky_mat.sky_horizon_color = Color(0.04, 0.048, 0.09)
+		_sky_mat.sky_horizon_color = Color(0.03, 0.036, 0.07)
 		_sky_mat.ground_horizon_color = Color(0.008, 0.008, 0.014)
 		_sky_mat.ground_bottom_color = Color(0.0, 0.0, 0.0)
-		_env.ambient_light_energy = 0.04
-		_env.fog_light_color = Color(0.02, 0.024, 0.045)
+		_env.ambient_light_energy = 0.03
+		_env.fog_light_color = Color(0.015, 0.018, 0.035)
 		_sun.light_color = Color(0.55, 0.65, 0.9)
-		_sun.light_energy = 0.065
+		_sun.light_energy = 0.05
 	else:
 		_sky_mat.sky_top_color = Color(0.32, 0.52, 0.84)
 		_sky_mat.sky_horizon_color = Color(0.9, 0.87, 0.8)

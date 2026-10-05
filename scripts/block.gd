@@ -305,6 +305,9 @@ func fuse(seconds: float, tid := -1) -> void:
 		return
 	if tid >= 0 and not has_meta("blast_tid"):
 		set_meta("blast_tid", tid)
+	# 폭발에 맞아 터지는 통은 맞은 자리에서 터진다 (충격에 밀려 나간 자리에서 터져 옆 인물이 안 쓰러지는 일이 없게)
+	if not has_meta("blast_at"):
+		set_meta("blast_at", global_position)
 	if not burning:
 		burning = true
 		var f := Fx.fire(size * 0.4, 12, 0.4)
