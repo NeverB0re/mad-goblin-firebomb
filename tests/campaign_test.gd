@@ -264,13 +264,28 @@ func _run() -> void:
 			if s.total_ammo() == 0:
 				break
 			for sl in s.ammo_slots:
-				if sl.count > 0 and sl.type.kind in [AmmoType.Kind.HE, AmmoType.Kind.FIRE, AmmoType.Kind.OIL]:
+				if sl.count > 0 and sl.type.kind in [AmmoType.Kind.HE, AmmoType.Kind.FIRE]:
 					await _throw_plan(s, sl.type.kind, Vector3(-30, 0, -20), false)
 					break
 		await _wait(s, 1.0)
 		var early := s.state
 		await _expect(s, Stage.State.FAILED, "2-1 마지막 탄 직후엔 아직 안 지고(%s) 모두 멈춘 뒤 실패" % ("계속" if early == Stage.State.PLAYING else "이미 짐"), 25.0, "fail_ammo")
 		_check(early == Stage.State.PLAYING, "2-1 마지막 탄을 던진 직후 1초 동안은 지지 않는다")
+		# 쾅쾅알·불항아리가 다 떨어지고 보조탄(기름)만 남아도 진다
+		var s2 := _campaign(10)
+		await physics_frame
+		for k in 10:
+			var did := false
+			for sl in s2.ammo_slots:
+				if sl.count > 0 and sl.type.kind in [AmmoType.Kind.HE, AmmoType.Kind.FIRE]:
+					await _throw_plan(s2, sl.type.kind, Vector3(-30, 0, -20), false)
+					did = true
+					break
+			if not did:
+				break
+		var oil_left := s2.ammo_count(AmmoType.Kind.OIL)
+		await _expect(s2, Stage.State.FAILED, "2-1 쾅쾅알·불항아리가 다 떨어지고 기름(%d)만 남아도 실패" % oil_left, 30.0, "fail_ammo")
+		_check(oil_left > 0, "2-1 그때 기름이 아직 남아 있었다 (%d)" % oil_left)
 	# 3-3 금 간 석재 망대: 금 간 기둥 하나가 부러지면 망대가 그쪽으로 기울어 넘어간다 (밑으로 꺼지지 않는다)
 	if _only <= 0 or _only == 3:
 		var s := _campaign(22)

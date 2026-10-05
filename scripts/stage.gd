@@ -428,13 +428,13 @@ func _ammo_for_throw() -> AmmoType:
 	return current_ammo()
 
 
-## 남은 폭탄 수 (페인트탄과 조명탄은 치지 않는다: 그것만 남으면 더 할 수 있는 게 없다).
-## 단, 폭격대가 대기 중이면 조명탄은 폭격을 부르는 폭탄이다 (남은 폭격 수까지). 최종 로켓도 한 발로 친다.
+## 남은 주력 탄 수: 쾅쾅알과 불항아리. 보조탄(미끈기름, 연기알, 조명탄)은 치지 않는다: 보조탄만 남으면 더 할 수 있는 게 없어 진다.
+## 단, 폭격대가 대기 중이면 조명탄은 폭격을 부르는 탄이다 (남은 폭격 수까지). 최종 로켓도 한 발로 친다.
 func total_ammo() -> int:
 	var n := 0
 	for s in ammo_slots:
 		match s.type.kind:
-			AmmoType.Kind.PAINT:
+			AmmoType.Kind.PAINT, AmmoType.Kind.OIL:
 				pass
 			AmmoType.Kind.FLARE:
 				n += mini(s.count, bombers_left())
