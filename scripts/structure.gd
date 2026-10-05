@@ -104,6 +104,10 @@ func _check_leg_groups() -> bool:
 
 
 func add_block(mat: int, center: Vector3, size: Vector3) -> Block:
+	# 부품을 키워 짓는 중이면 자리와 크기를 함께 키운다 (Stage.build_scale)
+	if stage:
+		center = stage.at(center)
+		size *= stage.build_scale
 	var b := Block.new().setup(mat, size, center)
 	b.structure = self
 	add_child(b)

@@ -354,7 +354,7 @@ func _run() -> void:
 		await _wait(s, 3.0)
 		var stayed := cm.global_position.distance_to(home) < 0.2
 		var c: Vector3 = Campaign.STAGES[21].parts[0][1]
-		var spot := c + Campaign._guard_spot(1.0)
+		var spot := Campaign.part_at(c, Campaign._guard_spot(1.0))
 		await _throw_plan(s, AmmoType.Kind.FLARE, spot + Vector3(0, 0.1, 0), false)
 		await _wait(s, 7.0)
 		var out_d := Vector2(cm.global_position.x - spot.x, cm.global_position.z - spot.z).length()

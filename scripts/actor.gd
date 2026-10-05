@@ -208,7 +208,7 @@ func _check_surroundings() -> void:
 		if block.burnt:
 			continue
 		var d := block.distance_to_point(c)
-		if d > 1.2:
+		if d > 1.3:
 			continue
 		# 깔림: 위에서 떨어지는 블록만 친다 (옆으로 튕겨 나가는 과장된 파편은 판정에 쓰지 않는다)
 		if block.fallen and block.linear_velocity.y < -CRUSH_SPEED and block.global_position.y > c.y - 0.2 and d < 0.6 and block.mass > 0.3:
@@ -217,7 +217,8 @@ func _check_surroundings() -> void:
 			else:
 				defeat("crush")
 			return
-		if block.burning and d < 0.9:
+		# 불이 옮겨붙는 거리 (목표 건물을 1.2배로 키우며 0.9 → 1.1: 타는 막사 안에 있으면 탄다)
+		if block.burning and d < 1.1:
 			on_fire_touch()
 			if dead:
 				return

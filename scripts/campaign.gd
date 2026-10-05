@@ -35,6 +35,14 @@ const K := AmmoType.Kind
 const HILL := 6.0
 ## 폭격 한 번이 맡는 거리: 첫 벙커에서 이만큼 안의 부품은 폭격으로 끝낸다 (설계상 풀이에서 따로 던지지 않는다)
 const ROCKET_CLUSTER := 14.0
+## 목표 건물(부품·발리스타 탑)을 짓는 배율. 부품 중심 기준으로 자리와 크기를 키운다 (인물 크기는 그대로라 천장이 넉넉해진다).
+## 설계 풀이의 겨눌 곳도 같은 배율로 옮긴다.
+const PART_SCALE := 1.2
+
+
+## 부품 중심 c에서 off만큼 떨어진 곳 (부품 배율을 적용한 실제 자리)
+static func part_at(c: Vector3, off: Vector3) -> Vector3:
+	return c + off * PART_SCALE
 
 const WORLDS := ["점령당한 목책 마을", "비 내리는 광산 도시", "밤의 철벽 관문", "대공 요새", "왕국 성채"]
 
@@ -171,7 +179,7 @@ const STAGES := [
 		"parts": [["bunker", Vector3(0, 0, -104)], ["tower", Vector3(9, 0, -100)], ["cave", Vector3(-8, 0, -100)]],
 		"story": "나무와 석재 발리스타가 지키는 먼 벙커와 그 양옆 망루·감시굴. 셋이 한 무리라 폭격 한 번이면 끝난다."},
 	{"name": "절벽 굴과 벙커", "ammo": {"he": 4, "flare": 2}, "bombers": 2, "perch": 18.0, "wind": [4, -1, 0],
-		"ballistas": [[Vector3(-14, 0, -52), "stone"], [Vector3(14, 0, -66), "stone"]],
+		"ballistas": [[Vector3(-14, 0, -52), "stone"], [Vector3(18, 0, -66), "stone"]],
 		"parts": [["cave", Vector3(-5, 0, -98)], ["bunker", Vector3(6, 0, -92)], ["rampart", Vector3(-2, 0, -62)]],
 		"story": "절벽 밑 감시굴과 그 옆 벙커를 석재 발리스타 둘이 지킨다. 앞 성벽 보행로의 감시대장은 직접."},
 	{"name": "세 발리스타", "ammo": {"he": 5, "flare": 2}, "bombers": 2, "perch": 22.0, "wind": [4, 1, -1],
@@ -198,7 +206,7 @@ const STAGES := [
 		"story": "비 오는 밤의 성채 채석장. 감시굴, 화약통을 숨긴 강철 방벽 뒤의 둘(도화선은 기름 먹인 밧줄이라 비에도 탄다), 젖은 감시탑. 지휘관 넷."},
 	{"name": "빗속 성채 포대", "ammo": {"he": 5, "flare": 2}, "bombers": 2, "rain": true, "perch": 20.0, "wind": [4, -1, 0],
 		"ballistas": [[Vector3(0, 0, -64), "wood"], [Vector3(-12, 0, -56), "stone"], [Vector3(12, 0, -56), "stone"]],
-		"parts": [["bunker", Vector3(-7, 0, -96)], ["bunker", Vector3(7, 0, -100)], ["pillars", Vector3(0, 0, -104)]],
+		"parts": [["bunker", Vector3(-8.5, 0, -96)], ["bunker", Vector3(8.5, 0, -100)], ["pillars", Vector3(0, 0, -104)]],
 		"story": "비 오는 성채 포대. 발리스타 셋(젖은 나무 탑은 태우기보다 날리는 게 빠르다)이 지키는 벙커 둘과 그 뒤 석재 망대. 발리스타만 다 치우면 폭격 한 번으로 끝난다."},
 	{"name": "밤바람 부는 종루 광장", "ammo": {"he": 3, "fire": 2, "flare": 2}, "night": true, "perch": 10.0, "wind": [5, 1, 0],
 		"parts": [["rampart", Vector3(-12, 0, -46)], ["windmill", Vector3(12, 0, -50)], ["bell", Vector3(0, 0, -56)]],
@@ -386,13 +394,17 @@ static func build(i: int, s: Stage) -> void:
 		s.begin(label(i), d.name, false)
 		s.set_zone(Vector3(0, d.get("perch", HILL), d.get("zone", 0.0)), Vector2(3.0, 3.0))
 		for b in d.get("ballistas", []):
+			_frame(s, b[0])
 			_ballista(s, b[0], b[1])
 		for part in d.parts:
 			var opts: Dictionary = part[2] if part.size() > 2 else {}
+			_frame(s, part[1])
 			Callable(Campaign, "_part_" + part[0]).call(s, part[1], opts)
+		_frame(s, Vector3.ZERO, 1.0)
 		if d.get("final", false):
-			_cage(s, d.parts[0][1] + Vector3(-6.5, 0, 1.0))
+			_cage(s, part_at(d.parts[0][1], Vector3(-6.5, 0, 1.0)))
 		_extras(s, d, world_of(i))
+		_frame(s, Vector3.ZERO, 1.0)
 	s.ammo_slots.clear()
 	var ammo_of := {"fire": FIRE, "he": HE, "oil": OIL, "flare": FLARE}
 	for key in ["he", "fire", "oil", "flare"]:
@@ -421,6 +433,12 @@ static func build(i: int, s: Stage) -> void:
 	s.title = "%s · %s" % [label(i), d.name]
 
 
+## 이제부터 짓는 것을 부품 중심 origin에서 k배로 키운다 (k = 1이면 그대로).
+static func _frame(s: Stage, origin: Vector3, k := PART_SCALE) -> void:
+	s.build_origin = origin
+	s.build_scale = k
+
+
 ## 배경 고블린 (판정과 무관). 1월드의 화약통·폭발통 곁에서는 "여기야!" 하고 손짓하는 고블린 (휘말려도 개의치 않는다),
 ## 1월드에서는 인간 건물 앞에서 병사와 싸우거나 돌멩이를 던지는 마을 고블린.
 static func _extras(s: Stage, d: Dictionary, world: int) -> void:
@@ -429,6 +447,7 @@ static func _extras(s: Stage, d: Dictionary, world: int) -> void:
 	for part in d.parts:
 		var c: Vector3 = part[1]
 		var opts: Dictionary = part[2] if part.size() > 2 else {}
+		_frame(s, c)
 		# 통을 가리켜 주는 고블린은 1월드에만 (그 뒤로는 스스로 찾는다)
 		match part[0] if world == 0 else "":
 			"powder":
@@ -488,14 +507,14 @@ static func plan(i: int) -> Array:
 		var bp: Vector3 = b[0]
 		if b[1] == "wood" and budget.get("he", 0) <= 0:
 			if rain:
-				out.append([K.OIL, bp + Vector3(0, 1.5, 1.4), false, 0.3])
-			out.append([K.FIRE, bp + Vector3(0, 1.5, 1.4), false, 0.0])
+				out.append([K.OIL, part_at(bp, Vector3(0, 1.5, 1.4)), false, 0.3])
+			out.append([K.FIRE, part_at(bp, Vector3(0, 1.5, 1.4)), false, 0.0])
 		elif b[1] == "wood":
 			# 나무 탑은 앞 다리 사이 가로대에 폭탄 한 발 (앞 다리 둘이 부러져 앞으로 넘어간다)
-			out.append([K.HE, bp + Vector3(0, 1.5, 1.4), false, 0.0])
+			out.append([K.HE, part_at(bp, Vector3(0, 1.5, 1.4)), false, 0.0])
 			budget["he"] -= 1
 		else:
-			out.append([K.HE, bp + Vector3(crack_side(bp) * 1.2, 1.0, 1.7), false, 0.0])
+			out.append([K.HE, part_at(bp, Vector3(crack_side(bp) * 1.2, 1.0, 1.7)), false, 0.0])
 			budget["he"] = budget.get("he", 0) - 1
 	if not out.is_empty():
 		# 발리스타 탑이 다 타서 무너질 때까지 기다린다
@@ -553,10 +572,10 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 		"bell":
 			# 쇠종을 매단 밧줄과 종틀
 			if he:
-				# 종을 매단 가로보 위에 폭탄 → 밧줄이 끊기고 종이 아래로 떠밀려 지붕 구멍으로 곧장 떨어진다
-				out.append([K.HE, c + Vector3(0, 9.9, -0.6), false, 0.0])
+				# 종을 매단 가로보 한가운데에 폭탄 → 밧줄이 끊기고 종이 아래로 떠밀려 지붕 구멍으로 곧장 떨어진다
+				out.append([K.HE, c + Vector3(0, 8.2, -0.6), false, 0.0])
 			else:
-				out.append([K.FIRE, c + Vector3(0, 7.5, -0.1), false, 0.0])
+				out.append([K.FIRE, c + Vector3(0, 6.0, -0.1), false, 0.0])
 		"powder":
 			if he:
 				# 창고에 폭탄 → 화약통 연쇄 폭발 → 금 간 기둥이 부러진다
@@ -624,10 +643,13 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 			# 방벽 옆으로 삐져나온 도화선 끝에 불 → 숨은 화약통이 터져 방벽과 지휘관 둘이 한꺼번에 날아간다
 			out.append([K.FIRE, c + Vector3(KEG_FUSE_X, 0.1, 4.8), false, 0.0])
 		"tent":
-			out.append([K.FIRE, c + Vector3(0, 1.9, 0), false, 0.0])
+			out.append([K.FIRE, c + Vector3(0, 2.4, 0), false, 0.0])
 	for step in out:
 		if step[0] == K.HE:
 			ammo["he"] = ammo.get("he", 0) - 1
+		# 겨눌 곳은 부품 배율만큼 중심에서 멀어진다
+		if step[1] is Vector3:
+			step[1] = c + (step[1] - c) * PART_SCALE
 	return out
 
 
@@ -638,16 +660,19 @@ static func _part_tower(s: Stage, c: Vector3, o: Dictionary) -> void:
 	var legs: float = o.get("legs", 4.0)
 	var st := s.add_structure()
 	StageDefs.watchtower(st, c, legs)
+	# 지은 블록은 부품 배율(k)만큼 커져 있다
+	var k := s.build_scale
 	if o.get("parapet", false):
 		for b in st.blocks.duplicate():
-			if b.mat == M.WOOD_THIN and b.position.y > legs + 0.4 and b.position.y < legs + 1.8 and (b.size.x < 0.15 or b.size.z < 0.15):
+			if b.mat == M.WOOD_THIN and b.position.y > (legs + 0.4) * k and b.position.y < (legs + 1.8) * k and (b.size.x < 0.15 * k or b.size.z < 0.15 * k):
 				st.blocks.erase(b)
-				var size: Vector3 = b.size
-				var pos: Vector3 = b.position
+				# 다시 지을 때 또 키워지지 않게 키우기 전 자리와 크기로
+				var size: Vector3 = b.size / k
+				var pos: Vector3 = s.build_origin + (b.position - s.build_origin) / k
 				b.free()
 				st.add_block(M.STONE, pos, size)
 	# 나무 다리 넷 중 둘 이상을 잃으면 그쪽으로 기울어 넘어간다
-	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - legs) < 0.01, 1)
+	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - legs * k) < 0.01, 1)
 	s.add_commander(c + Vector3(0, legs + 0.3, 0), 180.0, Vector3(0.9, 0, 0.6))
 	s.add_guard(c + Vector3(-4, 0, 3), 180.0)
 
@@ -702,7 +727,8 @@ static func _part_bell(s: Stage, c: Vector3, _o: Dictionary) -> void:
 			continue
 		st.add_block(M.WOOD_THIN, c + Vector3(x, wall_h + 0.08, 0), Vector3(w, 0.16, half * 2.0))
 	var frame := s.add_structure()
-	var top := 9.5
+	# 종틀 높이: 부품 배율로 키운 뒤에도 먼 투척 언덕에서 가로보에 닿게 (키운 뒤 약 9.6m)
+	var top := 8.0
 	for sx in [-1, 1]:
 		frame.add_block(M.WOOD_BEAM, c + Vector3(sx * 3.2, top * 0.5, -0.6), Vector3(0.4, top, 0.4))
 	frame.add_block(M.WOOD_BEAM, c + Vector3(0, top + 0.2, -0.6), Vector3(6.8, 0.4, 0.4))
@@ -722,6 +748,7 @@ static func _bell_look(b: Block) -> void:
 		if child is MeshInstance3D:
 			child.visible = false
 	var m := Node3D.new()
+	m.scale = Vector3.ONE * b.size.x / 1.2
 	b.add_child(m)
 	Models.cyl(m, 0.3, 0.75, 1.1, Vector3.ZERO, bronze, Vector3.ZERO, 12)
 	Models.cyl(m, 0.78, 0.78, 0.1, Vector3(0, -0.55, 0), bronze, Vector3.ZERO, 12)
@@ -771,10 +798,11 @@ static func _part_windmill(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	for sx in [-1, 1]:
 		st.add_block(M.WOOD_THIN, c + Vector3(sx * 1.45, floor_y + 0.24 + 1.1, -1.45), Vector3(0.2, 2.2, 0.2))
 	st.add_block(M.STRAW, c + Vector3(0, roof_y + 0.15, -0.8), Vector3(3.6, 0.3, 2.0))
-	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - post_h) < 0.01, 1)
+	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - post_h * s.build_scale) < 0.01, 1)
 	# 날개 (장식)
 	var sail := Node3D.new()
-	sail.position = c + Vector3(0, roof_y - 0.6, -1.9)
+	sail.position = s.at(c + Vector3(0, roof_y - 0.6, -1.9))
+	sail.scale = Vector3.ONE * s.build_scale
 	s.add_child(sail)
 	var cloth := Models.mat(Color(0.88, 0.84, 0.74))
 	var spar := Models.mat(Color(0.35, 0.24, 0.14))
@@ -956,7 +984,7 @@ static func _part_hopper(s: Stage, c: Vector3, _o: Dictionary) -> void:
 		st.add_block(M.WOOD_THIN, c + Vector3(x, legs + 0.15, 0), Vector3(half * 2.0 / 5, 0.3, half * 2.0))
 	var keg := st.add_block(M.KEG, c + Vector3(0, legs + 0.3 + 0.5, 0), Vector3(1.4, 1.0, 1.4))
 	keg.set_meta("rain_wets", true)
-	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - legs) < 0.01, 1)
+	_legs(st, func(b): return b.mat == M.WOOD_BEAM and absf(b.size.y - legs * s.build_scale) < 0.01, 1)
 	var booth := s.add_structure()
 	# 돌 칸막이 (지휘관 키보다 높아 바깥 불길이 넘어오지 않는다. 쇠 통은 그 안으로 떨어진다)
 	var bh := 1.9
@@ -1116,8 +1144,8 @@ static func _part_guardhouse(s: Stage, c: Vector3, o: Dictionary) -> void:
 	st.add_block(M.STEEL, c + Vector3(side * (half - t * 0.5), h - 0.15, 0), Vector3(t, 0.3, door))
 	st.add_block(M.STEEL, c + Vector3(0, h + 0.15, 0), Vector3(half * 2.0 + 0.2, 0.3, half * 2.0 + 0.2))
 	var spot := c + _guard_spot(side)
-	var cm := s.add_commander(c + Vector3(-side * 0.6, 0, -0.5), 180.0, Vector3(-side * 2.6, 0, 2.4))
-	cm.set_lure([cm.position, c + Vector3(side * 0.3, 0, 0), c + Vector3(side * (half + 0.8), 0, 0), spot])
+	var cm := s.add_commander(c + Vector3(-side * 0.4, 0, -0.5), 180.0, Vector3(-side * 2.6, 0, 2.4))
+	cm.set_lure([cm.position, s.at(c + Vector3(side * 0.3, 0, 0)), s.at(c + Vector3(side * (half + 0.8), 0, 0)), s.at(spot)])
 	if o.get("kegs", false):
 		var yard := s.add_structure()
 		for k in 3:
@@ -1128,7 +1156,7 @@ static func _part_guardhouse(s: Stage, c: Vector3, o: Dictionary) -> void:
 ## 짚 천막: 짚 벽 셋과 문 난 앞벽, 짚 지붕. 지휘관이 안에서 잔다.
 static func _part_tent(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var st := s.add_structure()
-	var h := 1.7
+	var h := 2.2
 	st.add_block(M.STRAW, c + Vector3(0, h * 0.5, -1.2), Vector3(2.6, h, 0.2))
 	for sx in [-1, 1]:
 		st.add_block(M.STRAW, c + Vector3(sx * 1.2, h * 0.5, 0), Vector3(0.2, h, 2.2))

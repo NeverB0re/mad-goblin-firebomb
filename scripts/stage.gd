@@ -172,6 +172,17 @@ func _make_perch(center: Vector3, half_extents: Vector2) -> void:
 	add_child(tm)
 
 
+## 부품을 지을 때의 확대: 부품 중심(build_origin)에서 build_scale배로 키운다 (Campaign.build가 부품마다 켜고 끈다).
+## 블록·인물·소품의 자리와 블록·소품의 크기에 적용된다 (인물 크기는 그대로라 천장이 높아진다).
+var build_origin := Vector3.ZERO
+var build_scale := 1.0
+
+
+## 짓는 중인 부품 기준으로 키운 자리
+func at(p: Vector3) -> Vector3:
+	return build_origin + (p - build_origin) * build_scale
+
+
 func add_structure() -> Structure:
 	var s := Structure.new()
 	s.stage = self
@@ -187,6 +198,8 @@ func add_ammo(type: AmmoType, count: int) -> void:
 
 ## 지휘관과 곁에 꽂힌 빨간 깃발.
 func add_commander(pos: Vector3, yaw_deg := 180.0, flag_offset := Vector3(1.2, 0, 0.3)) -> Commander:
+	pos = at(pos)
+	flag_offset *= build_scale
 	var c := Commander.new()
 	c.position = pos
 	c.rotation.y = deg_to_rad(yaw_deg)
@@ -205,7 +218,7 @@ func add_commander(pos: Vector3, yaw_deg := 180.0, flag_offset := Vector3(1.2, 0
 
 func add_guard(pos: Vector3, yaw_deg := 180.0, shield := false) -> Guard:
 	var g := Guard.new().setup(shield)
-	g.position = pos
+	g.position = at(pos)
 	g.rotation.y = deg_to_rad(yaw_deg)
 	add_child(g)
 	return g
@@ -327,6 +340,8 @@ func add_ally(points: Array, speed: float, obstacles: Array) -> Ally:
 
 ## 장식/표지물 (충돌 있음, 블록 시스템과 무관).
 func add_prop(center: Vector3, size: Vector3, color: Color, collide := true) -> Node3D:
+	center = at(center)
+	size *= build_scale
 	var node: Node3D
 	if collide:
 		var body := StaticBody3D.new()
@@ -348,6 +363,8 @@ func add_prop(center: Vector3, size: Vector3, color: Color, collide := true) -> 
 ## 배경 벽 한 칸 (블록 시스템과 무관, 무엇으로도 안 부서진다). 겉모양은 블록과 같은 로우폴리 재질 모양.
 ## 진지를 두르는 성벽·담·울타리가 혼자 덩그러니 서 있지 않게 둘레를 이어 준다. style: stone, steel, plank, straw.
 func add_wall_prop(center: Vector3, size: Vector3, style: String, yaw := 0.0) -> Node3D:
+	center = at(center)
+	size *= build_scale
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	var shape := CollisionShape3D.new()
@@ -371,6 +388,7 @@ func add_wall_prop(center: Vector3, size: Vector3, style: String, yaw := 0.0) ->
 ## 마당을 두르는 배경 벽 (앞면 제외: 앞면은 진짜 블록 벽). center: 마당 가운데, half: 반폭(x)과 반깊이(z).
 ## sides: "l"(왼), "r"(오른), "b"(뒤) 중 둘러칠 쪽.
 func add_enclosure(center: Vector3, half: Vector2, height: float, style: String, thick := 0.6, sides := "lrb") -> void:
+	# 부품 확대는 벽 한 칸씩 add_wall_prop이 적용한다
 	var y := center.y + height * 0.5
 	if "b" in sides:
 		add_wall_prop(Vector3(center.x, y, center.z - half.y + thick * 0.5), Vector3(half.x * 2.0, height, thick), style)
@@ -381,6 +399,8 @@ func add_enclosure(center: Vector3, half: Vector2, height: float, style: String,
 
 ## 각진 바위 (충돌은 상자 그대로, 겉모양만 울퉁불퉁한 로우폴리 바위).
 func add_rock(center: Vector3, size: Vector3, color: Color) -> Node3D:
+	center = at(center)
+	size *= build_scale
 	var body := StaticBody3D.new()
 	body.collision_layer = 1
 	var shape := CollisionShape3D.new()
@@ -400,7 +420,7 @@ func add_rock(center: Vector3, size: Vector3, color: Color) -> Node3D:
 ## 밤의 횃불 (실제 광원 없이 발광 재질).
 func add_torch(pos: Vector3, height := 1.8) -> void:
 	var t := Models.torch(height)
-	t.position = pos
+	t.position = at(pos)
 	add_child(t)
 
 
@@ -811,6 +831,9 @@ func _blast_actors(pos: Vector3, radius: float) -> void:
 
 ## 배경 고블린 (판정과 무관). point_at: 손짓해 가리킬 곳 (화약통).
 func add_extra(pos: Vector3, yaw_deg: float, mode: int, point_at := Vector3.INF) -> GoblinExtra:
+	pos = at(pos)
+	if point_at != Vector3.INF:
+		point_at = at(point_at)
 	var e := GoblinExtra.new()
 	e.position = pos
 	e.rotation.y = deg_to_rad(yaw_deg)
