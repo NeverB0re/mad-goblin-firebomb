@@ -144,6 +144,8 @@ var _select_world := -1
 
 ## 지금 진지가 있는 월드 (잠깐 메뉴에서 진지 고르기를 열면 이 월드부터 보여 준다)
 var current_world := -1
+## 지금 진지의 소개 (잠깐 메뉴에 계속 보인다)
+var brief := ""
 
 
 func show_select(back_to: int, world := -1) -> void:
@@ -209,6 +211,12 @@ func show_pause() -> void:
 	screen = Screen.PAUSE
 	var box := _new_panel(0.5)
 	_title_label(box, Texts.t("paused"), 64)
+	if brief != "":
+		var b := UiStyle.label(brief, 20, UiStyle.TEXT)
+		b.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.custom_minimum_size.x = 460
+		box.add_child(b)
 	var go := _button(box, Texts.t("menu_resume"), func(): resume_requested.emit())
 	UiStyle.primary(go)
 	go.grab_focus()

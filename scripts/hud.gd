@@ -26,6 +26,9 @@ var _seen_dead := {}
 var _prompt: Label
 ## 1-1 단계 안내: 몇 번째 문구인지 (lesson_0~2). -1이면 안내 없음 (조작 안내는 첫 투척 뒤 사라진다)
 var _lesson := -1
+## 진지 소개 (위쪽 가운데): 진지 시작 때 3초, 던지려고 누르면 바로 닫힌다
+var _brief: Label
+var _brief_time := 0.0
 
 
 func _ready() -> void:
@@ -105,6 +108,14 @@ func _ready() -> void:
 	_prompt.visible = false
 	_place(_prompt, Vector4(0, 0.5, 1, 0.5), Vector4(0, 110, 0, 150))
 
+	_brief = _label(root, 22)
+	_brief.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_brief.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_brief.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_brief.add_theme_stylebox_override("normal", UiStyle.panel(0.5, 10, 8))
+	_brief.visible = false
+	_place(_brief, Vector4(0.27, 0, 0.73, 0), Vector4(0, 24, 0, 96))
+
 	# 알림: 가운데 아래쪽의 작은 판 (글 길이에 맞춰 줄고 는다)
 	var toast_row := CenterContainer.new()
 	toast_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -139,6 +150,8 @@ func bind(stage: Stage) -> void:
 	_help.text = Texts.t("help")
 	_help.visible = true
 	_lesson = -1
+	_brief_time = 0.0
+	_brief.visible = false
 	stage.projectile_thrown.connect(_on_thrown)
 	_banner.text = ""
 	_sub.text = ""
@@ -156,6 +169,13 @@ func bind(stage: Stage) -> void:
 	stage.bomber_launched.connect(follow_cam.track_bomber)
 	stage.shake_requested.connect(follow_cam.shake)
 	_refresh_ammo()
+
+
+## 진지 소개를 띄운다 (조작할 수 있게 된 뒤 3초).
+func show_brief(text: String) -> void:
+	_brief.text = text
+	_brief_time = 3.0 if text != "" else 0.0
+	_brief.visible = _title.visible and _brief_time > 0.0
 
 
 ## 1-1을 아직 못 깼을 때: 조작 안내 줄이 투척 결과에 따라 바뀐다 (시작 → 빗나감 → 또 빗나감). 맞히면 숨긴다.
@@ -339,6 +359,7 @@ func set_gameplay_visible(on: bool) -> void:
 	for n in [_top, _title, _bonus, _ammo, _help, _toast, _banner, _sub, _targets]:
 		n.visible = on
 	_bonus.visible = on and _bonus.text != ""
+	_brief.visible = on and _brief_time > 0.0
 	if _dot:
 		_dot.visible = on
 	if not on:
@@ -349,6 +370,12 @@ func _process(delta: float) -> void:
 	if _prompt.visible:
 		var lock := _stage.button_lock()
 		_prompt.text = Texts.t(lock if lock != "" else "press_button")
+	# 진지 소개는 조작할 수 있을 때만 시간이 간다 (시작 조망 동안은 멈춤)
+	if _brief_time > 0.0 and _title.visible and is_instance_valid(_stage):
+		_brief_time -= delta
+		if _brief_time <= 0.0 or _stage.player.is_throwing():
+			_brief_time = 0.0
+			_brief.visible = false
 	if _toast_time > 0.0:
 		_toast_time -= delta
 		_toast.modulate.a = clampf(_toast_time / 0.6, 0.0, 1.0)

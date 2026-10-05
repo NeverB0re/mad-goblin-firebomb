@@ -365,6 +365,8 @@ func _run() -> void:
 				spare -= 1
 		if spare < 1 or spare > 3 or not unused.is_empty():
 			_check(false, "%s 탄약 여유 %d (1~3이어야 함), 안 쓰는 탄종 %s" % [Campaign.label(i), spare, unused])
+		if Campaign.brief(i) == "" or Campaign.brief(i).length() > 60:
+			_check(false, "%s 진지 소개가 없거나 60자를 넘는다 (%d자)" % [Campaign.label(i), Campaign.brief(i).length()])
 		if Campaign.bonus_text(i) == "":
 			_check(false, "%s 보조 목표 문구가 없다" % Campaign.label(i))
 		if Campaign.is_night(i) and not d.get("ballistas", []).is_empty():

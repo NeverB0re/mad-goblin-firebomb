@@ -239,6 +239,8 @@ func load_stage(index: int) -> void:
 	stage.target_down.connect(_on_target_down)
 	hud.bind(stage)
 	hud.set_goals("" if test_mode else Campaign.bonus_text(stage_index), int(SaveData.star_bits.get(stage_index, 0)))
+	hud.show_brief("" if test_mode else Campaign.brief(stage_index))
+	menus.brief = "" if test_mode else Campaign.brief(stage_index)
 	# 1-1을 아직 못 깼으면 조작 안내 줄이 투척 결과에 따라 바뀐다
 	if stage_index == 0 and not test_mode and not SaveData.is_cleared(0):
 		hud.start_lesson()
