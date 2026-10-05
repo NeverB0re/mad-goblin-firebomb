@@ -36,6 +36,26 @@ func _initialize() -> void:
 	SaveData.star_bits = {}
 	SaveData.load_all()
 	_check(SaveData.star_count(3) == 2, "옛 저장(별 2개)은 2개로 읽는다")
+	# 새 저장은 잠겨 있고(1-1만), 전체 개방은 저장되며, 저장 지우기는 진행만 지운다
+	SaveData._loaded = false
+	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_star.cfg"))
+	SaveData.unlocked = 1
+	SaveData.unlock_all = false
+	SaveData.star_bits = {}
+	SaveData.load_all()
+	_check(not SaveData.unlock_all and SaveData.open_count() == 1, "처음에는 1-1만 열려 있다")
+	SaveData.unlock_all = true
+	SaveData.save_all()
+	SaveData._loaded = false
+	SaveData.unlock_all = false
+	SaveData.load_all()
+	_check(SaveData.unlock_all and SaveData.open_count() == Campaign.COUNT, "전체 개방을 켜면 저장되고 모든 진지가 열린다")
+	SaveData.volume = 0.3
+	SaveData.record_clear(0, 2, 7)
+	SaveData.opening_seen = true
+	SaveData.reset_progress()
+	_check(SaveData.unlocked == 1 and SaveData.best.is_empty() and SaveData.star_bits.is_empty() and not SaveData.opening_seen and not SaveData.unlock_all and SaveData.open_count() == 1, "저장 지우기: 진행·별·오프닝·전체 개방이 처음으로")
+	_check(is_equal_approx(SaveData.volume, 0.3), "저장 지우기는 음량 같은 설정은 남긴다")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path("user://test_star.cfg"))
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
 	quit(0 if _failures == 0 else 1)

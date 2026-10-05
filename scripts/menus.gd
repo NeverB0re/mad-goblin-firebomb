@@ -122,6 +122,19 @@ func show_title() -> void:
 	_button(box, Texts.t("menu_opening"), func(): opening_requested.emit())
 	_button(box, Texts.t("menu_settings"), func(): show_settings(Screen.TITLE))
 	_button(box, Texts.t("menu_quit"), func(): get_tree().quit())
+	# 시험판 임시: 오른쪽 아래 구석의 전체 개방 (진행과 상관없이 모든 진지 선택)
+	var unlock := CheckButton.new()
+	unlock.text = Texts.t("menu_unlock_all")
+	unlock.button_pressed = SaveData.unlock_all
+	unlock.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	unlock.offset_left = -240
+	unlock.offset_top = -56
+	unlock.offset_right = -16
+	unlock.offset_bottom = -12
+	unlock.toggled.connect(func(on):
+		SaveData.unlock_all = on
+		SaveData.save_all())
+	_panel.add_child(unlock)
 
 
 # ---------- 스테이지 선택 ----------
@@ -224,6 +237,16 @@ func show_settings(back_to: int) -> void:
 		SaveData.fullscreen = on
 		SaveData.apply_settings())
 	box.add_child(fs)
+	# 저장 지우기: 두 번 눌러야 지워진다 (실수 방지)
+	var armed := [false]
+	var reset_btn := []
+	reset_btn.append(_button(box, Texts.t("set_reset"), func():
+		if armed[0]:
+			SaveData.reset_progress()
+			show_settings(back_to)
+			return
+		armed[0] = true
+		reset_btn[0].text = Texts.t("set_reset_confirm")))
 	_button(box, Texts.t("menu_back"), func():
 		SaveData.save_all()
 		_go_back())

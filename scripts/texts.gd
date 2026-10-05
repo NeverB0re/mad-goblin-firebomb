@@ -36,6 +36,10 @@ const T := {
 	"set_sens": "눈알 굴리는 빠르기",
 	"set_volume": "쾅! 소리 크기",
 	"set_fullscreen": "화면 꽉 채우기",
+	"set_reset": "처음부터 다시 하기 (저장 지우기)",
+	"set_reset_confirm": "정말 다 지울래? 한 번 더 누르면 지워져!",
+	"set_reset_done": "싹 지웠다! 처음부터 시작이야.",
+	"menu_unlock_all": "[임시] 전체 개방",
 	# 짧은 알림
 	"empty_slot": "그건 다 던졌어!",
 	"rocket_shot_down": "으악! 글라이더가 꼬챙이에 맞았다!!",

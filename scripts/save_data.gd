@@ -7,8 +7,8 @@ static var path := "user://save.cfg"
 
 ## 열린 본편 스테이지 수 (최소 1)
 static var unlocked := 1
-## 시험 기간: 진행과 상관없이 모든 진지를 고를 수 있다 (출시 전에 false로 돌린다)
-static var unlock_all := true
+## 시험판 임시 기능: 진행과 상관없이 모든 진지를 고른다. 기본은 꺼짐이고, 타이틀 구석의 임시 버튼으로 켠다 (설정에 저장).
+static var unlock_all := false
 
 
 ## 고를 수 있는 진지 수 (시험 기간에는 전부).
@@ -49,6 +49,7 @@ static func load_all() -> void:
 	mouse_sens = float(cfg.get_value("settings", "mouse_sens", 1.0))
 	volume = float(cfg.get_value("settings", "volume", 0.8))
 	fullscreen = bool(cfg.get_value("settings", "fullscreen", false))
+	unlock_all = bool(cfg.get_value("settings", "unlock_all", false))
 
 
 static func save_all() -> void:
@@ -61,6 +62,7 @@ static func save_all() -> void:
 	cfg.set_value("settings", "mouse_sens", mouse_sens)
 	cfg.set_value("settings", "volume", volume)
 	cfg.set_value("settings", "fullscreen", fullscreen)
+	cfg.set_value("settings", "unlock_all", unlock_all)
 	cfg.save(path)
 
 
@@ -78,6 +80,17 @@ static func record_clear(index: int, ammo_left: int, bits := 1) -> int:
 static func star_count(index: int) -> int:
 	var b := int(star_bits.get(index, 0))
 	return (b & 1) + ((b >> 1) & 1) + ((b >> 2) & 1)
+
+
+## 진행 기록을 모두 지우고 처음부터 (설정 중 음량·감도·전체 화면은 남긴다). 전체 개방도 끈다.
+static func reset_progress() -> void:
+	unlocked = 1
+	best = {}
+	star_bits = {}
+	opening_seen = false
+	worlds_seen = []
+	unlock_all = false
+	save_all()
 
 
 static func is_cleared(index: int) -> bool:
