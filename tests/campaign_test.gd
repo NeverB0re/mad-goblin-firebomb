@@ -198,6 +198,19 @@ func _run() -> void:
 		await _throw_plan(s, AmmoType.Kind.FLARE, Campaign.STAGES[32].parts[0][1] + Vector3(0, 2.7, 0), false)
 		await _wait(s, 7.0)
 		_check(s.state == Stage.State.PLAYING and s.commanders_left() == 2 and s.bombers_left() == bombers - 1, "4-3 발리스타가 서 있으면 글라이더가 격추된다 (폭격대 %d → %d)" % [bombers, s.bombers_left()])
+		# 폭탄을 다 버리고 마지막 조명탄을 던져도, 글라이더가 날아가는 동안은 지지 않고 모두 멈춘 뒤에 진다
+		while s.ammo_count(AmmoType.Kind.HE) > 0:
+			await _throw_plan(s, AmmoType.Kind.HE, Vector3(-40, 0, -20), false)
+		await _wait(s, 3.0)
+		await _throw_plan(s, AmmoType.Kind.FLARE, Campaign.STAGES[32].parts[0][1] + Vector3(0, 2.7, 0), false)
+		var flying := false
+		var lost_early := false
+		for k in 360:
+			await physics_frame
+			flying = flying or s.get_children().any(func(n): return n is Bomber)
+			lost_early = lost_early or s.state == Stage.State.FAILED
+		_check(s.total_ammo() == 0 and flying and not lost_early, "4-3 마지막 조명탄의 글라이더가 날아가는 동안(6초) 지지 않는다")
+		await _expect(s, Stage.State.FAILED, "4-3 글라이더까지 다 쓴 뒤 모두 멈추면 실패", 25.0, "fail_ammo")
 	# 발리스타를 조종하는 궁병을 쓰러뜨리면 탑이 서 있어도 그 발리스타는 못 쏜다 (4-1)
 	if _only <= 0 or _only == 4:
 		var s := _campaign(30)
@@ -238,13 +251,26 @@ func _run() -> void:
 		var marks := s.get_tree().get_nodes_in_group("signal_smoke").size()
 		_check(not s.commanders[0].dead and marks > 0, "3-6 연기알을 맞아도 지휘관은 멀쩡하고 신호 연기만 솟는다 (연기 %d)" % marks)
 		await _expect(s, Stage.State.FAILED, "3-6 폭탄을 다 쓰고 연기알·조명탄만 남으면 실패", 20.0, "fail_ammo")
-	# 남은 탄으로 더는 깰 수 없으면 실패: 2-1 연료 창고에서 기름병을 다 버리면 화염탄이 남아도 실패
+	# 클리어할 길이 없어져도 부수는 탄이 남아 있으면 지지 않는다: 2-1 연료 창고에서 기름병을 다 버려도 화염탄이 남으면 계속
 	if _only <= 0 or _only == 2:
 		var s := _campaign(10)
 		await physics_frame
 		for k in 2:
 			await _throw_plan(s, AmmoType.Kind.OIL, Vector3(-30, 0, -20), false)
-		await _expect(s, Stage.State.FAILED, "2-1 기름병을 다 버리면 화염탄이 남아도 실패", 20.0, "fail_stuck")
+		await _wait(s, 15.0)
+		_check(s.state == Stage.State.PLAYING and s.total_ammo() > 0, "2-1 기름병을 다 버려도 화염탄이 남아 있으면 계속 (남은 탄 %d)" % s.total_ammo())
+		# 남은 탄을 다 던지면: 던지자마자는 아니고, 모두 멈춘 뒤에 실패
+		for k in 10:
+			if s.total_ammo() == 0:
+				break
+			for sl in s.ammo_slots:
+				if sl.count > 0 and sl.type.kind in [AmmoType.Kind.HE, AmmoType.Kind.FIRE, AmmoType.Kind.OIL]:
+					await _throw_plan(s, sl.type.kind, Vector3(-30, 0, -20), false)
+					break
+		await _wait(s, 1.0)
+		var early := s.state
+		await _expect(s, Stage.State.FAILED, "2-1 마지막 탄 직후엔 아직 안 지고(%s) 모두 멈춘 뒤 실패" % ("계속" if early == Stage.State.PLAYING else "이미 짐"), 25.0, "fail_ammo")
+		_check(early == Stage.State.PLAYING, "2-1 마지막 탄을 던진 직후 1초 동안은 지지 않는다")
 	# 3-3 금 간 석재 망대: 금 간 기둥 하나가 부러지면 망대가 그쪽으로 기울어 넘어간다 (밑으로 꺼지지 않는다)
 	if _only <= 0 or _only == 3:
 		var s := _campaign(22)

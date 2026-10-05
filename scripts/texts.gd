@@ -15,7 +15,6 @@ const T := {
 	"win": "박살!",
 	"fail_ammo": "폭탄을 다 썼잖아!!",
 	"fail_messenger": "전령이 도착했잖아!!",
-	"fail_stuck": "이 폭탄으로는 더 못 깨잖아!!",
 	"kill_one": "하나 박살!",
 	"button_fire": "발사!!!",
 	"button_locked": "꼬챙이 쏘는 놈(발리스타)부터 부숴! 단추가 꿈쩍 안 해",

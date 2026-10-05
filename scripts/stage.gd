@@ -78,12 +78,6 @@ var _button: Node3D
 var _button_cap: Node3D
 var _button_used := false
 var _final_rocket: Node3D
-## 지휘관마다 쓰러뜨릴 길 (클리어 불가 판정용, Campaign._needs). 없으면 판정하지 않는다
-var _needs := {}
-
-## 클리어 불가 판정의 특수 "탄종": 폭격(조명탄 + 대기 중인 폭격대), 최종 로켓 발사 버튼
-const NEED_BOMBER := -1
-const NEED_BUTTON := -2
 
 
 # ---------- 구성 ----------
@@ -825,70 +819,6 @@ func add_extra(pos: Vector3, yaw_deg: float, mode: int, point_at := Vector3.INF)
 	return e
 
 
-# ---------- 클리어 불가 판정 ----------
-
-func set_needs(c: Commander, alternatives: Array) -> void:
-	if not alternatives.is_empty():
-		_needs[c] = alternatives
-
-
-func _term_ok(t: Dictionary) -> bool:
-	var blocks: Array = t.get("blocks", [])
-	match t.get("mode", ""):
-		"gone":
-			var all_gone := true
-			for b in blocks:
-				if not is_instance_valid(b):
-					continue
-				# 궁병이 쓰러진 발리스타는 탑이 서 있어도 치운 것으로 본다
-				if b.has_meta("operator") and not ballista_alive(b):
-					continue
-				if not b.fallen and not b.burnt:
-					all_gone = false
-					break
-			if all_gone:
-				return true
-		"oiled":
-			for b in blocks:
-				if not is_instance_valid(b) or b.oiled or b.burning or b.burnt or b.fallen:
-					return true
-	for kind in t.kinds:
-		match kind:
-			NEED_BOMBER:
-				if bombers_left() > 0 and ammo_count(AmmoType.Kind.FLARE) > 0:
-					return true
-			NEED_BUTTON:
-				if button_ready():
-					return true
-			_:
-				if ammo_count(kind) > 0:
-					return true
-	return false
-
-
-## 이 지휘관을 아직 쓰러뜨릴 길이 하나라도 남았는지 (판정 정보가 없으면 남은 것으로 본다).
-func can_still_defeat(c: Commander) -> bool:
-	if not _needs.has(c):
-		return true
-	for alt in _needs[c]:
-		var ok := true
-		for t in alt:
-			if not _term_ok(t):
-				ok = false
-				break
-		if ok:
-			return true
-	return false
-
-
-## 남은 지휘관 중 하나라도 이제 쓰러뜨릴 방법이 없는지 (예: 금 간 석벽을 부숴야 하는데 고폭탄이 다 떨어짐).
-func stuck() -> bool:
-	for c in commanders:
-		if not c.dead and not can_still_defeat(c):
-			return true
-	return false
-
-
 ## 폭발이 화약통에 닿으면 0.15초 간격으로 연쇄 폭발한다 (쾅, 쾅, 쾅).
 func _detonate_kegs(pos: Vector3, radius: float) -> void:
 	for b in get_tree().get_nodes_in_group("flammable"):
@@ -1243,14 +1173,14 @@ func _physics_process(delta: float) -> void:
 						m.strand()
 						_win(m, "bridge", m.chest())
 						return
-	# 폭탄이 다 떨어졌거나, 남은 탄으로는 더 이상 깰 수 없으면 (모든 게 멈춘 뒤) 실패
-	var empty := total_ammo() == 0
-	if empty or stuck():
+	# 부수는 탄(폭격 진지는 조명탄도)이 다 떨어지고, 날아가는 탄·불·무너짐·글라이더가 모두 멈춘 뒤에야 실패
+	# (마지막 탄을 던지자마자 지지 않는다)
+	if total_ammo() == 0:
 		if is_active():
 			_quiet = 0.0
 		else:
 			_quiet += delta
 			if _quiet >= FAIL_QUIET_TIME:
-				_fail("fail_ammo" if empty else "fail_stuck")
+				_fail("fail_ammo")
 	else:
 		_quiet = 0.0

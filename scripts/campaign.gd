@@ -389,27 +389,7 @@ static func build(i: int, s: Stage) -> void:
 			_ballista(s, b[0], b[1])
 		for part in d.parts:
 			var opts: Dictionary = part[2] if part.size() > 2 else {}
-			var c0 := s.commanders.size()
-			var st0 := s.structures.size()
 			Callable(Campaign, "_part_" + part[0]).call(s, part[1], opts)
-			var blocks := []
-			for k in range(st0, s.structures.size()):
-				blocks.append_array(s.structures[k].blocks)
-			var alts := _needs(part[0], blocks, is_rain(i))
-			# 폭격 무리 안의 지휘관은 폭격으로도, 최종 진지는 발사 버튼으로도 쓰러뜨릴 수 있다
-			var extra := []
-			if d.get("bombers", 0) > 0 and (part[0] == "bunker" or _in_rocket_cluster(d, part[1])):
-				extra.append(Stage.NEED_BOMBER)
-			if d.get("launch_button", false):
-				extra.append(Stage.NEED_BUTTON)
-			for kind in extra:
-				var alt := [{"kinds": [kind]}]
-				for b in s.ballistas:
-					var wood: bool = b.mat == M.WOOD_BEAM and b.structure.blocks.any(func(x): return x.mat == M.WOOD_BEAM and x.size.y > 4.0)
-					alt.append({"kinds": [K.FIRE, K.HE] if wood else [K.HE], "blocks": [b], "mode": "gone"})
-				alts.append(alt)
-			for k in range(c0, s.commanders.size()):
-				s.set_needs(s.commanders[k], alts)
 		if d.get("final", false):
 			_cage(s, d.parts[0][1] + Vector3(-6.5, 0, 1.0))
 		_extras(s, d, world_of(i))
@@ -466,42 +446,6 @@ static func _extras(s: Stage, d: Dictionary, world: int) -> void:
 			s.add_extra(c + Vector3(side * 4.5, 0, 6.0), 90.0 * side, GE.FIGHT)
 			s.add_extra(c + Vector3(-side * 3.0, 0, 7.5), 0.0, GE.THROW)
 			n += 1
-
-
-## 부품의 지휘관을 쓰러뜨릴 수 있는 길들 (클리어 불가 판정용). 길 = 조건 묶음, 조건 = {kinds, blocks, mode}:
-## kinds 중 하나라도 남아 있으면 되고, mode "gone"은 blocks가 다 없어졌으면, "oiled"는 하나라도 기름이 묻었거나 탔으면 이미 된 것.
-## 일부러 너그럽게 잡는다: 정말 방법이 없을 때만 실패시킨다 (예: 금 간 석벽 초소에 고폭탄이 다 떨어짐, 비 오는데 기름이 다 떨어짐).
-static func _needs(kind: String, blocks: Array, rain: bool) -> Array:
-	var cracked := blocks.filter(func(b): return b.mat == M.CRACKED)
-	var wet := blocks.filter(func(b): return b.mat in [M.WOOD_THIN, M.WOOD_BEAM, M.STRAW] or (b.mat == M.KEG and b.has_meta("rain_wets")))
-	# 불로 태우는 길 (비가 오면 젖은 것에 기름부터)
-	var burn := [{"kinds": [K.FIRE]}]
-	if rain and not wet.is_empty():
-		burn = [{"kinds": [K.OIL], "blocks": wet, "mode": "oiled"}, {"kinds": [K.FIRE]}]
-	var he := [{"kinds": [K.HE]}]
-	var any_bomb := [{"kinds": [K.HE, K.FIRE]}]
-	var break_wall := {"kinds": [K.HE], "blocks": cracked, "mode": "gone"}
-	match kind:
-		"windowpost":
-			# 금 간 앞벽을 고폭탄으로 날린 뒤에야 맞힐 수 있다
-			return [[break_wall, any_bomb[0]]]
-		"pillars", "rampart":
-			return [any_bomb]
-		"oilhouse":
-			var trough := blocks.filter(func(b): return b.mat == M.WOOD_WET)
-			return [[{"kinds": [K.OIL], "blocks": trough, "mode": "oiled"}, {"kinds": [K.FIRE]}]]
-		"cave":
-			var props := blocks.filter(func(b): return b.mat in [M.WOOD_BEAM, M.WOOD_WET])
-			var by_he := [break_wall, {"kinds": [K.HE], "blocks": props, "mode": "gone"}]
-			var by_fire := [break_wall] + burn
-			return [by_he, by_fire]
-		"bunker":
-			# 강철 벙커는 폭격(또는 최종 로켓)으로만
-			return []
-		"guardhouse":
-			# 조명탄으로 꾀어낸 뒤 폭탄이나 불
-			return [[{"kinds": [K.FLARE]}, any_bomb[0]]]
-	return [burn, he]
 
 
 ## 부품마다 세우는 지휘관 수 (풀이에서 지휘관 번호를 셀 때 쓴다).
