@@ -374,6 +374,15 @@ func _run() -> void:
 		if Campaign.world_of(i) == 4 and not d.get("final", false):
 			var feature: bool = Campaign.is_night(i) or Campaign.is_rain(i) or not d.get("ballistas", []).is_empty()
 			_check(feature, "%s 5월드 진지에 앞 월드 특성(비·밤·발리스타)이 있다" % Campaign.label(i))
+	# 한 월드 안에서 같은 부품·같은 옵션 조합은 두 번까지
+	for w in 5:
+		var seen := {}
+		for i in range(w * 10, w * 10 + 10):
+			for part in Campaign.STAGES[i].get("parts", []):
+				var key: String = part[0] + str(part[2] if part.size() > 2 else {})
+				seen[key] = int(seen.get(key, 0)) + 1
+		var over := seen.keys().filter(func(k): return seen[k] > 2)
+		_check(over.is_empty(), "%d월드 같은 부품·옵션 조합은 두 번까지 (넘는 것 %s)" % [w + 1, over])
 	# 3-2 불빛 구경꾼: 조명탄이 없으면 강철 초소 안에 그대로, 문 앞에 켜지면 걸어 나와 구경하고, 꺼지면 다시 들어간다
 	if _only <= 0 or _only == 3:
 		var s := _campaign(21)
