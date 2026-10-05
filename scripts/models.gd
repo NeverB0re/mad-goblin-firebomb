@@ -111,6 +111,60 @@ static func gear(parent: Node3D, radius: float, thick: float, pos: Vector3, m: M
 # ---------- 인물 ----------
 
 ## 늘린 공 (타원체).
+## 폭발 표지: 뾰족한 별 모양 판 (+Z를 바라본다, 양면).
+static func burst(parent: Node3D, r: float, pos: Vector3, rot: Vector3, m: Material, points := 8) -> MeshInstance3D:
+	var verts := PackedVector3Array()
+	var idx := PackedInt32Array()
+	verts.append(Vector3.ZERO)
+	for i in points * 2:
+		var a := PI * i / points
+		var rr := r if i % 2 == 0 else r * 0.5
+		verts.append(Vector3(sin(a) * rr, cos(a) * rr, 0))
+	for i in points * 2:
+		idx.append_array([0, 1 + (i + 1) % (points * 2), 1 + i])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_INDEX] = idx
+	var normals := PackedVector3Array()
+	normals.resize(verts.size())
+	normals.fill(Vector3(0, 0, 1))
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	if m is StandardMaterial3D:
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m
+	mi.position = pos
+	mi.rotation = rot
+	parent.add_child(mi)
+	return mi
+
+
+## 폭발통의 표지: 보랏빛 쇠테 둘과 네 면의 노란 폭발 마크 (반지름 r, 높이 h인 통의 겉에).
+static func keg_marks(parent: Node3D, r: float, h: float) -> void:
+	var hoop := mat(Color(0.42, 0.3, 0.62), 0.6, 0.3)
+	for y in [-0.36, 0.36]:
+		cyl(parent, r * 1.03, r * 1.03, h * 0.1, Vector3(0, h * y, 0), hoop, Vector3.ZERO, 10)
+	var disc := mat(Color(0.42, 0.3, 0.62), 0.6)
+	var star := mat(Color(1.0, 0.82, 0.15), 0.5, 0.0, 0.25)
+	var radius := h * 0.3
+	for k in 4:
+		var a := k * PI * 0.5
+		var out := Vector3(sin(a), 0, cos(a))
+		cyl(parent, radius, radius, 0.04, out * (r * 0.97), disc, Vector3(PI * 0.5, a, 0), 12)
+		burst(parent, radius * 0.85, out * (r + 0.03), Vector3(0, a, 0), star)
+
+
+## 폭발물 보관 표지판: 보랏빛 원판에 노란 폭발 마크 (+Z를 바라본다).
+static func blast_sign(parent: Node3D, pos: Vector3, radius: float) -> void:
+	var disc := cyl(parent, radius, radius, 0.05, pos, mat(Color(0.42, 0.3, 0.62), 0.6), Vector3(PI * 0.5, 0, 0), 12)
+	burst(parent, radius * 0.85, pos + Vector3(0, 0, 0.04), Vector3.ZERO, mat(Color(1.0, 0.82, 0.15), 0.5, 0.0, 0.25))
+	disc.name = "BlastSign"
+
+
 static func blob(parent: Node3D, r: float, pos: Vector3, m: Material, scl := Vector3.ONE, rot := Vector3.ZERO, segments := 8) -> MeshInstance3D:
 	var mi := ball(parent, r, pos, m, segments)
 	mi.scale = scl
@@ -120,7 +174,8 @@ static func blob(parent: Node3D, r: float, pos: Vector3, m: Material, scl := Vec
 
 ## 미친 발명가 고블린 (원점은 발바닥, -Z가 앞). 플레이어가 늘 등 뒤에서 보므로 등짐·고글 끈·귀를 자세히.
 ## 노드: Head (머리, 목 위), ArmL/ArmR (어깨, 팔은 아래로 늘어짐)
-static func goblin(with_arms := true) -> Node3D:
+## basket: 등에 쾅쾅알을 가득 담은 바구니를 멘다 (플레이어).
+static func goblin(with_arms := true, basket := false) -> Node3D:
 	var root := Node3D.new()
 	var skin := mat(GOBLIN_SKIN, 0.8)
 	var skin_dark := mat(GOBLIN_SKIN.darkened(0.2), 0.8)
@@ -155,10 +210,9 @@ static func goblin(with_arms := true) -> Node3D:
 	vest.position = Vector3(0, 1.0, 0.08)
 	vest.rotation = Vector3(-0.32, 0, 0)
 	root.add_child(vest)
-	box(vest, Vector3(0.66, 0.5, 0.36), Vector3(0, 0, 0.12), leather)
+	box(vest, Vector3(0.62, 0.46, 0.06), Vector3(0, -0.02, 0.07), leather)
 	for sx in [-1.0, 1.0]:
 		box(vest, Vector3(0.22, 0.48, 0.14), Vector3(sx * 0.24, 0, -0.2), leather, Vector3(0, sx * 0.25, 0))
-	box(vest, Vector3(0.2, 0.16, 0.03), Vector3(-0.15, 0.08, 0.31), patch, Vector3(0, 0, -0.15))
 	# 가슴의 탄띠 (작은 병들)
 	var band := Node3D.new()
 	band.position = Vector3(0, 1.0, -0.22)
@@ -167,33 +221,8 @@ static func goblin(with_arms := true) -> Node3D:
 	box(band, Vector3(0.09, 0.8, 0.05), Vector3.ZERO, leather_dark)
 	for k in 3:
 		cyl(band, 0.035, 0.04, 0.12, Vector3(0, -0.2 + k * 0.2, -0.05), glass, Vector3.ZERO, 6)
-	# 등짐: 덮개 달린 가죽 배낭, 말아 올린 담요, 꽂힌 화염병들, 매달린 렌치
-	var pack := Node3D.new()
-	pack.name = "Pack"
-	pack.position = Vector3(0, 1.05, 0.42)
-	pack.rotation = Vector3(-0.3, 0, 0)
-	root.add_child(pack)
-	box(pack, Vector3(0.54, 0.56, 0.3), Vector3.ZERO, leather)
-	box(pack, Vector3(0.56, 0.24, 0.32), Vector3(0, 0.2, 0.01), leather_dark)
-	box(pack, Vector3(0.1, 0.1, 0.03), Vector3(0, 0.08, 0.17), brass)
-	for sx in [-1.0, 1.0]:
-		box(pack, Vector3(0.12, 0.28, 0.12), Vector3(sx * 0.33, -0.1, 0), leather_dark)
-	cyl(pack, 0.1, 0.1, 0.6, Vector3(0, -0.34, 0.02), mat(Color(0.52, 0.36, 0.28), 1.0), Vector3(0, 0, PI * 0.5), 7)
-	for k in 3:
-		var bot := Node3D.new()
-		bot.position = Vector3(-0.16 + k * 0.16, 0.36, -0.04)
-		bot.rotation = Vector3(0.1, 0, (k - 1) * 0.3)
-		pack.add_child(bot)
-		cyl(bot, 0.06, 0.07, 0.2, Vector3.ZERO, glass, Vector3.ZERO, 6)
-		cyl(bot, 0.025, 0.035, 0.1, Vector3(0, 0.14, 0), glass, Vector3.ZERO, 6)
-		cyl(bot, 0.01, 0.035, 0.1, Vector3(0, 0.23, 0), rag, Vector3(0.3, 0, 0.2), 4)
-	var wrench := Node3D.new()
-	wrench.position = Vector3(0.36, -0.05, 0.06)
-	wrench.rotation = Vector3(0, 0, 0.25)
-	pack.add_child(wrench)
-	var steel := mat(Color(0.55, 0.57, 0.6), 0.4, 0.6)
-	box(wrench, Vector3(0.05, 0.36, 0.03), Vector3.ZERO, steel)
-	box(wrench, Vector3(0.14, 0.06, 0.03), Vector3(0, 0.19, 0), steel)
+	if basket:
+		_bomb_basket(root, leather, leather_dark)
 	# 머리
 	var head := Node3D.new()
 	head.name = "Head"
@@ -235,6 +264,31 @@ static func goblin(with_arms := true) -> Node3D:
 			root.add_child(arm)
 			goblin_arm(arm, skin, skin_dark, leather_dark)
 	return root
+
+
+## 등에 멘 바구니: 엮은 버들 통에 쾅쾅알이 삐죽삐죽, 어깨끈 둘.
+static func _bomb_basket(root: Node3D, strap: Material, strap_dark: Material) -> void:
+	var wicker := mat(Color(0.72, 0.52, 0.28), 1.0)
+	var wicker_dark := mat(Color(0.5, 0.34, 0.17), 1.0)
+	var pack := Node3D.new()
+	pack.name = "Basket"
+	pack.position = Vector3(0, 0.95, 0.48)
+	pack.rotation = Vector3(-0.25, 0, 0)
+	root.add_child(pack)
+	cyl(pack, 0.3, 0.24, 0.5, Vector3.ZERO, wicker, Vector3.ZERO, 8)
+	for y in [-0.17, 0.0, 0.17]:
+		cyl(pack, 0.3 - (0.06 * (0.25 - y) / 0.5), 0.3 - (0.06 * (0.25 - y) / 0.5), 0.05, Vector3(0, y, 0), wicker_dark, Vector3.ZERO, 8)
+	cyl(pack, 0.32, 0.32, 0.05, Vector3(0, 0.26, 0), wicker_dark, Vector3.ZERO, 8)
+	# 쾅쾅알 다섯 알 (까만 폭탄 + 심지)
+	for k in 5:
+		var a := TAU * k / 4.0
+		var p := Vector3(cos(a) * 0.15, 0.3, sin(a) * 0.15) if k < 4 else Vector3(0, 0.36, 0)
+		var bomb := Fx.ammo_model(AmmoType.Kind.HE, 1.1, false)
+		bomb.position = p
+		pack.add_child(bomb)
+	for sx in [-1.0, 1.0]:
+		box(root, Vector3(0.08, 0.5, 0.05), Vector3(sx * 0.2, 1.12, 0.12), strap, Vector3(-0.3, 0, sx * 0.1))
+		box(root, Vector3(0.1, 0.1, 0.06), Vector3(sx * 0.22, 0.88, 0.3), strap_dark)
 
 
 ## 고블린 팔 (어깨가 원점, 아래로 늘어짐): 마른 팔, 가죽 손목 띠, 큰 손과 엄지.

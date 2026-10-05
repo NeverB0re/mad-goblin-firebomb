@@ -69,15 +69,17 @@ func _process(delta: float) -> void:
 	var arm_r: Node3D = _body.get_node("ArmR")
 	match mode:
 		Mode.WAVE:
-			# 펄쩍펄쩍 뛰며 두 팔을 번갈아 휘젓다가, 가끔 통을 콕 가리킨다
+			# 플레이어를 바라보며 펄쩍펄쩍 뛰고 두 팔을 번갈아 휘젓다가, 가끔 한 팔로 통을 콕 가리킨다
 			_body.position.y = absf(sin(_t * 7.0)) * 0.35
+			var stage := get_parent()
+			if stage is Stage and stage.player:
+				var to_player := to_local(stage.player.global_position)
+				_body.rotation.y = atan2(-to_player.x, -to_player.z)
 			if fmod(_t, 3.0) < 1.2 and point_at != Vector3.INF:
-				var local := to_local(point_at)
-				_body.rotation.y = atan2(local.x, local.z) * 0.6
-				arm_r.rotation = Vector3(-1.4, 0, 0.3)
+				var dir := _body.to_local(point_at) - arm_r.position
+				arm_r.basis = Basis(Quaternion(Vector3.DOWN, dir.normalized()))
 				arm_l.rotation = Vector3(0, 0, -2.5 + sin(_t * 18.0) * 0.4)
 			else:
-				_body.rotation.y = 0.0
 				arm_l.rotation = Vector3(0, 0, -2.4 + sin(_t * 12.0) * 0.6)
 				arm_r.rotation = Vector3(0, 0, 2.4 + sin(_t * 12.0 + 1.5) * 0.6)
 		Mode.FIGHT:

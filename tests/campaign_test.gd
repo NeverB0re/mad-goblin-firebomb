@@ -146,7 +146,7 @@ func _run() -> void:
 		await _play(i)
 	# 2월드는 비에 젖어 기름 없이 화염탄만으로는 안 풀린다 (기름 단계를 빼고 같은 자리에 화염탄만)
 	if _only <= 0 or _only == 2:
-		for i in [11, 12, 14, 16]:
+		for i in [10, 11, 12, 14, 16]:
 			var s := _campaign(i)
 			await physics_frame
 			for step in Campaign.plan(i):
@@ -384,6 +384,59 @@ func _run() -> void:
 			t += 1.0 / 60.0
 		var waited_alive := not s.commanders[0].dead and not ally.exploded
 		await _expect(s, Stage.State.CLEARED, "1-10 동료가 성문 앞에서 스스로 터진다 (성문 앞까지 %.1f초, 도착 직후엔 아직 안 터짐 %s)" % [t, waited_alive], 10.0)
+	# 1-10 목재 문은 쾅쾅알에 부서진다 (불이 아니어도)
+	if _only <= 0 or _only == 1:
+		var s := _campaign(9)
+		await physics_frame
+		var doors := []
+		for st in s.structures:
+			for blk in st.blocks:
+				if blk.mat == Block.Mat.WOOD_BEAM and absf(blk.size.y - 2.6) < 0.01:
+					doors.append(blk)
+		await _throw_plan(s, AmmoType.Kind.HE, StageDefs._along(Campaign.ALLY_PTS, Campaign.ALLY_TOWER) + Vector3(0, 1.3, 0), false)
+		await _wait(s, 3.0)
+		var down := doors.filter(func(d): return not is_instance_valid(d) or d.fallen).size()
+		_check(doors.size() == 4 and down == 4, "1-10 통나무 문은 쾅쾅알에 부서진다 (%d/%d짝)" % [down, doors.size()])
+	# 1-9 도화선: 폭발에 조각이 흩어져도 불이 끝까지 타 들어가 화약통이 터진다
+	if _only <= 0 or _only == 1:
+		var s := _campaign(8)
+		await physics_frame
+		var ropes: Array = []
+		var kegs := 0
+		for st in s.structures:
+			for blk in st.blocks:
+				if blk.mat == Block.Mat.ROPE:
+					ropes.append(blk)
+				elif blk.mat == Block.Mat.KEG:
+					kegs += 1
+		ropes.sort_custom(func(a, b): return a.position.z > b.position.z)
+		for r in ropes:
+			r.drop(Vector3(0.3, 1.0, 0.2) * r.mass * 3.0)
+		await _wait(s, 0.6)
+		ropes[0].ignite()
+		await _wait(s, 15.0)
+		var remain := 0
+		for st in s.structures:
+			for blk in st.blocks:
+				if blk.mat == Block.Mat.KEG:
+					remain += 1
+		_check(kegs == 3 and remain == 0, "1-9 도화선 조각이 흩어져도 불이 타 들어가 화약통 %d개가 모두 터진다 (남음 %d)" % [kegs, remain])
+	# 손짓하는 고블린은 플레이어를 바라본다 (1-6)
+	if _only <= 0 or _only == 1:
+		var s := _campaign(5)
+		await physics_frame
+		await _wait(s, 0.5)
+		var seen := 0
+		var facing := 0
+		for g in s.get_tree().get_nodes_in_group("goblin_extras"):
+			if g.mode == GoblinExtra.Mode.WAVE:
+				seen += 1
+				var forward: Vector3 = -g._body.global_transform.basis.z
+				var to_player: Vector3 = s.player.global_position - g.global_position
+				to_player.y = 0.0
+				if forward.dot(to_player.normalized()) > 0.95:
+					facing += 1
+		_check(seen > 0 and facing == seen, "1-6 손짓하는 고블린 %d명이 모두 플레이어를 바라본다 (%d명)" % [seen, facing])
 	# 시작 조망: 한 바퀴 돌고 투척 시점으로 내려오며, 건너뛸 수 있다
 	if _only <= 0 or _only == 1:
 		var s := _campaign(2)

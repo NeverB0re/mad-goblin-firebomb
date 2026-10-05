@@ -599,8 +599,14 @@ func _settlement() -> void:
 	match s.world:
 		0:
 			# 고블린 평원: 둥근 흙집과 목책, 토템 기둥
+			# 마을은 인간들에게 점령당했다: 흙집 절반은 불타 무너졌다
+			var n := 0
 			for p in spots.slice(0, 7):
-				_goblin_hut(b, p)
+				if n % 2 == 1:
+					_burnt_hut(b, p)
+				else:
+					_goblin_hut(b, p)
+				n += 1
 			_palisade_ring(b, pp)
 		1:
 			for p in spots.slice(0, 6):
@@ -642,6 +648,42 @@ func _goblin_hut(b: LowPoly.Builder, p: Vector2) -> void:
 	_box(b, Color(0.25, 0.17, 0.1), Transform3D(Basis(Vector3.UP, atan2(door_dir.x, door_dir.y)), Vector3(dp.x, gy + 0.5, dp.y)), Vector3(0.7, 1.0, 0.1), 0.02)
 
 
+## 1월드: 불타 무너진 고블린 흙집 (재 깔린 터, 그을린 토막 벽, 쓰러진 시커먼 서까래)
+func _burnt_hut(b: LowPoly.Builder, p: Vector2) -> void:
+	var gy := height(p.x, p.y)
+	var r := rng.randf_range(1.8, 2.6)
+	var ash := CylinderMesh.new()
+	ash.top_radius = r * 1.5
+	ash.bottom_radius = r * 1.6
+	ash.height = 0.06
+	ash.radial_segments = 9
+	ash.rings = 0
+	b.add_prim(ash, Transform3D(Basis(), Vector3(p.x, gy + 0.03, p.y)), Color(0.13, 0.11, 0.1), 0.05, 0.0, p.x)
+	# 무너지다 남은 흙벽 토막
+	for k in 5:
+		var a := TAU * k / 5.0 + rng.randf() * 0.5
+		var hgt := rng.randf_range(0.3, 1.2)
+		var q := p + Vector2(cos(a), sin(a)) * r * 0.95
+		_box(b, Color(0.3, 0.22, 0.17), Transform3D(Basis(Vector3.UP, -a), Vector3(q.x, gy + hgt * 0.5, q.y)), Vector3(0.45, hgt, r * 0.9), 0.08)
+	# 쓰러진 시커먼 서까래와 기울어 선 기둥
+	var char := Color(0.07, 0.06, 0.05)
+	for k in 5:
+		var a := rng.randf() * TAU
+		var len := rng.randf_range(1.6, 2.8)
+		var q := p + Vector2(cos(a), sin(a)) * rng.randf_range(0.3, r * 0.8)
+		var tilt := Basis(Vector3.UP, a) * Basis(Vector3.BACK, rng.randf_range(0.9, 1.4))
+		_box(b, char, Transform3D(tilt, Vector3(q.x, gy + 0.25, q.y)), Vector3(0.16, len, 0.16), 0.02)
+	_box(b, char, Transform3D(Basis(Vector3.BACK, 0.15), Vector3(p.x + 0.4, gy + 1.3, p.y - 0.3)), Vector3(0.2, 2.6, 0.2), 0.02)
+	# 그을린 지붕 잔해 더미
+	var heap := CylinderMesh.new()
+	heap.top_radius = 0.4
+	heap.bottom_radius = r * 0.8
+	heap.height = 0.7
+	heap.radial_segments = 7
+	heap.rings = 1
+	b.add_prim(heap, Transform3D(Basis(), Vector3(p.x - 0.3, gy + 0.35, p.y + 0.4)), Color(0.2, 0.16, 0.12), 0.1, 0.2, p.y)
+
+
 ## 1월드: 진지 뒤 멀리 고블린 마을을 두르는 뾰족한 목책 (군데군데 끊긴 곳)과 토템 기둥
 func _palisade_ring(b: LowPoly.Builder, pp: Vector2) -> void:
 	var c := flat.get_center()
@@ -658,14 +700,19 @@ func _palisade_ring(b: LowPoly.Builder, pp: Vector2) -> void:
 			continue
 		var gy := height(q.x, q.y)
 		var hgt := rng.randf_range(2.4, 3.2)
+		var wd := wood
+		if k % 5 == 2:
+			# 불타 그을린 말뚝: 거뭇하고 반쯤 부러졌다
+			wd = Color(0.12, 0.09, 0.07)
+			hgt *= 0.5
 		var stake := CylinderMesh.new()
 		stake.top_radius = 0.0
 		stake.bottom_radius = 0.2
 		stake.height = 0.6
 		stake.radial_segments = 5
 		stake.rings = 0
-		_box(b, wood, Transform3D(Basis(Vector3.UP, a), Vector3(q.x, gy + hgt * 0.5, q.y)), Vector3(0.36, hgt, 0.36), 0.04)
-		b.add_prim(stake, Transform3D(Basis(), Vector3(q.x, gy + hgt + 0.3, q.y)), wood.lightened(0.1), 0.05)
+		_box(b, wd, Transform3D(Basis(Vector3.UP, a), Vector3(q.x, gy + hgt * 0.5, q.y)), Vector3(0.36, hgt, 0.36), 0.04)
+		b.add_prim(stake, Transform3D(Basis(), Vector3(q.x, gy + hgt + 0.3, q.y)), wd.lightened(0.1), 0.05)
 	# 토템: 쌓은 머리 셋과 뿔
 	var tp := center - away * (radius - 4.0)
 	if not _in_corridor(tp, 8.0):

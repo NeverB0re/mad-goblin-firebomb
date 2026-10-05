@@ -109,7 +109,7 @@ func set_held_model(model: Node3D) -> void:
 
 ## 미친 발명가 고블린 몸체. 던지는 오른팔은 시점을 따라 움직이므로 따로 만든다.
 func _build_body() -> void:
-	_body = Models.goblin(false)
+	_body = Models.goblin(false, true)
 	add_child(_body)
 	# 오른팔: 어깨에서 손까지, 시점의 위아래 각도를 따라 움직인다 (길이 0.45, -Z 끝이 손)
 	var arm := MeshInstance3D.new()

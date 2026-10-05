@@ -55,31 +55,31 @@ const WORLD_NIGHT := [false, false, true, false, false]
 ## bombers: 대기 중인 글라이더 폭격 고블린 수 (조명탄 하나에 한 번). launch_button: 최종 진지의 거대 로켓 발사 버튼.
 const STAGES := [
 	# ---------- 1월드: 점령당한 목책 마을 (폭탄 = 파괴부터, 그다음 불 = 번지는 간접 파괴) ----------
-	{"name": "마을 어귀 망루", "ammo": {"he": 2}, "villagers": 3,
+	{"name": "마을 어귀 망루", "ammo": {"he": 2},
 		"parts": [["tower", Vector3(0, 0, -32)]],
 		"story": "인간들이 고블린 마을 어귀에 나무 망루를 세우고 지휘관이 올라가 마을을 내려다본다. 던지면 터지고, 터지면 부서진다. 다리를 날리든 지휘관 발치에 떨어뜨리든."},
-	{"name": "금 간 석벽 초소", "ammo": {"he": 3}, "villagers": 2,
+	{"name": "금 간 석벽 초소", "ammo": {"he": 3},
 		"parts": [["windowpost", Vector3(0, 0, -36)]],
 		"story": "마을 우물가에 인간들이 쌓은 석벽 초소. 누렇게 바랜 금 간 앞벽은 폭탄에 부서지고, 청회색 강철 지붕은 꿈쩍도 안 한다. 벽부터 날리고 안으로."},
-	{"name": "곡식 창고와 보초 망루", "ammo": {"he": 3}, "villagers": 4,
+	{"name": "곡식 창고와 보초 망루", "ammo": {"he": 3},
 		"parts": [["hut", Vector3(-6, 0, -36)], ["tower", Vector3(8, 0, -42), {"legs": 3.0}]],
 		"story": "지휘관 둘: 하나는 곡식 창고 안에서 곡식을 세고(앞 창문이 열려 있다), 하나는 옆 보초 망루에 올라가 있다. 깃발 둘을 다 쓰러뜨려야 한다."},
-	{"name": "흰 돌 망대", "ammo": {"he": 2}, "villagers": 3,
+	{"name": "흰 돌 망대", "ammo": {"he": 2},
 		"parts": [["pillars", Vector3(0, 0, -38)]],
 		"story": "반듯한 흰 돌은 무엇으로도 안 부서진다. 그런데 이 망대 기둥 넷 중 하나만 누렇게 금이 갔다. 그 하나만 부러뜨리면 망대가 그쪽으로 기운다."},
-	{"name": "마을 종탑", "ammo": {"he": 2}, "villagers": 3,
+	{"name": "마을 종탑", "ammo": {"he": 2},
 		"parts": [["bell", Vector3(0, 0, -38)]],
 		"story": "마을 종탑 아래 석조 초소에 지휘관이 숨었다. 벽은 흰 돌이라 안 깨진다. 그런데 머리 위 나무 종틀에 커다란 쇠종이 밧줄 하나에 매달려 있다."},
-	{"name": "고블린 화약 창고", "ammo": {"he": 2}, "villagers": 2,
+	{"name": "고블린 화약 창고", "ammo": {"he": 2},
 		"parts": [["powder", Vector3(-2, 0, -40)]],
 		"story": "인간들이 고블린의 화약 창고 옆에 금 간 석재 망대를 세웠다. 창고 안 화약통에 폭탄이 닿으면 쾅, 쾅, 쾅. 그 화약이 누구 것이었는지 잊은 모양이다."},
-	{"name": "강철 성벽 막사", "ammo": {"fire": 2}, "villagers": 3,
+	{"name": "강철 성벽 막사", "ammo": {"fire": 2},
 		"parts": [["steelhut", Vector3(0, 0, -38)]],
 		"story": "강철 성벽은 폭탄으로 못 뚫는다. 하지만 성벽 위로 솟은 막사 짚 지붕은 탄다. 새 탄: 화염 항아리. 묵직해서 덜 날아가지만, 불은 맞닿은 짚과 나무를 타고 번진다."},
-	{"name": "짚 지붕 줄집", "ammo": {"fire": 2}, "villagers": 4, "wind": [2, 1, 0],
+	{"name": "짚 지붕 줄집", "ammo": {"fire": 2}, "wind": [2, 1, 0],
 		"parts": [["rowhouses", Vector3(0, 0, -38)]],
 		"story": "흰 돌담 안에 지붕이 잇닿은 짚 지붕 집 세 채, 집마다 지휘관이 하나. 한 채에 불이 붙으면 옆집으로 번진다. 산바람이 불기 시작했다: 들판의 깃발이 펴진 폭 수만큼 비켜 던진다. 이제부터는 늘 깃발을 본다."},
-	{"name": "촌장 집 점령군 본부", "ammo": {"he": 2, "fire": 2}, "villagers": 5, "perch": 12.0, "wind": [2, 1, 0],
+	{"name": "촌장 집 점령군 본부", "ammo": {"he": 2, "fire": 2}, "perch": 12.0, "wind": [2, 1, 0],
 		"parts": [["fortress", Vector3(0, 0, -54)], ["pillars", Vector3(-15, 0, -44)]],
 		"story": "점령군이 촌장 집 마당 흰 돌 성벽 안에 돌 망루를 세우고 본부로 쓴다. 망루 앞면은 창 난 돌벽이라 지휘관이 창으로만 보인다. 금 간 기둥 발치에는 마을에서 걷어 간 화약통, 강철 문 밑으로는 검정·노랑 도화선이 삐져나와 있고, 성문 앞에서 고블린 하나가 도화선을 가리키며 방방 뛴다. 부관은 옆 금 간 석재 망대에서 지켜본다."},
 	{"name": "마을 정문 지원", "fixed": "ally", "ammo": {"he": 3, "fire": 2}, "wind": [2, 1, 0],
@@ -427,8 +427,6 @@ static func build(i: int, s: Stage) -> void:
 		_torches(s, d)
 	if d.has("wind"):
 		s.add_wind_banner(banner_spot(d, s.player.position))
-	for k in d.get("villagers", 0):
-		s.add_villager(Vector3(-16 + k * 6.0, 0, -20 - (k % 2) * 3), 180.0 + (k - 2) * 15.0)
 	s.finish_build()
 	s.stage_id = label(i)
 	s.title = "%s · %s" % [label(i), d.name]
@@ -607,7 +605,7 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 				out.append([K.HE, c + Vector3(fort_fuse_x(c), 0.75, 2.3), true, 0.0])
 		"oilhouse":
 			out.append([K.OIL, c + Vector3(0.3, 0.3, 5.0), false, 0.3])
-			out.append([K.FIRE, c + Vector3(0.3, 1.0, 7.6), false, 0.0])
+			out.append([K.FIRE, c + Vector3(0.3, 0.1, 6.8), false, 0.0])
 		"barn":
 			burn.call(c + Vector3(0, 1.0, 2.15))
 		"hopper":
@@ -764,7 +762,7 @@ static func _part_powder(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	var h := 4.0
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			st.add_block(M.CRACKED if sx == 1 and sz == crack_side(c) else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
+			_pillar(st, M.STEEL if sx == 1 and sz == crack_side(c) else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
 	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
 	deck.support_ratio = 1.0
 	for sx in [-1, 1]:
@@ -774,8 +772,19 @@ static func _part_powder(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	_legs(st, func(b): return b.start_low < 0.05, 0)
 	var shed := s.add_structure()
 	StageDefs.hut(shed, c + Vector3(3.6, 0, 0.2), 1.4, 2.0)
+	# 폭발물 창고 표시: 앞벽에 폭발 표지판
+	var front: Block = null
+	for blk in shed.blocks:
+		if blk.mat == M.WOOD_THIN and blk.size.y > 1.5 and blk.position.z > c.z + 0.5 and blk.position.x < c.x + 3.5 and (front == null or blk.position.x > front.position.x):
+			front = blk
+	if front:
+		Models.blast_sign(front, Vector3(0, 0.1, front.size.z * 0.5 + 0.03), 0.27 * s.build_scale)
+	# 앞 창문(가운데)으로 폭발통이 보이게 가운데 통을 한 단 더 쌓는다
 	for k in 3:
-		shed.add_block(M.KEG, c + Vector3(2.85 + k * 0.75, 0.375, -0.625), Vector3(0.75, 0.75, 0.75))
+		shed.add_block(M.KEG, c + Vector3(2.85 + k * 0.75, 0.375, 0.5), Vector3(0.75, 0.75, 0.75))
+	shed.add_block(M.KEG, c + Vector3(3.6, 1.125, 0.5), Vector3(0.75, 0.75, 0.75))
+	for k in 2:
+		shed.add_block(M.KEG, c + Vector3(3.225 + k * 0.75, 0.375, -0.3), Vector3(0.75, 0.75, 0.75))
 	s.add_commander(c + Vector3(0, h + 0.4, 0), 180.0, Vector3(1.0, 0, 0.9))
 	s.add_guard(c + Vector3(-4, 0, 3), 180.0)
 
@@ -886,7 +895,7 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	var h := 6.0
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			st.add_block(M.CRACKED if sx == crack_side(c) and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
+			_pillar(st, M.STEEL if sx == crack_side(c) and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
 	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
 	deck.support_ratio = 1.0
 	# 앞면: 창 난 돌벽 (창으로 지휘관이 보인다), 옆과 뒤는 낮은 돌 난간
@@ -897,24 +906,45 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	_legs(st, func(b): return b.start_low < 0.05, 0)
 	s.add_commander(c + Vector3(0, h + 0.4, -0.2), 180.0, Vector3(1.0, 0, -0.9))
 	var yard := s.add_structure()
+	var kegs: Array[Block] = []
 	for k in 3:
-		yard.add_block(M.KEG, c + Vector3(crack_side(c) * (1.5 - k * 0.75), 0.375, 2.3), Vector3(0.75, 0.75, 0.75))
+		kegs.append(yard.add_block(M.KEG, c + Vector3(crack_side(c) * (1.5 - k * 0.75), 0.375, 2.3), Vector3(0.75, 0.75, 0.75)))
 	# 도화선: 가운데 화약통에서 강철 문 밑 틈을 지나 성벽 앞까지 (끝에 불을 붙이면 타 들어가 화약통이 터진다)
-	_fuse(yard, c + Vector3(fort_fuse_x(c), 0, 2.675), c + Vector3(fort_fuse_x(c), 0, FORT_FUSE_Z), 11)
+	_fuse(yard, c + Vector3(fort_fuse_x(c), 0, 2.675), c + Vector3(fort_fuse_x(c), 0, FORT_FUSE_Z), 11, false, [kegs[1]])
 	s.add_guard(c + Vector3(5, 0, 2), 180.0)
 
 
+## 석재 망대의 기둥: 강철 기둥은 폭발통 같은 큰 폭발에만 부러지지만 겉모양은 금이 간 흰 석재로 맞춘다.
+static func _pillar(st: Structure, mat: int, center: Vector3, size: Vector3) -> void:
+	var b := st.add_block(mat, center, size)
+	if mat == M.STEEL:
+		b.look_like_cracked_stone()
+
+
 ## 도화선 한 줄 (a → b, 땅 위). 맞닿은 밧줄 토막을 따라 불이 번진다. 검정·노랑 줄무늬로 눈에 띈다.
-static func _fuse(st: Structure, a: Vector3, b: Vector3, n: int) -> void:
+## 조각끼리, 그리고 a 쪽 끝과 ends(그 끝에 닿은 화약통들)는 서로 불을 넘기도록 따로 이어 둔다
+## (폭발에 밀려 떨어져 나가도 불은 끝까지 타 들어간다). wet: 비 오는 날 젖어서 기름을 묻혀야 탄다.
+static func _fuse(st: Structure, a: Vector3, b: Vector3, n: int, wet := false, ends := []) -> void:
 	var h := 0.12
 	var d := b - a
 	var seg := d.length() / n
 	var along_x := absf(d.x) > absf(d.z)
+	var pieces: Array[Block] = []
 	for k in n:
 		var p := a + d * ((k + 0.5) / n) + Vector3(0, h * 0.5, 0)
 		var size := Vector3(seg, h, 0.14) if along_x else Vector3(0.14, h, seg)
 		var blk := st.add_block(M.ROPE, p, size)
 		blk.set_color(FUSE_BLACK if k % 2 == 0 else FUSE_YELLOW)
+		if wet:
+			blk.set_meta("rain_wets", true)
+		pieces.append(blk)
+	for k in n:
+		if k > 0:
+			pieces[k].fuse_links.append(pieces[k - 1])
+		if k < n - 1:
+			pieces[k].fuse_links.append(pieces[k + 1])
+	for keg in ends:
+		pieces[0].fuse_links.append(keg)
 
 
 const FUSE_BLACK := Color(0.1, 0.09, 0.08)
@@ -937,9 +967,8 @@ static func _part_oilhouse(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	for sx in [-1, 1]:
 		st.add_block(M.STONE, c + Vector3(sx * (half - 0.3), 1.5, 0), Vector3(0.6, 3.0, half * 2.0 - 1.2))
 	st.add_block(M.STONE, c + Vector3(0, 3.2, 0), Vector3(6.0, 0.4, 6.0))
-	st.add_block(M.STRAW, c + Vector3(0.3, 0.5, half + 4.6), Vector3(1.6, 1.0, 1.2))
-	for i in 5:
-		st.add_block(M.WOOD_WET, c + Vector3(0.3, 0.15, half + 3.5 - i * 1.0), Vector3(0.4, 0.3, 1.0))
+	# 건물 앞으로 뻗은 도화선: 비에 젖어 기름을 묻혀야 타고, 타 들어가 안쪽 연료 배관에 불이 붙는다
+	_fuse(st, c + Vector3(0.3, 0, half - 1.0), c + Vector3(0.3, 0, half + 4.0), 5, true)
 	for i in 4:
 		st.add_block(M.FUEL, c + Vector3(0.3, 0.15, half - 1.4 - i * 0.8), Vector3(0.3, 0.3, 0.8))
 	s.add_commander(c + Vector3(-1.0, 0, -1.2), 180.0, Vector3(-1.2, 0, -0.4))
@@ -999,8 +1028,23 @@ static func _part_hopper(s: Stage, c: Vector3, _o: Dictionary) -> void:
 
 ## 절벽 밑 감시굴 (E6): 석재 덮개가 금 간 돌기둥(왼쪽)과 나무 버팀목(오른쪽)에만 얹혀 있다.
 static func _part_cave(s: Stage, c: Vector3, _o: Dictionary) -> void:
-	s.add_rock(c + Vector3(0, 6, -4.5), Vector3(14, 12, 4), Color(0.55, 0.47, 0.43))
+	# 무너진 갱도 입구: 절벽 한가운데 뚫린 검은 굴, 부러져 기운 나무 받침틀, 입구를 반쯤 메운 돌무더기
+	var cliff := Color(0.55, 0.47, 0.43)
+	var timber := Color(0.36, 0.24, 0.13)
+	for sx in [-1.0, 1.0]:
+		s.add_rock(c + Vector3(sx * 4.8, 6, -4.5), Vector3(5, 12, 4), cliff)
+	s.add_rock(c + Vector3(0, 8.2, -4.5), Vector3(4.6, 7.6, 4), cliff)
 	s.add_rock(c + Vector3(0, 13, -1.5), Vector3(14, 2, 4), Color(0.47, 0.4, 0.37))
+	s.add_rock(c + Vector3(0, 2.2, -6.6), Vector3(4.6, 4.4, 1.8), cliff)
+	s.add_prop(c + Vector3(0, 2.2, -5.65), Vector3(4.6, 4.4, 0.1), Color(0.03, 0.025, 0.025), false)
+	for sx in [-1.0, 1.0]:
+		s.add_prop(c + Vector3(sx * 2.25, 2.2, -4.0), Vector3(0.06, 4.4, 3.4), Color(0.08, 0.07, 0.06), false)
+	s.add_prop(c + Vector3(-2.5, 1.8, -2.3), Vector3(0.4, 3.7, 0.4), timber, false).rotation.z = 0.1
+	s.add_prop(c + Vector3(2.55, 1.0, -2.3), Vector3(0.4, 2.4, 0.4), timber, false).rotation.z = -0.6
+	s.add_prop(c + Vector3(-0.7, 3.8, -2.3), Vector3(3.6, 0.4, 0.45), timber, false).rotation.z = -0.3
+	s.add_rock(c + Vector3(1.3, 0.55, -3.6), Vector3(2.6, 1.1, 1.2), Color(0.5, 0.43, 0.39))
+	s.add_rock(c + Vector3(-1.2, 0.4, -3.7), Vector3(1.8, 0.8, 1.0), Color(0.47, 0.4, 0.37))
+	s.add_rock(c + Vector3(2.0, 1.3, -3.7), Vector3(1.4, 0.9, 0.9), Color(0.52, 0.45, 0.4))
 	var st := s.add_structure()
 	st.add_block(M.CRACKED, c + Vector3(-3.2, 1.4, 1.6), Vector3(0.9, 2.8, 0.9))
 	st.add_block(M.WOOD_BEAM, c + Vector3(3.2, 1.4, 1.6), Vector3(0.55, 2.8, 0.55))
@@ -1084,7 +1128,7 @@ static func _part_kegyard(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	for k in 3:
 		s.add_wall_prop(c + Vector3(4.0 - (k % 2) * 0.2, 0.5 + (k / 2) * 1.0, -2.6 + (k % 2) * 1.1), Vector3(1.0, 1.0, 1.0), "plank", 0.2 * k)
 	# 도화선: 화약통 오른쪽에서 방벽 뒤를 따라 끝까지, 방벽 끝을 돌아 앞으로 (맞닿은 밧줄 토막을 따라 불이 번진다)
-	_fuse(yard, c + Vector3(0.5, 0, 1.4), c + Vector3(KEG_FUSE_X - 0.07, 0, 1.4), 8)
+	_fuse(yard, c + Vector3(0.5, 0, 1.4), c + Vector3(KEG_FUSE_X - 0.07, 0, 1.4), 8, false, [keg])
 	_fuse(yard, c + Vector3(KEG_FUSE_X, 0, 1.33), c + Vector3(KEG_FUSE_X, 0, 5.6), 7)
 	s.add_commander(c + Vector3(-2.25, 0, 0.8), 180.0, Vector3(-1.0, 0, -0.8))
 	s.add_commander(c + Vector3(2.25, 0, 0.8), 180.0, Vector3(1.0, 0, -0.8))
@@ -1223,7 +1267,6 @@ static func _ally_stage(s: Stage, id: String, title_text: String) -> void:
 	# 길은 거의 앞뒤로 나 있어 문과 목책은 좌우(x)로 가로지른다
 	var side := Vector3.RIGHT
 	var tower := s.add_structure()
-	tower.player_proof = true
 	for sx in [-1, 1]:
 		tower.add_block(M.WOOD_BEAM, tp + side * sx * 1.5 + Vector3(0, 2.5, 0), Vector3(0.6, 5.0, 0.6))
 	var doors := []
@@ -1238,10 +1281,11 @@ static func _ally_stage(s: Stage, id: String, title_text: String) -> void:
 	# 3) 금 간 석재 성벽: 길을 가로지른 한 칸만 낡아 금이 갔고, 양옆은 흰 돌 성벽으로 길게 이어진다
 	var wp := StageDefs._along(pts, ALLY_WALL)
 	var wside := Vector3.RIGHT
+	# 마을 정문: 금 간 석재 문짝 두 짝 (쇠 띠와 손잡이가 달린 문)
 	var fence := s.add_structure()
-	for k in 3:
-		for row in 2:
-			fence.add_block(M.CRACKED, wp + wside * (-1.0 + k * 1.0) + Vector3(0, 0.6 + row * 1.2, 0), Vector3(1.0, 1.2, 0.6))
+	for sx in [-1.0, 1.0]:
+		var leaf := fence.add_block(M.CRACKED, wp + wside * (sx * 0.75) + Vector3(0, 1.2, 0), Vector3(1.5, 2.4, 0.6))
+		leaf.add_door_details(-sx)
 	for sx in [-1, 1]:
 		s.add_wall_prop(wp + wside * sx * 11.5 + Vector3(0, 1.4, 0), Vector3(20.0, 2.8, 0.8), "stone")
 	var obstacles := [

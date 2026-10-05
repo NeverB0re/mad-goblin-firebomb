@@ -21,7 +21,7 @@ const INFO := {
 	Mat.STONE: {"color": Color(0.84, 0.82, 0.78), "density": 2.4, "joint": 400.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
 	Mat.ROPE: {"color": Color(0.84, 0.7, 0.42), "density": 0.5, "joint": 15.0, "flammable": true, "ignite": 0.3, "burn": 2.0, "ratio": 0.0},
 	Mat.STRAW: {"color": Color(0.93, 0.76, 0.4), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.15, "burn": 2.0, "ratio": 1.0},
-	Mat.KEG: {"color": Color(0.06, 0.06, 0.06), "density": 0.9, "joint": 30.0, "flammable": true, "ignite": 0.3, "burn": 0.8, "ratio": 1.0},
+	Mat.KEG: {"color": Color(0.8, 0.3, 0.13), "density": 0.9, "joint": 30.0, "flammable": true, "ignite": 0.3, "burn": 0.8, "ratio": 1.0},
 	Mat.CORE: {"color": Color(0.97, 0.74, 0.16), "density": 2.4, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 1.0},
 	Mat.WEIGHT: {"color": Color(0.16, 0.16, 0.18), "density": 7.8, "joint": 200.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.0},
 	# 인간의 강철판: 청회색, 반듯한 리벳. 고폭탄으로는 안 부서지고 큰 폭발(폭발통·화약통·미사일)에만 날아간다
@@ -30,8 +30,8 @@ const INFO := {
 	Mat.WOOD_WET: {"color": Color(0.26, 0.2, 0.17), "density": 0.8, "joint": 60.0, "flammable": true, "ignite": 0.6, "burn": 5.0, "ratio": 1.0},
 	# 내부 연료 배관: 검정에 흰 띠. 빨리 타고, 다 타면 그 자리에서 불길이 확 솟는다
 	Mat.FUEL: {"color": Color(0.08, 0.08, 0.08), "density": 1.0, "joint": 40.0, "flammable": true, "ignite": 0.25, "burn": 1.6, "ratio": 0.0},
-	# 금 간 석벽: 누렇게 바랜 석재에 검은 균열. 고폭탄으로 부서지고, 근처에 맞아도 조금씩 금이 커진다
-	Mat.CRACKED: {"color": Color(0.72, 0.63, 0.5), "density": 2.2, "joint": 110.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+	# 금 간 석벽: 흰 석재와 같은 색에 가는 균열 (균열이 취약하다는 표시). 고폭탄으로 부서지고, 근처에 맞아도 조금씩 금이 커진다
+	Mat.CRACKED: {"color": Color(0.84, 0.82, 0.78), "density": 2.2, "joint": 110.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
 }
 ## 재질별 로우폴리 겉모양 (LowPoly.block_mesh)
 const STYLE := {
@@ -46,6 +46,8 @@ var size := Vector3.ONE
 var structure: Node  # Structure
 var joints: Array = []
 var neighbors: Array[Block] = []
+## 도화선 연결: 맞닿지 않아도(날아가 떨어져 있어도) 불을 넘겨 주는 이웃 (도화선 조각, 끝의 화약통)
+var fuse_links: Array[Block] = []
 ## 매달린 물체(밧줄, 추)는 받침 규칙을 쓰지 않고 연결만으로 버틴다.
 var hanging := false
 var support_ratio := -1.0
@@ -127,15 +129,13 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 	_mesh.material_override = _material
 	add_child(_mesh)
 
-	if mat == Mat.KEG or mat == Mat.FUEL:
-		# 흰 띠를 두른 검은 통 / 배관
+	if mat == Mat.KEG:
+		_add_keg_marks()
+	elif mat == Mat.FUEL:
+		# 흰 띠를 두른 검은 배관
 		var band_mat := StandardMaterial3D.new()
 		band_mat.albedo_color = Color(0.95, 0.95, 0.95)
 		for y in [-0.22, 0.22]:
-			if mat == Mat.KEG:
-				var r := minf(size.x, size.z) * 0.5 * 0.99 + 0.02
-				Models.cyl(_mesh, r, r, size.y * 0.1, Vector3(0, size.y * y, 0), band_mat, Vector3.ZERO, 10)
-				continue
 			var band := MeshInstance3D.new()
 			var bb := BoxMesh.new()
 			bb.size = Vector3(size.x * 1.04, size.y * 0.1, size.z * 1.04)
@@ -168,9 +168,9 @@ func set_color(c: Color) -> void:
 
 
 ## 비에 젖는다 (나무와 짚). 그대로는 타지 않고 기름을 묻혀야 탄다.
-## 화약통은 덮개 없이 비를 맞는 것(rain_wets 메타)만 젖는다: 불로는 안 붙고 기름을 부어야 탄다 (폭발에는 그대로 터진다).
+## 화약통과 도화선은 덮개 없이 비를 맞는 것(rain_wets 메타)만 젖는다: 불로는 안 붙고 기름을 부어야 탄다 (폭발에는 그대로 터진다).
 func make_wet() -> void:
-	if mat == Mat.KEG and has_meta("rain_wets"):
+	if (mat == Mat.KEG or mat == Mat.ROPE) and has_meta("rain_wets"):
 		wet_keg = true
 		_base_color = _base_color.lightened(0.15)
 		_material.albedo_color = _base_color
@@ -194,6 +194,21 @@ func coat_oil() -> void:
 	_material.metallic = 0.2
 
 
+## 겉모양만 가는 금이 간 흰 석재로 바꾼다 (재질의 성질은 그대로: 강철 기둥이 석재 망대에 섞여 보이게).
+func look_like_cracked_stone() -> void:
+	for child in _mesh.get_children():
+		child.free()
+	_mesh.mesh = LowPoly.block_mesh("cracked", size)
+	_base_color = INFO[Mat.STONE].color
+	_material.albedo_color = _base_color
+	_add_cracks()
+
+
+## 폭발통: 붉은 통에 보랏빛 쇠테 둘, 네 면에 노란 폭발 표지 (한눈에 터지는 통임을 알린다).
+func _add_keg_marks() -> void:
+	Models.keg_marks(_mesh, minf(size.x, size.z) * 0.5, size.y)
+
+
 ## 반듯하게 박힌 리벳 (큰 면 두 개에 격자로).
 func _add_rivets() -> void:
 	var rivet_mat := Models.mat(Color(0.28, 0.33, 0.38), 0.4, 0.7)
@@ -211,29 +226,39 @@ func _add_rivets() -> void:
 				Models.box(_mesh, Vector3(0.07, 0.07, 0.07), p, rivet_mat)
 
 
-## 큰 면 두 개에 번개 모양 검은 균열 (위치로 정해지는 모양이라 매번 같다).
-## 멀리서도 보이게 굵고 길게: 위 가장자리에서 아래로 갈라져 내려가고 중간에 가지가 하나 난다.
+## 큰 면 두 개에 가는 균열: 위 가장자리에서 아래로 꺾여 내려가며 점점 가늘어지고, 곳곳에서 짧은 잔가지가 갈라진다.
+## (위치로 정해지는 모양이라 매번 같다)
 func _add_cracks() -> void:
-	var crack_mat := Models.mat(Color(0.08, 0.06, 0.05), 1.0)
+	var crack_mat := Models.mat(Color(0.12, 0.1, 0.09), 1.0)
 	crack_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	var axis := 2 if size.z <= size.x else 0
 	var u := 0 if axis == 2 else 2
-	var k := absi(int(position.x * 7.0 + position.y * 13.0 + position.z * 3.0))
-	var w := minf(size[u], 1.5)
+	var seed := absf(position.x * 7.0 + position.y * 13.0 + position.z * 3.0)
+	var half_u := size[u] * 0.45
 	for side in [-1.0, 1.0]:
-		var cur := Vector2((float(k % 5) / 4.0 - 0.5) * w * 0.4, size.y * 0.5)
-		var steps := 3
+		var cur := Vector2((_rand(seed, 0) - 0.5) * size[u] * 0.5, size.y * 0.5)
+		var steps := clampi(roundi(size.y / 0.28), 5, 12)
+		var step_y := size.y * 0.94 / steps
+		var heading := 0.0
 		for i in steps:
-			var dx := (0.16 + 0.06 * float((k + i) % 3)) * w * (1.0 if (k + i) % 2 == 0 else -1.0)
-			var nxt := Vector2(clampf(cur.x + dx, -size[u] * 0.42, size[u] * 0.42), cur.y - size.y * 0.85 / steps)
-			_crack_segment(cur, nxt, 0.11 - i * 0.025, axis, u, side, crack_mat)
-			if i == 0:
-				# 가지
-				var br := nxt + Vector2(-signf(dx) * w * 0.3, -size.y * 0.12)
-				br.x = clampf(br.x, -size[u] * 0.45, size[u] * 0.45)
-				_crack_segment(nxt, br, 0.06, axis, u, side, crack_mat)
+			heading = clampf(heading + (_rand(seed, 10 + i) - 0.5) * 1.3, -0.9, 0.9)
+			var nxt := Vector2(clampf(cur.x + sin(heading) * step_y * 1.2, -half_u, half_u), cur.y - step_y)
+			_crack_segment(cur, nxt, lerpf(0.05, 0.022, float(i) / steps), axis, u, side, crack_mat)
+			# 잔가지: 가끔 옆으로 짧게 두 마디
+			if _rand(seed, 40 + i) < 0.4 and i > 0 and i < steps - 1:
+				var dir := -1.0 if _rand(seed, 70 + i) < 0.5 else 1.0
+				var b1 := nxt + Vector2(dir * step_y * 0.7, -step_y * 0.5)
+				var b2 := b1 + Vector2(dir * step_y * 0.5, -step_y * 0.7)
+				b1.x = clampf(b1.x, -half_u, half_u)
+				b2.x = clampf(b2.x, -half_u, half_u)
+				_crack_segment(nxt, b1, 0.024, axis, u, side, crack_mat)
+				_crack_segment(b1, b2, 0.014, axis, u, side, crack_mat)
 			cur = nxt
-		k += 3
+		seed += 3.0
+
+
+func _rand(seed: float, i: int) -> float:
+	return fposmod(sin(seed * 12.9898 + i * 78.233) * 43758.5453, 1.0)
 
 
 func _crack_segment(a: Vector2, b: Vector2, thick: float, axis: int, u: int, side: float, crack_mat: Material) -> void:
@@ -255,6 +280,20 @@ func _crack_segment(a: Vector2, b: Vector2, thick: float, axis: int, u: int, sid
 	else:
 		m.rotation.x = -ang
 	_mesh.add_child(m)
+
+
+## 석재 문짝의 모양: 쇠 띠 둘과 징, 손잡이, 가운데 쪽 틈. inner: 문짝의 가운데 쪽이 +x(1)인지 -x(-1)인지.
+func add_door_details(inner: float) -> void:
+	var iron := Models.mat(Color(0.2, 0.2, 0.22), 0.5, 0.6)
+	var knob := Models.mat(Color(0.7, 0.55, 0.25), 0.4, 0.6)
+	for side in [-1.0, 1.0]:
+		var z: float = side * (size.z * 0.5 + 0.02)
+		for y in [-0.3, 0.3]:
+			Models.box(_mesh, Vector3(size.x * 0.94, 0.14, 0.04), Vector3(0, size.y * y, z), iron)
+			for k in 4:
+				Models.box(_mesh, Vector3(0.07, 0.07, 0.03), Vector3((k - 1.5) * size.x * 0.22, size.y * y, z + side * 0.025), iron)
+		Models.ball(_mesh, 0.07, Vector3(inner * size.x * 0.36, 0, z + side * 0.04), knob, 6)
+		Models.box(_mesh, Vector3(0.04, size.y * 0.96, 0.03), Vector3(inner * size.x * 0.5, 0, z), Models.mat(Color(0.12, 0.1, 0.09), 1.0))
 
 
 ## 근처 충격으로 닳는다 (금이 커진다). 닳을수록 연결이 약해지고 색이 어두워진다.
@@ -402,6 +441,9 @@ func _physics_process(delta: float) -> void:
 			var reach := (size.length() + n.size.length()) * 0.5 + 0.1
 			if global_position.distance_to(n.global_position) <= reach:
 				n.add_heat(delta, burn_rate)
+	for n in fuse_links:
+		if is_instance_valid(n) and not n.burnt and not n.burning and n.is_flammable():
+			n.add_heat(delta, burn_rate)
 	_material.albedo_color = _base_color.lerp(CHAR_COLOR, clampf(1.0 - health, 0.0, 1.0))
 	if health < 0.2 and mat != Mat.KEG:
 		# 끊어지기 직전에 흔들린다

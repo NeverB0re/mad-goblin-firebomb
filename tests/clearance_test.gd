@@ -76,12 +76,20 @@ func _run() -> void:
 		# 지휘관 깃발: 던지는 자리에서 천 한가운데가 건물에 가려지지 않는다 (위치 표식)
 		var eye: Vector3 = s.player.position + Vector3(0, 1.7, 0)
 		var hidden := []
+		var pierced := []
 		for c in s.commanders:
+			# 깃대가 지붕이나 벽을 뚫지 않는다 (얹힌 곳은 빼고)
+			var fl: Node3D = c.get_meta("flag")
+			var pole := AABB(fl.global_position + Vector3(-0.15, 0.3, -0.15), Vector3(0.3, 3.4, 0.3))
+			for blk in s.get_tree().get_nodes_in_group("blocks"):
+				if blk != fl.get_parent() and s.is_ancestor_of(blk) and (blk.global_transform * AABB(-blk.size * 0.5, blk.size)).intersects(pole):
+					pierced.append("%s %s" % [str(c.global_position.snapped(Vector3.ONE * 0.1)), Block.Mat.keys()[blk.mat]])
 			var cloth: Node3D = c.get_meta("flag").get_node("Cloth")
 			var spot := cloth.global_position + Vector3(0.65, 0, 0)
 			var hit := s.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(eye, spot, Projectile.HIT_MASK))
 			if not hit.is_empty():
 				hidden.append("%s %s/%s" % [str(c.global_position.snapped(Vector3.ONE * 0.1)), hit.collider.get_class(), str(hit.collider.get_parent().name)])
+		_check(pierced.is_empty(), "%s 깃대가 건물을 뚫지 않는다%s" % [Campaign.label(i), "" if pierced.is_empty() else ": " + ", ".join(pierced)])
 		_check(hidden.is_empty(), "%s 깃발이 가려지지 않는다%s" % [Campaign.label(i), "" if hidden.is_empty() else ": " + ", ".join(hidden)])
 		s.queue_free()
 		await process_frame

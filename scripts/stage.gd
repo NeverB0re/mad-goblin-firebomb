@@ -438,46 +438,80 @@ func finish_build() -> void:
 	toast.emit.call_deferred(Texts.t("start"))
 
 
-## 지휘관 깃발은 위치 표식이다: 던지는 자리에서 천이 건물에 가리지 않을 때까지 깃대를 올린다.
+## 지휘관 깃발은 위치 표식이다: 깃대가 건물을 뚫거나 천이 겹치거나 던지는 자리에서 가려지면,
+## 막고 있는 지붕·성벽 꼭대기로 옮겨 세운다 (그 위에 얹혀 있어 건물이 무너지면 같이 쓰러진다).
+## 옮긴 뒤에도 가려지면 깃대를 올린다.
 func _fit_flags() -> void:
 	if player == null:
 		return
 	var eye := player.position + Vector3(0, 1.7, 0)
-	var boxes: Array[AABB] = []
+	var solids: Array = []
 	for st in structures:
 		for b in st.blocks:
-			boxes.append(AABB(b.position - b.size * 0.5, b.size))
+			solids.append([AABB(b.position - b.size * 0.5, b.size), b])
 	# 안 부서지는 벽·바위·표지물
 	for n in get_children():
 		if n is StaticBody3D and not n.is_in_group("ground"):
 			for cs in n.get_children():
 				if cs is CollisionShape3D and cs.shape is BoxShape3D:
-					boxes.append(n.transform * AABB(-cs.shape.size * 0.5, cs.shape.size))
-	for i in _flags.size():
-		var old := _flags[i]
+					solids.append([n.transform * AABB(-cs.shape.size * 0.5, cs.shape.size), n])
+	for c in commanders:
+		var flag: Node3D = c.get_meta("flag")
+		var base := flag.position
+		var host: Node = null
+		for round in 4:
+			var hit := _flag_blocker(eye, base, solids, host)
+			if hit.is_empty():
+				break
+			var box: AABB = hit[0]
+			host = hit[1]
+			base = Vector3(_inside(base.x, box.position.x, box.end.x), box.end.y, _inside(base.z, box.position.z, box.end.z))
 		var height := FLAG_HEIGHT
-		while height < FLAG_HEIGHT_MAX and not _flag_visible(eye, old.position, height, boxes):
+		while height < FLAG_HEIGHT_MAX and not _flag_blocker(eye, base, solids, host, height).is_empty():
 			height += 0.5
-		if height == FLAG_HEIGHT:
+		if host == null and height == FLAG_HEIGHT:
 			continue
-		var tall := Models.flag(height)
-		tall.position = old.position
-		add_child(tall)
-		for c in commanders:
-			if c.get_meta("flag", null) == old:
-				c.set_meta("flag", tall)
-		_flags[i] = tall
-		old.queue_free()
+		var fitted := Models.flag(height)
+		_flags[_flags.find(flag)] = fitted
+		c.set_meta("flag", fitted)
+		flag.free()
+		if host:
+			host.add_child(fitted)
+			fitted.position = host.transform.affine_inverse() * base
+		else:
+			add_child(fitted)
+			fitted.position = base
 
 
-## 깃대 밑 base에서 깃발 높이가 height일 때, 눈 자리에서 천 한가운데와 끝이 모두 보이는가
-func _flag_visible(eye: Vector3, base: Vector3, height: float, boxes: Array[AABB]) -> bool:
+static func _inside(v: float, lo: float, hi: float) -> float:
+	return clampf(v, lo + 0.4, hi - 0.4) if hi - lo > 0.8 else (lo + hi) * 0.5
+
+
+## 밑동 base, 높이 height인 깃발을 막거나 겹치는 것: 깃대·천과 겹치는 것 가운데 가장 높은 것,
+## 없으면 던지는 자리에서 천을 가리는 것 가운데 가장 가까운 것. [AABB, 노드] 또는 빈 배열.
+func _flag_blocker(eye: Vector3, base: Vector3, solids: Array, host: Node, height := FLAG_HEIGHT) -> Array:
+	var pole := AABB(base + Vector3(-0.2, 0.3, -0.2), Vector3(0.4, height - 0.3, 0.4))
+	var cloth := AABB(base + Vector3(0.0, height - 1.0, -0.15), Vector3(1.4, 1.0, 0.3))
+	var best := []
+	for sol in solids:
+		if sol[1] == host:
+			continue
+		var box: AABB = sol[0]
+		if (box.intersects(pole) or box.intersects(cloth)) and (best.is_empty() or box.end.y > best[0].end.y):
+			best = sol
+	if not best.is_empty():
+		return best
+	var near := INF
 	for dx in [0.65, 1.3]:
 		var spot := base + Vector3(dx, height - 0.55, 0)
-		for box in boxes:
-			if box.intersects_segment(eye, spot):
-				return false
-	return true
+		for sol in solids:
+			if sol[1] == host:
+				continue
+			var at = sol[0].intersects_segment(eye, spot)
+			if at != null and eye.distance_to(at) < near:
+				near = eye.distance_to(at)
+				best = sol
+	return best
 
 
 # ---------- 탄약 ----------
@@ -1145,6 +1179,8 @@ func _drop_flag(c: Commander) -> void:
 	if not c.has_meta("flag"):
 		return
 	var flag: Node3D = c.get_meta("flag")
+	if not is_instance_valid(flag):
+		return
 	_flags.erase(flag)
 	if not flag.is_inside_tree():
 		return
@@ -1227,6 +1263,8 @@ func _physics_process(delta: float) -> void:
 	# 깃발 천(로컬 +X)이 바람이 불어 가는 쪽으로 날린다
 	var wind_yaw := atan2(-wind.z, wind.x) if wind.length() > 0.01 else 0.0
 	for f in _flags:
+		if not is_instance_valid(f):
+			continue
 		var cloth: Node3D = f.get_node("Cloth")
 		cloth.rotation.y = wind_yaw + sin(elapsed * (3.0 + wind.length())) * 0.25
 		cloth.rotation.x = sin(elapsed * 5.0) * 0.06

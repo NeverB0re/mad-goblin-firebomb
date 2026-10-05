@@ -278,7 +278,7 @@ static func _make_block(style: String, size: Vector3) -> ArrayMesh:
 		"plank":
 			_wood(b, size, seed)
 		"stone", "cracked":
-			_masonry(b, size, seed, 0.1 if style == "stone" else 0.14)
+			_masonry(b, size, seed, 0.1)
 		"straw":
 			_straw(b, size, seed)
 		"keg":
