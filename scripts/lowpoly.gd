@@ -6,6 +6,55 @@ extends RefCounted
 ## 같은 모양은 캐시해서 다시 쓴다.
 
 static var _cache := {}
+## 기본 도형(원기둥·구)의 단위 크기 꼭짓점과 순서. 모양 비율이 같으면 다시 만들지 않고 크기만 곱해 쓴다
+## (풍경의 풀잎·나무·덤불 수천 개를 진지마다 새로 만들던 것이 불러오기 시간의 대부분이었다).
+static var _prim_cache := {}
+
+
+## [단위 꼭짓점, 순서, 크기] — 원래 꼭짓점 = 단위 꼭짓점 * 크기
+static func _prim_arrays(mesh: Mesh) -> Array:
+	var key := ""
+	var scale := Vector3.ONE
+	var unit: PrimitiveMesh
+	if mesh is CylinderMesh:
+		var m := mesh as CylinderMesh
+		var r := maxf(m.top_radius, m.bottom_radius)
+		key = "c%.4f,%.4f,%d,%d" % [m.top_radius / r, m.bottom_radius / r, m.radial_segments, m.rings]
+		scale = Vector3(r, m.height, r)
+		if not _prim_cache.has(key):
+			var u := CylinderMesh.new()
+			u.top_radius = m.top_radius / r
+			u.bottom_radius = m.bottom_radius / r
+			u.height = 1.0
+			u.radial_segments = m.radial_segments
+			u.rings = m.rings
+			unit = u
+	elif mesh is SphereMesh:
+		var m := mesh as SphereMesh
+		key = "s%.4f,%d,%d,%s" % [m.height / m.radius, m.radial_segments, m.rings, m.is_hemisphere]
+		scale = Vector3.ONE * m.radius
+		if not _prim_cache.has(key):
+			var u := SphereMesh.new()
+			u.radius = 1.0
+			u.height = m.height / m.radius
+			u.radial_segments = m.radial_segments
+			u.rings = m.rings
+			u.is_hemisphere = m.is_hemisphere
+			unit = u
+	if key == "":
+		var arr := mesh.surface_get_arrays(0)
+		var idx = arr[Mesh.ARRAY_INDEX]
+		if idx == null or idx.is_empty():
+			idx = PackedInt32Array(range((arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()))
+		return [arr[Mesh.ARRAY_VERTEX], idx, Vector3.ONE]
+	if not _prim_cache.has(key):
+		var arr := unit.surface_get_arrays(0)
+		var idx = arr[Mesh.ARRAY_INDEX]
+		if idx == null or idx.is_empty():
+			idx = PackedInt32Array(range((arr[Mesh.ARRAY_VERTEX] as PackedVector3Array).size()))
+		_prim_cache[key] = [arr[Mesh.ARRAY_VERTEX], idx]
+	var c: Array = _prim_cache[key]
+	return [c[0], c[1], scale]
 
 
 static func h1(v: Vector3, s := 0.0) -> float:
@@ -65,15 +114,15 @@ class Builder:
 
 	## 기본 도형 메시(Primitive)를 xf로 옮겨 면마다 평평하게 붙인다.
 	func add_prim(mesh: Mesh, xf: Transform3D, color: Color, tint := 0.08, jitter := 0.0, seed := 0.0) -> void:
-		var arr := mesh.surface_get_arrays(0)
-		var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
-		var idx = arr[Mesh.ARRAY_INDEX]
-		if idx == null or idx.is_empty():
-			idx = PackedInt32Array(range(vs.size()))
+		var arrs := LowPoly._prim_arrays(mesh)
+		var vs: PackedVector3Array = arrs[0]
+		var idx: PackedInt32Array = arrs[1]
+		var sc: Vector3 = arrs[2]
 		var pv := PackedVector3Array()
 		pv.resize(vs.size())
 		for i in vs.size():
-			pv[i] = xf * (vs[i] + (LowPoly.h3(vs[i].snapped(Vector3.ONE * 0.001), seed) * jitter if jitter > 0.0 else Vector3.ZERO))
+			var v := vs[i] * sc
+			pv[i] = xf * (v + LowPoly.h3(v.snapped(Vector3.ONE * 0.001), seed) * jitter) if jitter > 0.0 else xf * v
 		var center := xf.origin
 		var saved := base
 		base = color
@@ -96,9 +145,16 @@ class Builder:
 			var t := b
 			b = c
 			c = t
-		verts.append_array([a, b, c])
-		normals.append_array([n, n, n])
-		colors.append_array([col, col, col])
+		# 임시 배열 없이 하나씩 (수만 번 불려서 차이가 크다)
+		verts.append(a)
+		verts.append(b)
+		verts.append(c)
+		normals.append(n)
+		normals.append(n)
+		normals.append(n)
+		colors.append(col)
+		colors.append(col)
+		colors.append(col)
 
 	func quad(a: Vector3, b: Vector3, c: Vector3, d: Vector3, col: Color, hint: Vector3) -> void:
 		tri(a, b, c, col, hint)
