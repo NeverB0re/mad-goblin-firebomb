@@ -431,7 +431,17 @@ func add_rock(center: Vector3, size: Vector3, color: Color) -> Node3D:
 func add_torch(pos: Vector3, height := 1.8) -> void:
 	var t := Models.torch(height)
 	t.position = at(pos)
+	t.add_to_group("torch")
 	add_child(t)
+
+
+## 밤: 투척 자리 오른쪽 뒤 모닥불 (내 고블린과 발밑을 비춘다).
+func add_campfire() -> void:
+	if player == null:
+		return
+	var f := Models.campfire()
+	f.position = player.position + Vector3(2.8, 0, 2.6)
+	add_child(f)
 
 
 func finish_build() -> void:

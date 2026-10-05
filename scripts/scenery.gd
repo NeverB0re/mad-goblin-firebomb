@@ -52,10 +52,12 @@ func _build() -> void:
 		grass = Color(0.55, 0.64, 0.3)
 		grass2 = Color(0.66, 0.66, 0.36)
 	_measure()
+	_rocket_part()
 	_collision()
 	# 소품은 진짜 블록이라 화면 없이(테스트)도 짓는다
 	if s.outpost_props:
 		prop_spots = OutpostProps.place(s, self)
+	prop_spots.append_array(_part_spots)
 	if not visuals:
 		return
 	var ground := s.get_node_or_null("Ground")
@@ -352,6 +354,74 @@ func _clouds() -> void:
 			var r := (1.5 - absf(k - 1.5) * 0.3) * sc
 			b.add_prim(sp, Transform3D(Basis.from_scale(Vector3(r, r * 0.65, r)), Vector3(p.x, y, p.y) + o), Color(1, 1, 1) if not s.rain else Color(0.7, 0.72, 0.76), 0.04, 0.2, float(i * 4 + k))
 	_add_mesh(b.commit(mat), false)
+
+
+# ---------- 빼앗긴 로켓 부품 (5월드) ----------
+
+var _part_spots: Array[Rect2] = []
+
+
+## 인간들이 빼앗아 간 로켓 부품 보관대 (s의 rocket_part 메타 = 부품 번호): 울타리 두른 받침에 부품, 인간 깃발,
+## 앞 양옆에 보초 병사 둘 (진짜 병사라 맞히면 쓰러진다). 밤이면 뒤 양 모서리에 횃불.
+## 자리: 건물·울타리(마당에서 5m 밖)·길·시야 통로·사람·횃불·바람자루에서 떨어진 평지 빈터 중 투척 언덕 정면 시야 안, 마당 앞쪽.
+func _rocket_part() -> void:
+	var k: int = s.get_meta("rocket_part", -1)
+	if k < 0 or yards.is_empty():
+		return
+	var pp := Vector2(s.player.position.x, s.player.position.z)
+	var avoid: Array[Vector2] = []
+	for c in s.get_children():
+		if c is Actor or c is GoblinExtra or c is WindBanner or c.is_in_group("torch"):
+			avoid.append(Vector2(c.position.x, c.position.z))
+	for c in s.commanders:
+		avoid.append(Vector2(c.position.x, c.position.z))
+	var best := Vector2.INF
+	var best_score := INF
+	for y in yards:
+		var center := y.get_center()
+		var reach := maxf(y.size.x, y.size.y) * 0.5
+		for r in [reach + 4.0, reach + 6.0, reach + 8.0]:
+			for a in 24:
+				var dir := Vector2(cos(a * TAU / 24.0), sin(a * TAU / 24.0))
+				var p: Vector2 = center + dir * r
+				if not flat.grow(-3.0).has_point(p) or _in_yard(p, 4.5) or _in_corridor(p, 4.0) or _road_dist(p.x, p.y) < 3.0:
+					continue
+				# 투척 언덕에서 앞을 볼 때 화면 안쪽 (좌우 30도 안: 언덕 바위 가장자리에 가리지 않게)
+				if p.distance_to(pp) < 18.0 or absf(atan2(p.x - pp.x, pp.y - p.y)) > 0.52:
+					continue
+				var near := false
+				for q in avoid:
+					if p.distance_to(q) < 4.0:
+						near = true
+						break
+				if near:
+					continue
+				# 투척 언덕 쪽(앞)에 있고 마당에 가까울수록 좋다
+				var score: float = p.distance_to(pp) + (p - center).length() * 0.5
+				if score < best_score:
+					best_score = score
+					best = p
+	if best == Vector2.INF:
+		return
+	var face := atan2(pp.x - best.x, pp.y - best.y)
+	var pen := Models.trophy_pen()
+	pen.position = Vector3(best.x, 0, best.y)
+	pen.rotation.y = face
+	pen.add_to_group("rocket_part")
+	s.add_child(pen)
+	var part := Models.rocket_part(k)
+	part.scale = Vector3.ONE * 1.5
+	part.position = Vector3(0, 0, -0.5)
+	pen.add_child(part)
+	var basis := Basis(Vector3.UP, face)
+	for sx in [-1.0, 1.0]:
+		var g := s.add_guard(pen.position + basis * Vector3(sx * 2.4, 0, 1.0), rad_to_deg(face))
+		g.set_meta("part_guard", true)
+	if s.night:
+		# 뒤 양 모서리 횃불 둘이 부품을 비춘다
+		for sx in [-1.0, 1.0]:
+			s.add_torch(pen.position + basis * Vector3(sx * 1.9, 0, -1.9), 2.4)
+	_part_spots.append(Rect2(best - Vector2(3.5, 3.5), Vector2(7.0, 7.0)))
 
 
 # ---------- 나무, 바위, 풀 ----------

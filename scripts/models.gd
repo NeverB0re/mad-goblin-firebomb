@@ -546,6 +546,59 @@ static func rocket_part(k: int) -> Node3D:
 	return root
 
 
+## 인간들이 빼앗아 간 로켓 부품 보관대: 부품 받침을 두른 낮은 나무 울타리(앞은 트였다)와 인간 깃발(파랑·하양).
+## 원점은 바닥 가운데, +Z가 앞 (투척 언덕 쪽). 부품은 rocket_part()로 따로 얹는다.
+static func trophy_pen() -> Node3D:
+	var root := Node3D.new()
+	var wood := mat(Color(0.5, 0.34, 0.2))
+	var h := 1.6
+	for p in [Vector2(-h, -h), Vector2(h, -h), Vector2(h, h * 0.3), Vector2(-h, h * 0.3)]:
+		box(root, Vector3(0.14, 1.0, 0.14), Vector3(p.x, 0.5, p.y), wood)
+	for y in [0.45, 0.85]:
+		box(root, Vector3(h * 2.0, 0.08, 0.06), Vector3(0, y, -h), wood)
+		for sx in [-1.0, 1.0]:
+			box(root, Vector3(0.06, 0.08, h * 1.3), Vector3(sx * h, y, -h * 0.35), wood)
+	# 인간 깃발: 뒤 왼쪽 모서리에 높이
+	var pole := Node3D.new()
+	pole.position = Vector3(-h, 0, -h)
+	root.add_child(pole)
+	cyl(pole, 0.05, 0.06, 4.2, Vector3(0, 2.1, 0), mat(Color(0.3, 0.3, 0.32), 0.4, 0.6))
+	box(pole, Vector3(1.4, 0.9, 0.04), Vector3(0.72, 3.7, 0), mat(Color(0.18, 0.32, 0.7), 0.8))
+	box(pole, Vector3(1.4, 0.18, 0.05), Vector3(0.72, 3.7, 0), mat(Color(0.95, 0.95, 0.92), 0.8))
+	ball(pole, 0.1, Vector3(0, 4.25, 0), mat(Color(0.8, 0.7, 0.3), 0.4, 0.7))
+	return root
+
+
+## 투척 자리 곁 모닥불 (밤): 돌 고리와 장작, 불꽃, 넓게 비추는 따뜻한 빛. 원점은 바닥.
+static func campfire() -> Node3D:
+	var root := Node3D.new()
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.68, 0.35)
+	light.light_energy = 2.2
+	light.omni_range = 13.0
+	light.omni_attenuation = 1.2
+	light.shadow_enabled = false
+	light.position = Vector3(0, 2.2, 0)
+	root.add_child(light)
+	var stone := mat(Color(0.45, 0.43, 0.4))
+	for k in 8:
+		var a := k * TAU / 8.0
+		ball(root, 0.16, Vector3(cos(a) * 0.55, 0.08, sin(a) * 0.55), stone, 6)
+	var log_mat := mat(Color(0.32, 0.2, 0.1))
+	for k in 3:
+		cyl(root, 0.07, 0.07, 0.9, Vector3(0, 0.15, 0), log_mat, Vector3(0, k * PI / 3.0, PI * 0.5), 6)
+	var fire := Fx.fire(Vector3(0.2, 0.15, 0.2), 22, 0.32)
+	fire.position = Vector3(0, 0.35, 0)
+	root.add_child(fire)
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	glow.albedo_color = Color(1.0, 0.55, 0.2, 0.25)
+	cyl(root, 5.0, 5.0, 0.02, Vector3(0, 0.03, 0), glow, Vector3.ZERO, 20)
+	return root
+
+
 ## node에서 그 자식 child까지의 변환 (트리에 들기 전).
 static func _local_to(node: Node3D, child: Node3D) -> Transform3D:
 	var t := Transform3D.IDENTITY

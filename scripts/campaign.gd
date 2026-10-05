@@ -484,6 +484,8 @@ static func build(i: int, s: Stage) -> void:
 	if is_night(i):
 		s.night = true
 		_torches(s, d)
+		# 투척 자리 곁 모닥불 (밤에도 내 고블린과 발밑이 보이게)
+		s.add_campfire()
 	if world_of(i) == 4 and not d.get("launch_button", false):
 		_stored_part(s, d, i - 39)
 	if d.has("wind"):
@@ -1413,16 +1415,10 @@ static func _part_depot(s: Stage, c: Vector3, _o: Dictionary) -> void:
 	Models.box(door_wall, Vector3(1.0, 2.2, 0.06) * s.build_scale, Vector3(0, -0.7 * s.build_scale, door_wall.size.z * 0.5 + 0.03), Models.mat(Color(0.25, 0.25, 0.27), 0.4, 0.6))
 
 
-## 5월드: 이 진지에 보관된 로켓 부품 (나무 받침 위, 첫 부품 앞 옆 빈터. 밤이면 그 자리 횃불 곁). k = Models.ROCKET_PARTS 번호.
-static func _stored_part(s: Stage, d: Dictionary, k: int) -> void:
-	var c: Vector3 = d.parts[0][1]
-	var side := 1.0 if c.x <= 0.0 else -1.0
-	var p := Models.rocket_part(k)
-	p.scale = Vector3.ONE * 1.3
-	p.position = Vector3(c.x + side * 8.4, 0, c.z + 5.0)
-	p.rotation.y = 0.4 * side
-	p.add_to_group("rocket_part")
-	s.add_child(p)
+## 5월드: 이 진지에 보관된 로켓 부품 번호 (k = Models.ROCKET_PARTS 번호). 자리는 풍경을 지을 때
+## 건물·울타리·길·시야 통로·사람에서 떨어진 빈터로 고른다 (Scenery._rocket_part). 밤이면 곁에 횃불.
+static func _stored_part(s: Stage, _d: Dictionary, k: int) -> void:
+	s.set_meta("rocket_part", k)
 
 
 ## 강철 벙커: 무엇으로도 안 부서진다. 플레어건으로 표적을 찍어 미사일을 부른다 (발리스타가 남아 있으면 요격당한다).

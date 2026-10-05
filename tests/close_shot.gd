@@ -1,5 +1,5 @@
 extends "res://tests/screenshot.gd"
-## 가까이서 확인용 (창 모드, 화면 밖). 인자: 진지 번호(0부터) 카메라dx dy dz 바라볼dx dy dz [이름] (지휘관 첫째 기준 좌표). 여러 장은 "/"로 이어 붙인다.
+## 가까이서 확인용 (창 모드, 화면 밖). 인자: 진지 번호(0부터) 카메라dx dy dz 바라볼dx dy dz [이름] [p] (지휘관 첫째 기준 좌표, p면 플레이어 기준). 여러 장은 "/"로 이어 붙인다.
 
 
 func _run() -> void:
@@ -20,7 +20,8 @@ func _run() -> void:
 		var s: Stage = main.stage
 		s.wind = Vector3.ZERO
 		main.hud.set_gameplay_visible(false)
-		var f: Vector3 = s.commanders[0].global_position
+		# 9번째 인자 p: 플레이어 기준 좌표
+		var f: Vector3 = s.player.global_position if a.size() > 8 and a[8] == "p" else s.commanders[0].global_position
 		var cam := Camera3D.new()
 		cam.far = 1500.0
 		s.add_child(cam)
