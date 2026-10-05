@@ -659,7 +659,8 @@ static func _part_plan(kind: String, c: Vector3, o: Dictionary, rain: bool, ci: 
 static func _part_tower(s: Stage, c: Vector3, o: Dictionary) -> void:
 	var legs: float = o.get("legs", 4.0)
 	var st := s.add_structure()
-	StageDefs.watchtower(st, c, legs)
+	# 돌 난간 망루는 판자벽을 돌로 바꾸고, 나무 망루는 낮은 목재 난간과 사다리
+	StageDefs.watchtower(st, c, legs, 1.6, not o.get("parapet", false))
 	# 지은 블록은 부품 배율(k)만큼 커져 있다
 	var k := s.build_scale
 	if o.get("parapet", false):

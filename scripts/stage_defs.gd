@@ -115,7 +115,8 @@ static func steel_wall(st: Structure, c: Vector3, width: float, height: float, t
 
 
 ## 목재 망루: 하중 목재 다리 4개, 판자 바닥, 난간, 지붕. 지휘관은 바닥(높이 legs+0.3) 위에 선다.
-static func watchtower(st: Structure, c: Vector3, legs := 4.0, half := 1.6) -> void:
+## open_rail: 판자벽 대신 낮은 목재 난간(윗난간·중간 난간·발판막이)과 옆에 기댄 사다리 (본편 망루).
+static func watchtower(st: Structure, c: Vector3, legs := 4.0, half := 1.6, open_rail := false) -> void:
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
 			st.add_block(M.WOOD_BEAM, c + Vector3(sx * (half - 0.2), legs * 0.5, sz * (half - 0.2)), Vector3(0.4, legs, 0.4))
@@ -128,16 +129,55 @@ static func watchtower(st: Structure, c: Vector3, legs := 4.0, half := 1.6) -> v
 		st.add_block(M.WOOD_THIN, c + Vector3(x, legs + 0.15, 0), Vector3(half * 2.0 / n, 0.3, half * 2.0))
 	# 난간 (앞뒤, 옆)
 	var rail := 1.3
-	for sz in [-1, 1]:
-		st.add_block(M.WOOD_THIN, c + Vector3(0, legs + 0.3 + rail * 0.5, sz * (half - 0.05)), Vector3(half * 2.0, rail, 0.1))
-	for sx in [-1, 1]:
-		st.add_block(M.WOOD_THIN, c + Vector3(sx * (half - 0.05), legs + 0.3 + rail * 0.5, 0), Vector3(0.1, rail, half * 2.0 - 0.2))
+	if open_rail:
+		# 낮은 목재 난간: 윗난간, 중간 난간, 발판막이 (사이로 지휘관이 보인다)
+		var floor_y := legs + 0.3
+		for spec in [[1.05, 0.12], [0.55, 0.1], [0.12, 0.24]]:
+			for sz in [-1, 1]:
+				st.add_block(M.WOOD_THIN, c + Vector3(0, floor_y + spec[0], sz * (half - 0.05)), Vector3(half * 2.0 - 0.5, spec[1], 0.1))
+			for sx in [-1, 1]:
+				st.add_block(M.WOOD_THIN, c + Vector3(sx * (half - 0.05), floor_y + spec[0], 0), Vector3(0.1, spec[1], half * 2.0 - 0.5))
+	else:
+		for sz in [-1, 1]:
+			st.add_block(M.WOOD_THIN, c + Vector3(0, legs + 0.3 + rail * 0.5, sz * (half - 0.05)), Vector3(half * 2.0, rail, 0.1))
+		for sx in [-1, 1]:
+			st.add_block(M.WOOD_THIN, c + Vector3(sx * (half - 0.05), legs + 0.3 + rail * 0.5, 0), Vector3(0.1, rail, half * 2.0 - 0.2))
 	# 지붕 기둥과 지붕 (짚)
 	var roof_h := legs + 0.3 + 2.4
+	# 지붕 기둥은 판자벽 위에서, 열린 난간이면 바닥에서부터 (난간이 기둥에 붙는다)
+	var post_from := legs + 0.3 + (0.0 if open_rail else rail)
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			st.add_block(M.WOOD_THIN, c + Vector3(sx * (half - 0.15), legs + 0.3 + rail + (roof_h - legs - 0.3 - rail) * 0.5, sz * (half - 0.15)), Vector3(0.2, roof_h - legs - 0.3 - rail, 0.2))
+			st.add_block(M.WOOD_THIN, c + Vector3(sx * (half - 0.15), (post_from + roof_h) * 0.5, sz * (half - 0.15)), Vector3(0.2, roof_h - post_from, 0.2))
 	st.add_block(M.STRAW, c + Vector3(0, roof_h + 0.15, 0), Vector3(half * 2.0 + 0.4, 0.3, half * 2.0 + 0.4))
+	if open_rail:
+		_ladder(st, c, legs, half)
+
+
+## 망루 오른쪽에 기댄 나무 사다리 (장식: 충돌·판정 없음). 바닥 판자에 붙어 있어 망루가 무너지면 같이 넘어간다.
+static func _ladder(st: Structure, c: Vector3, legs: float, half: float) -> void:
+	var k: float = st.stage.build_scale if st.stage else 1.0
+	var plank: Block = null
+	for b in st.blocks:
+		if b.mat == M.WOOD_THIN and absf(b.size.y - 0.3 * k) < 0.01 and (plank == null or b.position.x > plank.position.x):
+			plank = b
+	if plank == null:
+		return
+	var foot := Vector3(c.x + (half + 0.8) * k, 0.0, c.z)
+	var top := Vector3(c.x + (half + 0.05) * k, (legs + 1.0) * k, c.z)
+	var ladder := Node3D.new()
+	plank.add_child(ladder)
+	# 진지 좌표로 세운 뒤 판자 기준으로 바꾼다 (짓는 동안은 아직 장면에 안 들어가 있을 수 있다. 구조물은 원점에 있다)
+	var along := top - foot
+	var placed := Transform3D(Basis(Vector3.BACK, -atan2(along.x, along.y)), (foot + top) * 0.5)
+	ladder.transform = plank.transform.affine_inverse() * placed
+	var length := along.length()
+	var wood := Models.mat(Color(0.5, 0.34, 0.2))
+	for sz in [-1, 1]:
+		Models.box(ladder, Vector3(0.09, length, 0.09), Vector3(0, 0, sz * 0.28 * k), wood)
+	var rungs := int(length / 0.4)
+	for i in rungs:
+		Models.box(ladder, Vector3(0.06, 0.06, 0.62 * k), Vector3(0, -length * 0.5 + (i + 0.6) * length / rungs, 0), wood)
 
 
 ## 창문 달린 벽 (x축 방향). heights: 아래부터 줄 높이 [아래, 창문 줄, 위], windows: 창문을 낼 칸 번호.
