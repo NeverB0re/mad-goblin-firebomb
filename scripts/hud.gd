@@ -67,7 +67,7 @@ func _ready() -> void:
 	_targets.add_theme_constant_override("separation", 8)
 	_targets.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(_targets)
-	_place(_targets, Vector4(0, 0, 0, 0), Vector4(28, 70, 400, 104))
+	_place(_targets, Vector4(0, 0, 0, 0), Vector4(28, 116, 400, 150))
 
 	_ammo = HBoxContainer.new()
 	_ammo.alignment = BoxContainer.ALIGNMENT_END
