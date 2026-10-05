@@ -4,7 +4,7 @@ extends "res://tests/campaign_test.gd"
 ## 인자: 진지 번호(0부터)를 주면 그 진지만. 실행: Godot --headless --fixed-fps 60 --script res://tests/bonus_test.gd
 
 
-const NEW_KINDS := ["window", "ally", "he_two", "sky_two", "keg"]
+const NEW_KINDS := ["window", "ally", "he_two", "sky_two", "keg", "archer", "direct_on", "he_left"]
 
 
 func _bonus_play(i: int) -> void:

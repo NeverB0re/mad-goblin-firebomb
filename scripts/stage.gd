@@ -566,10 +566,11 @@ func bombers_left() -> int:
 
 
 ## 투척 구역 왼쪽 앞 바위 기둥 (폭격대 대기 자리, 최종 로켓 발사대).
-func _side_rock(depth: float) -> Vector3:
+## dx: 투척 구역에서 왼쪽으로 떨어진 거리 (폭격대 바위와 로켓 받침 바위가 같이 있으면 로켓을 더 왼쪽에).
+func _side_rock(depth: float, dx := 7.5) -> Vector3:
 	var zone := player.position
 	var h := zone.y
-	var base := Vector3(zone.x - 7.5, h, zone.z - 4.5)
+	var base := Vector3(zone.x - dx, h, zone.z - 4.5)
 	if h > 0.1:
 		add_rock(Vector3(base.x, h * 0.5, base.z), Vector3(3.6, h, depth), Color(0.5, 0.43, 0.4))
 	return base
@@ -599,32 +600,40 @@ func _launch_bomber(target: Vector3) -> void:
 	ammo_changed.emit()
 
 
-## 최종 진지: 바위 기둥 위 거대 로켓과 투척 구역 왼쪽 가장자리의 크고 빨간 발사 버튼 (가까이 가서 E).
-func add_launch_button() -> void:
+## 투척 구역 왼쪽 바위 기둥 위 나무 받침대에 세운 거대 로켓 (parts: 모은 부품 비트, Models.ROCKET_PARTS).
+## 5월드는 진지를 깰 때마다 부품이 하나씩 붙어 가는 모습, 최종 진지는 다 모인 로켓. 받침 바위 자리를 돌려준다.
+func add_rocket_stand(parts: int) -> Vector3:
 	if player == null:
-		return
-	var base := _side_rock(4.0)
+		return Vector3.ZERO
+	# 폭격대 바위가 이미 왼쪽에 있으면 그보다 더 왼쪽에
+	var base := _side_rock(4.0, 12.5 if bombers_total > 0 else 7.5)
 	var wood := Models.mat(Color(0.4, 0.27, 0.15))
 	Models.box(self, Vector3(2.6, 0.3, 2.6), base + Vector3(0, 0.15, 0), wood)
 	for sx in [-1.0, 1.0]:
 		Models.box(self, Vector3(0.2, 5.5, 0.2), base + Vector3(sx * 1.0, 2.75, 0.4), wood, Vector3(-0.15, 0, 0))
-	_final_rocket = Models.rocket()
+	_final_rocket = Models.rocket(parts)
 	add_child(_final_rocket)
 	_final_rocket.scale = Vector3.ONE * 1.5
-	_final_rocket.position = base + Vector3(0, 4.6, -0.3)
-	_final_rocket.rotation = Vector3(-0.2, 0, 0)
-	# 발사 버튼: 노랑·검정 줄무늬 받침 기둥 위의 커다란 빨간 버섯 단추
+	if parts == Models.ROCKET_ALL:
+		_final_rocket.position = base + Vector3(0, 4.6, -0.3)
+		_final_rocket.rotation = Vector3(-0.2, 0, 0)
+	else:
+		# 조립 중: 모은 부품만 받침대 위에 똑바로 쌓아 둔다
+		_final_rocket.position = base + Vector3(0, 0.3 - Models.lowest_y(_final_rocket) * 1.5, -0.3)
+	return base
+
+
+## 최종 진지: 바위 기둥 위 거대 로켓과 투척 구역 앞 왼쪽의 크고 빨간 발사 버튼 (가까이 가서 E).
+func add_launch_button() -> void:
+	if player == null:
+		return
+	var base := add_rocket_stand(Models.ROCKET_ALL)
+	# 발사 버튼: 노랑·검정 줄무늬 받침 기둥 위의 커다란 빨간 버섯 단추 (해골 딱지). 시작 자리 바로 앞 왼쪽이라 눈에 잘 띈다
 	var zone := player.position
-	_button = Node3D.new()
+	_button = Models.launch_button()
 	add_child(_button)
-	_button.position = Vector3(zone.x - 3.9, zone.y, zone.z - 0.5)
-	var post := Models.mat(Color(0.95, 0.8, 0.1))
-	var dark := Models.mat(Color(0.1, 0.1, 0.1))
-	Models.box(_button, Vector3(0.7, 1.0, 0.7), Vector3(0, 0.5, 0), post)
-	for y in [0.2, 0.6]:
-		Models.box(_button, Vector3(0.72, 0.15, 0.72), Vector3(0, y, 0), dark, Vector3(0, 0, 0.0))
-	Models.cyl(_button, 0.45, 0.45, 0.12, Vector3(0, 1.06, 0), dark, Vector3.ZERO, 16)
-	_button_cap = Models.cyl(_button, 0.38, 0.42, 0.22, Vector3(0, 1.22, 0), Models.mat(Color(0.95, 0.08, 0.05), 0.4, 0.0, 0.6), Vector3.ZERO, 16)
+	_button.position = Vector3(zone.x - 2.2, zone.y, zone.z - 1.6)
+	_button_cap = _button.get_node("Cap")
 	# 버튼과 로켓을 잇는 전선
 	var wire := Models.mat(Color(0.12, 0.12, 0.12))
 	var from := _button.position + Vector3(0, 0.1, 0)
@@ -719,6 +728,7 @@ func mega_strike(pos: Vector3) -> void:
 func rocket_strike(pos: Vector3, radius: float, strength: float, kill_radius: float) -> void:
 	if not is_inside_tree():
 		return
+	var before := commanders.filter(func(c): return c.dead).size()
 	# 폭발 연출은 로켓의 실제 판정 반경(엄폐 무시 kill_radius)으로 따로 그린다
 	explode(pos, radius, strength, false, false)
 	Fx.blast(self, pos, radius, kill_radius)
@@ -750,7 +760,6 @@ func rocket_strike(pos: Vector3, radius: float, strength: float, kill_radius: fl
 	column.global_position = pos
 	get_tree().create_timer(3.0, false, true).timeout.connect(Callable(column, "set").bind("emitting", false))
 	Fx.free_after(column, 12.0)
-	var before := commanders.filter(func(c): return c.dead).size()
 	for a in get_tree().get_nodes_in_group("actors"):
 		if not a.dead and a.chest().distance_to(pos) < kill_radius:
 			a.defeat("blast")
@@ -964,6 +973,9 @@ func add_extra(pos: Vector3, yaw_deg: float, mode: int, point_at := Vector3.INF,
 func _detonate_kegs(pos: Vector3, radius: float, tid := -1) -> void:
 	for b in get_tree().get_nodes_in_group("flammable"):
 		var block := b as Block
+		# 방(room 메타) 안의 화약통은 폭발이 그 방 안에서 났을 때만 (강철 창고 벽 바깥 폭발은 안 통한다)
+		if block.has_meta("room") and not (block.get_meta("room") as AABB).grow(0.05).has_point(pos):
+			continue
 		if block.mat == Block.Mat.KEG and not block.burnt and block.distance_to_point(pos) <= radius:
 			block.fuse(0.15, tid)
 
@@ -1033,7 +1045,7 @@ func aa_alive() -> bool:
 
 
 ## 발리스타 하나가 아직 쏠 수 있는지: 탑이 서 있고 조종하는 궁병이 살아 있어야 한다.
-func ballista_alive(b: Block) -> bool:
+func ballista_alive(b) -> bool:
 	if not is_instance_valid(b) or b.fallen or b.burnt:
 		return false
 	var op: Guard = b.get_meta("operator", null)
@@ -1060,6 +1072,9 @@ func add_ballista(b: Block) -> void:
 	var op := Guard.new().setup(false, true)
 	op.position = b.position + Vector3(0, -b.size.y * 0.5, -1.05)
 	op.rotation.y = PI
+	# 궁수 (보조 목표 "궁수 맞히기", 풀이에서 "archer0"처럼 가리킨다)
+	op.set_meta("archer", true)
+	op.set_meta("archer%d" % (ballistas.size() - 1), true)
 	add_child(op)
 	b.set_meta("operator", op)
 
@@ -1104,6 +1119,9 @@ func on_block_burnt(b: Block) -> void:
 		Block.Mat.KEG:
 			if b.has_meta("bonus_keg"):
 				bonus_keg_blown = true
+			if b.has_meta("warhead"):
+				# 탄두 창고: 진지 안의 지휘관이 모두 날아가는 대폭발
+				mega_strike.call_deferred(b.global_position)
 			# 화약통: 석재 벽에도 통하는 큰 충격. 큰 화약통(blast 메타)은 더 크게 터진다
 			var blast: Array = b.get_meta("blast", [6.0, 450.0])
 			explode.call_deferred(b.global_position, blast[0], blast[1], false, true, b.get_meta("blast_tid", -1))

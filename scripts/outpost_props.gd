@@ -67,6 +67,9 @@ static func _avoid_points(s: Stage) -> Array[Vector2]:
 				k += 1.0
 	for c in s.commanders:
 		out.append(Vector2(c.position.x, c.position.z))
+	# 5월드 진지에 보관된 로켓 부품 받침
+	for p in s.get_tree().get_nodes_in_group("rocket_part") if s.is_inside_tree() else []:
+		out.append(Vector2(p.position.x, p.position.z))
 	return out
 
 

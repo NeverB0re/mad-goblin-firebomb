@@ -332,8 +332,8 @@ func _run() -> void:
 	for i in Campaign.COUNT:
 		var d: Dictionary = Campaign.STAGES[i]
 		var paint := Campaign.paint_count(i)
-		_check(paint == 1 + Campaign.commander_count(i) and (i < 7 or d.has("wind")),
-			"%s 페인트탄 %d (지휘관 %d), 바람 %d단계" % [Campaign.label(i), paint, Campaign.commander_count(i), d.get("wind", [0])[0]])
+		_check(paint == mini(3, 1 + Campaign.commander_count(i)) and (i < 7 or d.has("wind")),
+			"%s 연기알 %d (지휘관 %d, 많아야 3), 바람 %d단계" % [Campaign.label(i), paint, Campaign.commander_count(i), d.get("wind", [0])[0]])
 		if Campaign.world_of(i) == 3 and (d.get("ballistas", []).is_empty() or d.get("bombers", 0) <= 0):
 			_check(false, "%s 4월드 진지에 발리스타와 공수부대가 없다" % Campaign.label(i))
 		if d.get("bombers", 0) > 0 and d.ammo.get("flare", 0) != d.bombers:

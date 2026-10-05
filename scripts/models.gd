@@ -465,9 +465,16 @@ static func torch(height := 1.8) -> Node3D:
 	return root
 
 
+## 거대 로켓 부품 (4-10 창고의 탄두부터 5-9까지 진지마다 하나씩 모은다. 5-10에서 다 모인 로켓을 쏜다).
+## 번호 = rocket()의 parts 비트. 9번(발사 단추)은 로켓 몸이 아니라 5-10의 빨간 단추.
+const ROCKET_PARTS := ["탄두", "쇠 몸통", "날개 둘", "날개 둘", "놋쇠 테", "가죽끈", "분사구", "도화선", "이빨 무늬 물감", "발사 단추"]
+const ROCKET_ALL := 0x1FF
+
+
 ## 고블린 로켓 (조명탄 불빛을 보고 날아가는 거대 로켓). 원점이 몸통 가운데, +Y가 머리. 길이 약 5.6m.
 ## 쇠 몸통에 가죽끈과 놋쇠 테, 빨간 탄두에 노란 이빨 무늬, 아래는 나무 날개 넷과 굵은 도화선.
-static func rocket() -> Node3D:
+## parts: 만들 부품 비트 (ROCKET_PARTS 번호. 모으는 중인 로켓은 모은 부품만 보인다).
+static func rocket(parts := ROCKET_ALL) -> Node3D:
 	var root := Node3D.new()
 	var iron := mat(Color(0.16, 0.16, 0.17), 0.5, 0.5)
 	var brass := mat(Color(0.75, 0.58, 0.25), 0.4, 0.7)
@@ -475,21 +482,118 @@ static func rocket() -> Node3D:
 	var red := mat(Color(0.85, 0.12, 0.08), 0.6)
 	var yellow := mat(Color(0.98, 0.82, 0.2), 0.6)
 	var wood := mat(Color(0.45, 0.3, 0.17))
-	cyl(root, 0.5, 0.55, 4.0, Vector3.ZERO, iron, Vector3.ZERO, 10)
-	cyl(root, 0.0, 0.5, 1.3, Vector3(0, 2.65, 0), red, Vector3.ZERO, 10)
-	# 탄두 아래 노란 톱니 (고블린이 그린 이빨)
-	for k in 8:
-		var a := k * TAU / 8.0
-		box(root, Vector3(0.18, 0.28, 0.04), Vector3(cos(a) * 0.5, 1.95, sin(a) * 0.5), yellow, Vector3(0, -a + PI * 0.5, PI * 0.25))
-	for y in [-1.4, 0.0, 1.4]:
-		cyl(root, 0.56, 0.56, 0.12, Vector3(0, y, 0), brass, Vector3.ZERO, 10)
-	for y in [-0.7, 0.7]:
-		cyl(root, 0.535, 0.535, 0.18, Vector3(0, y, 0), leather, Vector3(0.0, 0.0, 0.12 * y), 10)
+	if parts & 2:
+		cyl(root, 0.5, 0.55, 4.0, Vector3.ZERO, iron, Vector3.ZERO, 10)
+	if parts & 1:
+		cyl(root, 0.0, 0.5, 1.3, Vector3(0, 2.65, 0), red, Vector3.ZERO, 10)
+	if parts & 256:
+		# 탄두 아래 노란 톱니 (고블린이 그린 이빨)
+		for k in 8:
+			var a := k * TAU / 8.0
+			box(root, Vector3(0.18, 0.28, 0.04), Vector3(cos(a) * 0.5, 1.95, sin(a) * 0.5), yellow, Vector3(0, -a + PI * 0.5, PI * 0.25))
+	if parts & 16:
+		for y in [-1.4, 0.0, 1.4]:
+			cyl(root, 0.56, 0.56, 0.12, Vector3(0, y, 0), brass, Vector3.ZERO, 10)
+	if parts & 32:
+		for y in [-0.7, 0.7]:
+			cyl(root, 0.535, 0.535, 0.18, Vector3(0, y, 0), leather, Vector3(0.0, 0.0, 0.12 * y), 10)
 	for k in 4:
-		var a := k * PI * 0.5 + PI * 0.25
-		box(root, Vector3(0.1, 1.4, 0.9), Vector3(cos(a) * 0.75, -1.6, sin(a) * 0.75), wood, Vector3(0, -a, 0))
-	cyl(root, 0.3, 0.4, 0.4, Vector3(0, -2.2, 0), iron, Vector3.ZERO, 8)
-	cyl(root, 0.03, 0.03, 0.5, Vector3(0.1, -2.5, 0), mat(Color(0.85, 0.8, 0.65)), Vector3(0, 0, 0.6))
+		if parts & (4 if k % 2 == 0 else 8):
+			var a := k * PI * 0.5 + PI * 0.25
+			box(root, Vector3(0.1, 1.4, 0.9), Vector3(cos(a) * 0.75, -1.6, sin(a) * 0.75), wood, Vector3(0, -a, 0))
+	if parts & 64:
+		cyl(root, 0.3, 0.4, 0.4, Vector3(0, -2.2, 0), iron, Vector3.ZERO, 8)
+	if parts & 128:
+		cyl(root, 0.03, 0.03, 0.5, Vector3(0.1, -2.5, 0), mat(Color(0.85, 0.8, 0.65)), Vector3(0, 0, 0.6))
+	return root
+
+
+## node 안 모든 모양의 가장 낮은 높이 (node 기준, 트리에 들기 전에도).
+static func lowest_y(node: Node3D) -> float:
+	var low := INF
+	for mi in node.find_children("*", "MeshInstance3D", true, false):
+		var bb: AABB = (mi as MeshInstance3D).get_aabb()
+		var t := _local_to(node, mi)
+		for c in 8:
+			low = minf(low, (t * bb.get_endpoint(c)).y)
+	return low
+
+
+## 진지에 보관된 로켓 부품 하나 (나무 받침 위에 올려 둔 모습). 원점은 받침 바닥. k = ROCKET_PARTS 번호.
+static func rocket_part(k: int) -> Node3D:
+	var root := Node3D.new()
+	var wood := mat(Color(0.45, 0.3, 0.17))
+	box(root, Vector3(1.9, 0.2, 1.9), Vector3(0, 0.1, 0), wood)
+	for sx in [-0.7, 0.0, 0.7]:
+		box(root, Vector3(0.25, 0.15, 1.9), Vector3(sx, 0.27, 0), wood)
+	var piece: Node3D
+	if k == 9:
+		piece = launch_button()
+	elif k == 8:
+		# 이빨 무늬 물감: 노란 물감통과 붓
+		piece = Node3D.new()
+		cyl(piece, 0.45, 0.4, 0.7, Vector3(0, 0.35, 0), mat(Color(0.55, 0.5, 0.45), 0.5, 0.5), Vector3.ZERO, 10)
+		cyl(piece, 0.42, 0.42, 0.04, Vector3(0, 0.71, 0), mat(Color(0.98, 0.82, 0.2), 0.4), Vector3.ZERO, 10)
+		box(piece, Vector3(0.08, 0.9, 0.08), Vector3(0.15, 0.95, 0), mat(Color(0.45, 0.3, 0.17)), Vector3(0, 0, -0.35))
+		var teeth := rocket(256)
+		teeth.position = Vector3(0, -1.2, 0)
+		piece.add_child(teeth)
+	else:
+		piece = rocket(1 << k)
+	root.add_child(piece)
+	# 받침 위에 얹히게 부품의 가장 낮은 곳을 받침 윗면(0.35)에 맞춘다
+	piece.position = Vector3(0, 0.35 - lowest_y(piece), 0)
+	return root
+
+
+## node에서 그 자식 child까지의 변환 (트리에 들기 전).
+static func _local_to(node: Node3D, child: Node3D) -> Transform3D:
+	var t := Transform3D.IDENTITY
+	var n: Node = child
+	while n != node and n is Node3D:
+		t = (n as Node3D).transform * t
+		n = n.get_parent()
+	return t
+
+
+## 커다란 빨간 발사 단추 (노랑·검정 줄무늬 받침 기둥 위 버섯 단추, 앞면에 해골 딱지). 원점은 받침 바닥. 단추 머리는 이름 "Cap".
+static func launch_button() -> Node3D:
+	var root := Node3D.new()
+	var post := mat(Color(0.95, 0.8, 0.1))
+	var dark := mat(Color(0.1, 0.1, 0.1))
+	box(root, Vector3(0.7, 1.0, 0.7), Vector3(0, 0.5, 0), post)
+	for y in [0.2, 0.6]:
+		box(root, Vector3(0.72, 0.15, 0.72), Vector3(0, y, 0), dark)
+	cyl(root, 0.45, 0.45, 0.12, Vector3(0, 1.06, 0), dark, Vector3.ZERO, 16)
+	var cap := cyl(root, 0.38, 0.42, 0.22, Vector3(0, 1.22, 0), mat(Color(0.95, 0.08, 0.05), 0.4, 0.0, 0.6), Vector3.ZERO, 16)
+	cap.name = "Cap"
+	# 위험! 해골 딱지 (앞 +Z, 옆 둘)
+	for a in [0.0, PI * 0.5, -PI * 0.5]:
+		var face := Node3D.new()
+		face.rotation.y = a
+		root.add_child(face)
+		skull(face, Vector3(0, 0.42, 0.37), 0.2)
+	return root
+
+
+## 만화 해골 딱지 (흰 해골 + 엇갈린 뼈). +Z가 앞. size = 해골 반지름.
+static func skull(parent: Node3D, pos: Vector3, size: float) -> Node3D:
+	var root := Node3D.new()
+	root.position = pos
+	parent.add_child(root)
+	var bone := mat(Color(0.96, 0.95, 0.9), 0.6)
+	var black := mat(Color(0.05, 0.05, 0.05))
+	for d in [-1.0, 1.0]:
+		var b := box(root, Vector3(size * 2.6, size * 0.28, 0.03), Vector3(0, -size * 0.2, 0), bone, Vector3(0, 0, d * 0.6))
+		for e in [-1.0, 1.0]:
+			ball(b, size * 0.2, Vector3(e * size * 1.3, 0, 0), bone, 6)
+	blob(root, size, Vector3(0, size * 0.15, 0.04), bone, Vector3(1.0, 1.0, 0.35))
+	box(root, Vector3(size * 0.9, size * 0.4, size * 0.3), Vector3(0, -size * 0.65, 0.04), bone)
+	for e in [-1.0, 1.0]:
+		blob(root, size * 0.27, Vector3(e * size * 0.38, size * 0.2, 0.14), black, Vector3(1.0, 1.1, 0.4))
+	blob(root, size * 0.12, Vector3(0, -size * 0.18, 0.15), black, Vector3(1.0, 1.0, 0.4))
+	for k in 3:
+		box(root, Vector3(0.012, size * 0.3, 0.02), Vector3((k - 1) * size * 0.25, -size * 0.65, size * 0.2), black)
 	return root
 
 

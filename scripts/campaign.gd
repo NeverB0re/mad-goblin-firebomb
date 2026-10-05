@@ -187,8 +187,8 @@ const STAGES := [
 		"parts": [["bunker", Vector3(-5, 0, -102)], ["bunker", Vector3(6, 0, -106)], ["tower", Vector3(16, 0, -66), {"legs": 5.0}]],
 		"story": "발리스타 셋이 겹겹이 지키는 벙커 둘, 오른쪽 높은 망루의 관측병."},
 	{"name": "대공 요새 본루", "ammo": {"he": 6, "flare": 2}, "bombers": 2, "perch": 25.0, "wind": [5, 1, 0],
-		"ballistas": [[Vector3(-12, 0, -62), "wood"], [Vector3(12, 0, -60), "stone"], [Vector3(0, 0, -70), "wood"]],
-		"parts": [["bunker", Vector3(0, 0, -110)], ["tower", Vector3(-9, 0, -106), {"legs": 5.0}], ["pillars", Vector3(-17, 0, -70)], ["windowpost", Vector3(16, 0, -72)]],
+		"ballistas": [[Vector3(-12, 0, -62), "wood"], [Vector3(12, 0, -60), "stone"], [Vector3(5, 0, -52), "wood"]],
+		"parts": [["bunker", Vector3(0, 0, -110)], ["tower", Vector3(-9, 0, -106), {"legs": 5.0}], ["pillars", Vector3(-17, 0, -70)], ["windowpost", Vector3(16, 0, -72)], ["depot", DEPOT_AT]],
 		"story": "클라이맥스: 발리스타 셋이 지키는 대공 요새 본루 벙커와 그 옆 망루의 포대장, 앞 들판의 석재 망대와 석벽 초소."},
 
 	# ---------- 5월드: 왕국 성채 (모든 기믹, 지휘관 여럿) ----------
@@ -240,8 +240,8 @@ const BONUS := [
 	["without", "flare"], ["direct"], ["direct", 2], ["throws", 1], ["throws", 1],
 	["direct"], ["direct"], ["direct", 2], ["without", "he"], ["without", "fire"],
 	# 4월드
-	["no_shotdown"], ["throws", 1], ["no_shotdown"], ["sky_two"], ["direct"],
-	["no_shotdown"], ["sky_two"], ["no_shotdown"], ["sky_two"], ["no_shotdown"],
+	["no_shotdown"], ["sky_two"], ["archer", 1], ["sky_two"], ["direct"],
+	["archer", 2], ["sky_two", 3], ["direct_on", "rampart"], ["he_left", 2], ["throws", 1],
 	# 5월드
 	["direct", 2], ["window"], ["direct", 2], ["he_two"], ["no_shotdown"],
 	["direct"], ["direct", 2], ["window"], ["no_shotdown"], ["direct"],
@@ -282,7 +282,10 @@ static func wind_of(i: int) -> Vector3:
 ## - ["window"]: 창문 난 건물 안의 지휘관을 창문으로 집어넣은 투척으로 잡기 (벽이 멀쩡할 때 방 안에 떨어진 투척)
 ## - ["ally"]: 아군 고블린과 싸우는 병사(ally_foe 메타)를 잡기
 ## - ["he_two"]: 쾅쾅알 하나로 둘 이상 (지휘관과 병사) 잡기
-## - ["sky_two"]: 하늘쾅 한 발로 지휘관 둘 이상 (깃발 둘) 쓰러뜨리기
+## - ["sky_two", n]: 하늘쾅 한 발로 지휘관 n명(기본 둘) 이상 (깃발 n개) 쓰러뜨리기
+## - ["archer", n]: 발리스타 궁수 n명을 직격으로 잡기
+## - ["direct_on", 부품]: 그 부품(예: rampart = 성문 보행로)의 지휘관을 직격으로 잡기
+## - ["he_left", n]: 쾅쾅알을 n개 이상 남기고 클리어
 ## - ["keg"]: 보조 목표 폭발통(bonus_keg 메타)을 터뜨리기
 ## - ["indirect"]: 모든 지휘관을 맞히지 않고 무너뜨리거나(깔림·추락) 태워서만
 ## - ["without", 탄종]: 그 탄종을 한 번도 안 던지고 (예상 정답과 다른 길)
@@ -300,14 +303,22 @@ static func bonus_text(i: int) -> String:
 	match b[0]:
 		"direct":
 			return Texts.t("bonus_direct") if b.size() < 2 else Texts.t("bonus_direct_n") % b[1]
-		"window", "ally", "he_two", "sky_two", "keg":
+		"window", "ally", "he_two", "keg":
 			return Texts.t("bonus_" + str(b[0]))
+		"sky_two":
+			return Texts.t("bonus_sky_three" if b.size() > 1 and b[1] == 3 else "bonus_sky_two")
+		"archer":
+			return Texts.t("bonus_archer" if b[1] == 1 else "bonus_archer_two")
+		"direct_on":
+			return Texts.t("bonus_direct_on_" + str(b[1]))
+		"he_left":
+			return Texts.t("bonus_he_left") % b[1]
 		"indirect":
 			return Texts.t("bonus_indirect")
 		"without":
 			return Texts.t("bonus_without_" + str(b[1]))
 		"throws":
-			return Texts.t("bonus_throws") % b[1]
+			return Texts.t("bonus_one_throw") if b[1] == 1 else Texts.t("bonus_throws") % b[1]
 		"no_shotdown":
 			return Texts.t("bonus_no_shotdown")
 		"one_go":
@@ -332,7 +343,17 @@ static func bonus_met(i: int, s: Stage) -> bool:
 					kills[a.throw_id] = int(kills.get(a.throw_id, 0)) + 1
 			return kills.values().any(func(n): return n >= 2)
 		"sky_two":
-			return s.best_strike >= 2
+			return s.best_strike >= (b[1] if b.size() > 1 else 2)
+		"archer":
+			return _foes(s).filter(func(a): return a.dead and a.has_meta("archer") and a.defeat_cause == "direct").size() >= int(b[1])
+		"direct_on":
+			return s.commanders.any(func(c): return c.dead and c.defeat_cause == "direct" and c.get_meta("part", "") == b[1])
+		"he_left":
+			var left := 0
+			for slot in s.ammo_slots:
+				if slot.type.kind == K.HE:
+					left += slot.count
+			return left >= int(b[1])
 		"keg":
 			return s.bonus_keg_blown
 		"indirect":
@@ -407,9 +428,12 @@ static func commander_count(i: int) -> int:
 	return n
 
 
-## 페인트탄 수: 기본 하나 + 지휘관 하나에 하나씩.
+## 페인트탄(연기알) 수: 기본 하나 + 지휘관 하나에 하나씩, 많아야 셋.
+const PAINT_MAX := 3
+
+
 static func paint_count(i: int) -> int:
-	return 1 + commander_count(i)
+	return mini(PAINT_MAX, 1 + commander_count(i))
 
 
 static func build(i: int, s: Stage) -> void:
@@ -427,7 +451,10 @@ static func build(i: int, s: Stage) -> void:
 		for part in d.parts:
 			var opts: Dictionary = part[2] if part.size() > 2 else {}
 			_frame(s, part[1])
+			var before := s.commanders.size()
 			Callable(Campaign, "_part_" + part[0]).call(s, part[1], opts)
+			for k in range(before, s.commanders.size()):
+				s.commanders[k].set_meta("part", part[0])
 		_frame(s, Vector3.ZERO, 1.0)
 		if d.get("final", false):
 			_cage(s, part_at(d.parts[0][1], Vector3(-6.5, 0, 1.0)))
@@ -442,6 +469,9 @@ static func build(i: int, s: Stage) -> void:
 	s.add_bombers(d.get("bombers", 0))
 	if d.get("launch_button", false):
 		s.add_launch_button()
+	elif world_of(i) == 4:
+		# 5월드: 지금까지 모은 부품으로 조립 중인 로켓 (4-10의 탄두부터 이 진지 앞까지)
+		s.add_rocket_stand((1 << (i - 39)) - 1)
 	s.wind = wind_of(i)
 	if is_rain(i):
 		s.make_rain()
@@ -454,6 +484,8 @@ static func build(i: int, s: Stage) -> void:
 	if is_night(i):
 		s.night = true
 		_torches(s, d)
+	if world_of(i) == 4 and not d.get("launch_button", false):
+		_stored_part(s, d, i - 39)
 	if d.has("wind"):
 		s.add_wind_banner(banner_spot(d, s.player.position))
 	s.finish_build()
@@ -501,7 +533,7 @@ static func _extras(s: Stage, d: Dictionary, world: int, ally_foe := false) -> v
 
 
 ## 부품마다 세우는 지휘관 수 (풀이에서 지휘관 번호를 셀 때 쓴다).
-const COMMANDERS_OF := {"kegyard": 2}
+const COMMANDERS_OF := {"kegyard": 2, "depot": 0}
 
 
 static func _commanders_in(part: Array) -> int:
@@ -521,7 +553,9 @@ static func _in_rocket_cluster(d: Dictionary, pos: Vector3) -> bool:
 
 
 ## 보조 목표 풀이 (테스트가 실제로 던져 본다): {진지: {부품 번호: [main 풀이도 이어 던질지, 단계...]}}.
-## 단계의 목표: 정수 = 그 번호 지휘관, Vector3 = 부품 중심 기준 자리 (부품 배율 전), "ally_foe" = 아군 고블린과 싸우는 병사.
+## 단계의 목표: 정수 = 그 번호 지휘관, Vector3 = 부품 중심 기준 자리 (부품 배율 전), 글자 = 그 메타를 단 병사
+## ("ally_foe" = 아군 고블린과 싸우는 병사, "archer0" = 첫 발리스타 궁수).
+## "b0", "b1"...: 그 번호 발리스타의 단계를 이 단계로 바꾼다. "only": [부품 번호, 단계...] = 이것만 던진다.
 ## 여기 없는 부품은 설계상 풀이 그대로 (그것만으로 보조 목표가 채워지는 진지는 아예 없다).
 const BONUS_PLAN := {
 	1: {0: [true, [K.HE, "ally_foe", false, 0.0]]},
@@ -545,6 +579,11 @@ const BONUS_PLAN := {
 	46: {1: [false, [K.FLARE, Vector3(5.2, 0.1, 1.2), false, 6.5], [K.HE, 1, false, 0.0]], 3: [false, [K.HE, 3, true, 0.0]]},
 	47: {1: [false, [K.FIRE, HOPPER_WINDOW, false, 0.0]]},
 	49: {2: [false, [K.HE, 2, true, 3.0]]},
+	32: {"b0": [K.HE, "archer0", false, 0.0]},
+	35: {"b0": [K.HE, "archer0", false, 0.0], "b1": [K.HE, "archer1", false, 0.0]},
+	37: {2: [false, [K.HE, 2, false, 0.0]]},
+	38: {2: [false, [K.FLARE, Vector3(0, 0.3, 2.5), false, 10.0]]},
+	39: {"only": [4, [K.HE, DEPOT_WINDOW, false, 0.0]]},
 }
 ## 호퍼 돌집 앞벽의 작은 창 가운데 (불항아리는 가파르게 떨어지므로 지휘관 가슴이 아니라 창을 겨눈다)
 const HOPPER_WINDOW := Vector3(0, 1.3, 1.3)
@@ -568,9 +607,16 @@ static func plan(i: int, bonus := false) -> Array:
 	var out := []
 	# 남은 폭탄 수: 폭탄 풀이를 고를 때마다 하나씩 쓴다 (모자라면 불 풀이)
 	var budget: Dictionary = d.ammo.duplicate()
-	for b in d.get("ballistas", []):
+	var extra: Dictionary = BONUS_PLAN.get(i, {}) if bonus else {}
+	if extra.has("only"):
+		return _bonus_steps([false] + extra["only"].slice(1), d.parts[extra["only"][0]][1], budget)
+	for bk in d.get("ballistas", []).size():
+		var b: Array = d.ballistas[bk]
 		var bp: Vector3 = b[0]
-		if b[1] == "wood" and budget.get("he", 0) <= 0:
+		if extra.has("b%d" % bk):
+			out.append(extra["b%d" % bk].duplicate())
+			budget["he"] = budget.get("he", 0) - 1
+		elif b[1] == "wood" and budget.get("he", 0) <= 0:
 			if rain:
 				out.append([K.OIL, part_at(bp, Vector3(0, 1.5, 1.4)), false, 0.3])
 			out.append([K.FIRE, part_at(bp, Vector3(0, 1.5, 1.4)), false, 0.0])
@@ -584,10 +630,10 @@ static func plan(i: int, bonus := false) -> Array:
 	if not out.is_empty():
 		# 발리스타 탑이 다 타서 무너질 때까지 기다린다
 		out[out.size() - 1][3] = 10.0
-	var extra: Dictionary = BONUS_PLAN.get(i, {}) if bonus else {}
 	if d.get("launch_button", false):
 		for k in extra:
-			out.append_array(_bonus_steps(extra[k], d.parts[k][1], budget))
+			if k is int:
+				out.append_array(_bonus_steps(extra[k], d.parts[k][1], budget))
 		out.append(["button"])
 		return out
 	var ci := 0
@@ -595,7 +641,7 @@ static func plan(i: int, bonus := false) -> Array:
 	for k in d.parts.size():
 		var part: Array = d.parts[k]
 		var opts: Dictionary = part[2] if part.size() > 2 else {}
-		if extra.has(k):
+		if extra.has(k) and extra[k] is Array:
 			out.append_array(_bonus_steps(extra[k], part[1], budget))
 			if not extra[k][0]:
 				ci += _commanders_in(part)
@@ -1312,6 +1358,71 @@ static func _part_tent(s: Stage, c: Vector3, _o: Dictionary) -> void:
 		st.add_block(M.STRAW, c + Vector3(sx * 0.85, h * 0.5, 1.2), Vector3(0.9, h, 0.2))
 	st.add_block(M.STRAW, c + Vector3(0, h + 0.15, 0), Vector3(2.8, 0.3, 2.8))
 	s.add_commander(c + Vector3(0, 0, -0.3), 180.0, Vector3(1.8, 0, 1.2))
+
+
+## 4-10 탄두 창고 자리 (창문이 쾅쾅알 최대 사거리 가까이에 오게) 와 창문 가운데 (부품 기준, 배율 전)
+const DEPOT_AT := Vector3(0, 0, -73.4)
+const DEPOT_WINDOW := Vector3(0, 3.95, 2.0)
+
+
+## 4-10 탄두 창고: 거대 로켓의 탄두를 보관한 2층 강철 창고 (폭발물 딱지투성이). 2층 앞벽 작은 창 너머로 탄두와 화약통이 보인다.
+## 창으로 쾅쾅알을 정확히 넣으면 화약통이 터지며 대폭발: 진지 안의 지휘관이 모두 날아간다 (Stage.mega_strike).
+## 벽 밖의 폭발은 안 통한다 (화약통에 방 room 메타). 평소에는 발리스타를 치우고 하늘쾅으로 벙커 무리를 부순다.
+static func _part_depot(s: Stage, c: Vector3, _o: Dictionary) -> void:
+	var st := s.add_structure()
+	var half := 2.0
+	var h := 5.6
+	# 앞벽: 아래 큰 판, 창 양옆 판 둘, 위 판 (블록 수를 아낀다). 창은 가운데 0.8 x 0.7
+	var fz := half - 0.15
+	st.add_block(M.STEEL, c + Vector3(0, 1.8, fz), Vector3(half * 2.0, 3.6, 0.3))
+	for sx in [-1, 1]:
+		st.add_block(M.STEEL, c + Vector3(sx * (0.4 + (half - 0.4) * 0.5), 3.95, fz), Vector3(half - 0.4, 0.7, 0.3))
+	st.add_block(M.STEEL, c + Vector3(0, 4.95, fz), Vector3(half * 2.0, 1.3, 0.3))
+	st.add_block(M.STEEL, c + Vector3(0, h * 0.5, -half + 0.15), Vector3(half * 2.0, h, 0.3))
+	for sx in [-1, 1]:
+		st.add_block(M.STEEL, c + Vector3(sx * (half - 0.15), h * 0.5, 0), Vector3(0.3, h, half * 2.0 - 0.6))
+	st.add_block(M.STEEL, c + Vector3(0, 2.95, 0), Vector3(half * 2.0 - 0.6, 0.3, half * 2.0 - 0.6))
+	st.add_block(M.STEEL, c + Vector3(0, h + 0.15, 0), Vector3(half * 2.0 + 0.4, 0.3, half * 2.0 + 0.4))
+	# 2층 창 너머: 탄두를 터뜨릴 화약통과 세워 둔 탄두
+	var keg := st.add_block(M.KEG, c + Vector3(0.1, 3.6, 0.5), Vector3(1.0, 1.0, 1.0))
+	keg.set_meta("warhead", true)
+	keg.set_meta("dry", true)
+	var a := s.at(c + Vector3(-1.7, 3.1, -1.7))
+	keg.set_meta("room", AABB(a, s.at(c + Vector3(1.7, h, 1.7)) - a))
+	var warhead := Models.rocket(1)
+	warhead.scale = Vector3.ONE * 0.8
+	keg.add_child(warhead)
+	warhead.position = Vector3(-1.0, -2.1, -0.5)
+	# 폭발물 주의 딱지를 잔뜩: 앞벽(창 둘레와 아래), 옆벽
+	for b in st.blocks:
+		if b.mat != M.STEEL:
+			continue
+		var local := (b.position - s.at(c)) / s.build_scale
+		if local.z > half - 0.4 and b.size.y > 1.0:
+			# 아래 판(문 위쪽)과 위 판에 딱지를 한 줄씩
+			for k in 5:
+				Models.blast_sign(b, Vector3((k - 2) * 0.8 * s.build_scale, 0.9 * s.build_scale if b.size.y > 3.0 else 0.0, b.size.z * 0.5 + 0.03), 0.28 * s.build_scale)
+		elif absf(local.x) > half - 0.4:
+			for y in [-1.2, 1.0]:
+				var face := Node3D.new()
+				face.rotation.y = signf(local.x) * PI * 0.5
+				b.add_child(face)
+				Models.blast_sign(face, Vector3(0.6, y * s.build_scale, b.size.x * 0.5 + 0.03), 0.4 * s.build_scale)
+	# 1층 쇠문 (장식, 앞벽 아래 판 가운데)
+	var door_wall: Block = st.blocks[0]
+	Models.box(door_wall, Vector3(1.0, 2.2, 0.06) * s.build_scale, Vector3(0, -0.7 * s.build_scale, door_wall.size.z * 0.5 + 0.03), Models.mat(Color(0.25, 0.25, 0.27), 0.4, 0.6))
+
+
+## 5월드: 이 진지에 보관된 로켓 부품 (나무 받침 위, 첫 부품 앞 옆 빈터. 밤이면 그 자리 횃불 곁). k = Models.ROCKET_PARTS 번호.
+static func _stored_part(s: Stage, d: Dictionary, k: int) -> void:
+	var c: Vector3 = d.parts[0][1]
+	var side := 1.0 if c.x <= 0.0 else -1.0
+	var p := Models.rocket_part(k)
+	p.scale = Vector3.ONE * 1.3
+	p.position = Vector3(c.x + side * 8.4, 0, c.z + 5.0)
+	p.rotation.y = 0.4 * side
+	p.add_to_group("rocket_part")
+	s.add_child(p)
 
 
 ## 강철 벙커: 무엇으로도 안 부서진다. 플레어건으로 표적을 찍어 미사일을 부른다 (발리스타가 남아 있으면 요격당한다).
