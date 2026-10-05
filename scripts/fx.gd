@@ -6,6 +6,8 @@ const FLAME_COLORS := [Color(1.0, 0.95, 0.6, 1.0), Color(1.0, 0.55, 0.1, 0.95), 
 const SMOKE_COLORS := [Color(0.25, 0.25, 0.25, 0.0), Color(0.3, 0.3, 0.3, 0.55), Color(0.55, 0.55, 0.55, 0.35), Color(0.7, 0.7, 0.7, 0.0)]
 ## 연기알 신호 연기 색 (어느 배경에서도 튀는 연두)
 const PAINT_COLOR := Color(0.62, 0.95, 0.28)
+## 폭발이 쓸고 가는 흙먼지
+const DUST_COLORS := [Color(0.5, 0.42, 0.33, 0.9), Color(0.56, 0.48, 0.38, 0.8), Color(0.62, 0.56, 0.48, 0.45), Color(0.7, 0.66, 0.6, 0.0)]
 
 
 static func _gradient(colors: Array) -> GradientTexture1D:
@@ -211,42 +213,119 @@ static func ammo_model(kind: int, model_scale := 1.0, with_flame := true) -> Nod
 
 ## 큼직한 충격파 링 (착탄 연출). 바닥과 평행하게 퍼지며 사라진다.
 ## radius는 링 바깥 가장자리. hold: 다 퍼진 뒤 그 크기로 잠깐 머문다 (범위를 눈으로 가늠하게).
-static func shockwave(parent: Node, pos: Vector3, radius: float, color := Color(1.0, 0.95, 0.8, 0.8), hold := 0.0) -> void:
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	# 링 두께는 반경과 상관없이 비슷하게 (큰 링이 뭉툭해지지 않게)
-	tm.inner_radius = 1.0 - clampf(0.45 / maxf(radius, 0.5), 0.04, 0.18)
-	tm.outer_radius = 1.0
-	tm.rings = 32
-	tm.ring_segments = 4
-	ring.mesh = tm
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	# 범위 표시 링은 벽에 가려도 보인다
-	m.no_depth_test = hold > 0.0
-	m.albedo_color = color
-	ring.material_override = m
-	parent.add_child(ring)
-	ring.global_position = pos + Vector3(0, 0.2, 0)
-	ring.scale = Vector3.ONE * 0.3
-	var grow := 0.3 if hold > 0.0 else 0.35
-	var tw := ring.create_tween()
-	tw.tween_property(ring, "scale", Vector3(radius, minf(radius * 0.4, 1.2), radius), grow).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	if hold > 0.0:
-		tw.tween_interval(hold)
-		tw.tween_property(m, "albedo_color:a", 0.0, 0.35)
-	else:
-		tw.parallel().tween_property(m, "albedo_color:a", 0.0, grow)
-	free_after(ring, grow + hold + 0.45)
+static var _soft_tex: GradientTexture2D
+
+## 가장자리가 흐린 둥근 입자 (네모가 보이지 않는 불덩이·연기·흙먼지).
+static func _soft(amount: int, lifetime: float, quad_size: float, additive: bool, colors: Array) -> GPUParticles3D:
+	if _soft_tex == null:
+		var g := Gradient.new()
+		g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0.8), Color(1, 1, 1, 0)])
+		g.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+		_soft_tex = GradientTexture2D.new()
+		_soft_tex.gradient = g
+		_soft_tex.fill = GradientTexture2D.FILL_RADIAL
+		_soft_tex.fill_from = Vector2(0.5, 0.5)
+		_soft_tex.fill_to = Vector2(1.0, 0.5)
+		_soft_tex.width = 64
+		_soft_tex.height = 64
+	var p := _particles(amount, lifetime, quad_size, additive, colors)
+	var m: StandardMaterial3D = (p.draw_pass_1 as QuadMesh).material
+	m.albedo_texture = _soft_tex
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.local_coords = false
+	return p
 
 
-## 폭발 범위 동심원: 바깥 흰 링 = 구조물이 부서지는 끝, 안쪽 주황 링 = 인물이 쓰러지는 끝.
-## 실제 판정 반경과 똑같은 크기로 잠깐 머물렀다 사라진다 (연출이 아니라 정보).
-static func blast_rings(parent: Node, pos: Vector3, break_radius: float, kill_radius: float) -> void:
-	shockwave(parent, pos, break_radius, Color(1.0, 0.97, 0.85, 0.85), 0.35)
-	if kill_radius > 0.0:
-		shockwave(parent, pos, kill_radius, Color(1.0, 0.45, 0.1, 0.9), 0.35)
+static func _grow_curve(a: float, b: float) -> CurveTexture:
+	var c := Curve.new()
+	c.add_point(Vector2(0, a))
+	c.add_point(Vector2(1, b))
+	var ct := CurveTexture.new()
+	ct.curve = c
+	return ct
+
+
+## 땅을 쓸고 퍼지는 흙먼지: 착탄점에서 사방으로 낮게 밀려 나가 radius쯤에서 멎으며 부풀어 흩어진다.
+static func shockwave(parent: Node, pos: Vector3, radius: float) -> void:
+	var p := _soft(clampi(int(radius * 9.0), 20, 80), 1.5, clampf(radius * 0.45, 0.9, 4.5), false, DUST_COLORS)
+	var pm: ParticleProcessMaterial = p.process_material
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 0.3
+	pm.direction = Vector3(1, 0, 0)
+	pm.spread = 180.0
+	pm.flatness = 0.85
+	# 감속해 radius 근처에서 멎는다 (거리 ≈ v² / 2d)
+	var v := radius * 2.6
+	pm.initial_velocity_min = v * 0.8
+	pm.initial_velocity_max = v
+	pm.damping_min = v * v / (2.0 * radius)
+	pm.damping_max = pm.damping_min
+	pm.gravity = Vector3(0, 0.8, 0)
+	pm.scale_min = 0.7
+	pm.scale_max = 1.3
+	pm.scale_curve = _grow_curve(0.4, 1.5)
+	parent.add_child(p)
+	p.global_position = pos + Vector3(0, 0.4, 0)
+	p.emitting = true
+	free_after(p, 1.8)
+
+
+## 폭발: 눈부신 섬광이 번쩍, 불덩이가 부글부글 부풀었다 꺼지며 검은 연기로 바뀌어 솟고, 불티가 튀고,
+## 흙먼지가 땅을 쓸며 파괴 범위(break_radius)까지 밀려 나간다. kill_radius는 불덩이 크기에 쓴다.
+static func blast(parent: Node, pos: Vector3, break_radius: float, kill_radius: float) -> void:
+	var size := maxf(kill_radius, break_radius * 0.5)
+	var at := pos + Vector3(0, 0.4, 0)
+	# 섬광
+	var core := _soft(1, 0.12, size * 1.2, true, [Color(1, 1, 0.9, 1), Color(1, 0.8, 0.4, 0.8), Color(1, 0.4, 0.1, 0)])
+	var cpm: ParticleProcessMaterial = core.process_material
+	cpm.gravity = Vector3.ZERO
+	cpm.scale_curve = _grow_curve(0.3, 1.0)
+	# 불덩이
+	# 밝은 낮에도 또렷하게 (더하기 혼합이면 하얗게 바랜다)
+	var fire := _soft(clampi(int(size * 10.0), 18, 60), 0.9, size * 0.6, false,
+		[Color(1, 0.85, 0.35, 1), Color(1, 0.45, 0.08, 1), Color(0.75, 0.18, 0.04, 0.9), Color(0.22, 0.1, 0.06, 0.6), Color(0.15, 0.12, 0.1, 0)])
+	var fpm: ParticleProcessMaterial = fire.process_material
+	fpm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	fpm.emission_sphere_radius = size * 0.15
+	fpm.direction = Vector3.UP
+	fpm.spread = 90.0
+	fpm.initial_velocity_min = size * 2.5
+	fpm.initial_velocity_max = size * 4.5
+	fpm.damping_min = size * 3.0
+	fpm.damping_max = size * 4.0
+	fpm.gravity = Vector3(0, 2.0, 0)
+	fpm.scale_min = 0.6
+	fpm.scale_max = 1.2
+	fpm.scale_curve = _grow_curve(0.5, 1.3)
+	# 불덩이가 식어 솟는 검은 연기
+	var smoke := _soft(clampi(int(size * 6.0), 10, 40), 2.4, size * 1.0, false,
+		[Color(0.1, 0.08, 0.07, 0), Color(0.16, 0.13, 0.11, 0.75), Color(0.35, 0.32, 0.3, 0.45), Color(0.5, 0.5, 0.5, 0)])
+	var spm: ParticleProcessMaterial = smoke.process_material
+	spm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	spm.emission_sphere_radius = size * 0.3
+	spm.direction = Vector3.UP
+	spm.spread = 35.0
+	spm.initial_velocity_min = size * 0.8
+	spm.initial_velocity_max = size * 1.8
+	spm.damping_min = size * 0.5
+	spm.damping_max = size * 0.8
+	spm.gravity = Vector3(0, 1.2, 0)
+	spm.scale_curve = _grow_curve(0.5, 1.8)
+	for p in [smoke, fire, core]:
+		parent.add_child(p)
+		p.global_position = at
+		p.emitting = true
+		free_after(p, p.lifetime + 0.3)
+	# 불티: 위로 흩어지며 떨어지는 작은 불꽃
+	var sparks := burst(clampi(int(break_radius * 8.0), 20, 70), break_radius * 2.4, 0.16, [Color(1.0, 0.95, 0.7, 1.0), Color(1.0, 0.6, 0.15, 1.0), Color(0.8, 0.2, 0.05, 0.0)])
+	(sparks.process_material as ParticleProcessMaterial).spread = 70.0
+	sparks.lifetime = 1.1
+	parent.add_child(sparks)
+	sparks.global_position = pos
+	sparks.emitting = true
+	free_after(sparks, 1.5)
+	shockwave(parent, pos, break_radius)
 
 
 static var _puff_mesh: QuadMesh

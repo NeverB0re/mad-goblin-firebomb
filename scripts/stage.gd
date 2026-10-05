@@ -689,7 +689,7 @@ func mega_strike(pos: Vector3) -> void:
 			targets.append(c)
 			reach = maxf(reach, Vector2(c.global_position.x - pos.x, c.global_position.z - pos.z).length() + 8.0)
 	rocket_strike(pos, 16.0, 2000.0, 14.0)
-	Fx.blast_rings(self, pos, reach, reach - 6.0)
+	Fx.blast(self, pos, reach, reach - 6.0)
 	Fx.flash(self, pos + Vector3(0, 12, 0), 30.0, reach * 4.0, 1.5)
 	var k := 0
 	for c in targets:
@@ -713,9 +713,9 @@ func mega_strike(pos: Vector3) -> void:
 func rocket_strike(pos: Vector3, radius: float, strength: float, kill_radius: float) -> void:
 	if not is_inside_tree():
 		return
-	# 동심원은 로켓의 실제 판정 반경(엄폐 무시 kill_radius)으로 따로 그린다
+	# 폭발 연출은 로켓의 실제 판정 반경(엄폐 무시 kill_radius)으로 따로 그린다
 	explode(pos, radius, strength, false, false)
-	Fx.blast_rings(self, pos, radius, kill_radius)
+	Fx.blast(self, pos, radius, kill_radius)
 	Fx.flash(self, pos + Vector3(0, 4, 0), 16.0, radius * 4.0, 0.8)
 	Fx.chunks(self, pos, [Color(0.3, 0.25, 0.2), Color(0.45, 0.35, 0.25), Color(0.15, 0.12, 0.1)], 16, 16.0)
 	# 버섯구름: 큰 불덩이 + 사방으로 터지는 작은 폭발 + 솟는 연기
@@ -844,8 +844,8 @@ func _on_impact(p: Projectile, pos: Vector3, normal: Vector3, collider: Object) 
 		AmmoType.Kind.HE:
 			Sfx.play_delayed(self, "boom", pos, 4.0, _listener())
 			_impact_juice(pos, 3.0, 0.0)
-			# 실제 판정 반경 그대로의 동심원 (바깥 = 부서지는 끝, 안 = 쓰러지는 끝)
-			Fx.blast_rings(self, pos, ammo.impact_radius, ammo.kill_radius)
+			# 불덩이와 판정 반경까지 밀려 나가는 흙먼지
+			Fx.blast(self, pos, ammo.impact_radius, ammo.kill_radius)
 			_shards(pos, Color(0.25, 0.25, 0.27))
 			Fx.smoke_puff(self, pos, 2.0)
 			Fx.scorch(self, pos, 2.6)
@@ -940,7 +940,7 @@ func explode(pos: Vector3, radius: float, strength: float, forced := false, ring
 	Fx.scorch(self, Vector3(pos.x, 0.05, pos.z), radius * 0.6, 40.0)
 	Fx.flash(self, pos, 9.0, radius * 3.0, 0.45)
 	if rings:
-		Fx.blast_rings(self, pos, radius, radius * 0.8)
+		Fx.blast(self, pos, radius, radius * 0.8)
 	Fx.chunks(self, pos, [Color(0.25, 0.2, 0.15), Color(0.4, 0.3, 0.2), Color(0.12, 0.1, 0.08)], 12, 10.0)
 	Sfx.play_delayed(self, "boom", pos, 8.0, _listener())
 	var fireball := Fx.burst(60, 9.0, 0.9, Fx.FLAME_COLORS)
@@ -965,8 +965,8 @@ func explode(pos: Vector3, radius: float, strength: float, forced := false, ring
 	_detonate_kegs(pos, radius)
 
 
-## 과장된 착탄 연출: 히트스톱, 충격파 링, 불덩이, 거리 비례 흔들림, 병사 반응 (판정과 무관).
-## ring: 충격파 링 반경 (실제 효과 범위에 맞춘다. 0이면 링을 따로 그린다).
+## 과장된 착탄 연출: 히트스톱, 땅을 쓰는 흙먼지, 불덩이, 거리 비례 흔들림, 병사 반응 (판정과 무관).
+## ring: 흙먼지가 퍼지는 반경 (실제 효과 범위에 맞춘다. 0이면 따로 그린다).
 func _impact_juice(pos: Vector3, power: float, ring: float) -> void:
 	var burst := Fx.burst(int(14 * power) + 10, 5.0 + 2.0 * power, 0.35 + 0.1 * power, Fx.FLAME_COLORS)
 	add_child(burst)
