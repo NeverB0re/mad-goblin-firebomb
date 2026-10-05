@@ -340,6 +340,23 @@ func _run() -> void:
 			_check(false, "%s 4월드 진지에 발리스타와 공수부대가 없다" % Campaign.label(i))
 		if d.get("bombers", 0) > 0 and d.ammo.get("flare", 0) != d.bombers:
 			_check(false, "%s 조명탄 수가 글라이더 수와 다르다 (하늘쾅 칸 하나 = 글라이더 한 번)" % Campaign.label(i))
+		# 탄약 여유: 받은 쾅쾅알·불항아리·미끈기름 − 정답 풀이에서 쓰는 수가 1~3, 정답·보조 목표 풀이 어디에도 안 쓰는 탄종은 주지 않는다
+		var kinds := {"he": AmmoType.Kind.HE, "fire": AmmoType.Kind.FIRE, "oil": AmmoType.Kind.OIL}
+		var used := {}
+		for step in Campaign.plan(i) + Campaign.plan(i, true):
+			if step[0] is int:
+				used[step[0]] = true
+		var spare := 0
+		var unused := []
+		for key in kinds:
+			spare += int(d.ammo.get(key, 0))
+			if d.ammo.get(key, 0) > 0 and not used.has(kinds[key]):
+				unused.append(key)
+		for step in Campaign.plan(i):
+			if step[0] is int and step[0] in kinds.values():
+				spare -= 1
+		if spare < 1 or spare > 3 or not unused.is_empty():
+			_check(false, "%s 탄약 여유 %d (1~3이어야 함), 안 쓰는 탄종 %s" % [Campaign.label(i), spare, unused])
 		if Campaign.bonus_text(i) == "":
 			_check(false, "%s 보조 목표 문구가 없다" % Campaign.label(i))
 		if Campaign.is_night(i) and not d.get("ballistas", []).is_empty():
