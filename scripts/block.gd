@@ -18,7 +18,7 @@ const INFO := {
 	Mat.WOOD_THIN: {"color": Color(0.6, 0.4, 0.22), "density": 0.6, "joint": 10.0, "flammable": true, "ignite": 0.4, "burn": 3.5, "ratio": 1.0},
 	Mat.WOOD_BEAM: {"color": Color(0.42, 0.26, 0.14), "density": 0.7, "joint": 70.0, "flammable": true, "ignite": 0.8, "burn": -1.0, "ratio": 1.0},
 	# 반듯한 흰 석재: 석재끼리, 석재와 땅 사이 연결은 무엇으로도 끊기지 않는다 (Structure.Joint.unbreakable)
-	Mat.STONE: {"color": Color(0.84, 0.82, 0.78), "density": 2.4, "joint": 400.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+	Mat.STONE: {"color": Color(0.7, 0.68, 0.63), "density": 2.4, "joint": 400.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
 	Mat.ROPE: {"color": Color(0.84, 0.7, 0.42), "density": 0.5, "joint": 15.0, "flammable": true, "ignite": 0.3, "burn": 2.0, "ratio": 0.0},
 	Mat.STRAW: {"color": Color(0.93, 0.76, 0.4), "density": 0.2, "joint": 5.0, "flammable": true, "ignite": 0.15, "burn": 2.0, "ratio": 1.0},
 	Mat.KEG: {"color": Color(0.8, 0.3, 0.13), "density": 0.9, "joint": 30.0, "flammable": true, "ignite": 0.3, "burn": 0.8, "ratio": 1.0},
@@ -30,8 +30,8 @@ const INFO := {
 	Mat.WOOD_WET: {"color": Color(0.26, 0.2, 0.17), "density": 0.8, "joint": 60.0, "flammable": true, "ignite": 0.6, "burn": 5.0, "ratio": 1.0},
 	# 내부 연료 배관: 검정에 흰 띠. 빨리 타고, 다 타면 그 자리에서 불길이 확 솟는다
 	Mat.FUEL: {"color": Color(0.08, 0.08, 0.08), "density": 1.0, "joint": 40.0, "flammable": true, "ignite": 0.25, "burn": 1.6, "ratio": 0.0},
-	# 금 간 석벽: 흰 석재와 같은 색에 가는 균열 (균열이 취약하다는 표시). 고폭탄으로 부서지고, 근처에 맞아도 조금씩 금이 커진다
-	Mat.CRACKED: {"color": Color(0.76, 0.73, 0.68), "density": 2.2, "joint": 110.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+	# 금 간 석벽: 석재와 비슷한 색, 쪼개지고 비뚤고 이 빠진 돌 (낡아 부서져 가는 모양이 취약하다는 표시). 고폭탄으로 부서지고, 근처에 맞아도 조금씩 금이 커진다
+	Mat.CRACKED: {"color": Color(0.66, 0.63, 0.57), "density": 2.2, "joint": 110.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
 }
 ## 재질별 로우폴리 겉모양 (LowPoly.block_mesh)
 const STYLE := {
@@ -120,7 +120,9 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 
 	_mesh = MeshInstance3D.new()
 	# 로우폴리 겉모양 (충돌 상자는 그대로): 나무는 판자·각목, 석재는 벽돌, 짚은 층층이, 통은 술통
-	_mesh.mesh = LowPoly.block_mesh(STYLE.get(mat, "plain"), size)
+	# 금 간 석재는 블록마다 부서진 모양이 다르다
+	var look_seed := absi(roundi(p_pos.x * 7.0 + p_pos.y * 13.0 + p_pos.z * 3.0)) % 97 if mat == Mat.CRACKED else 0
+	_mesh.mesh = LowPoly.block_mesh(STYLE.get(mat, "plain"), size, look_seed)
 	_material = StandardMaterial3D.new()
 	_material.vertex_color_use_as_albedo = true
 	_material.vertex_color_is_srgb = true
@@ -146,8 +148,6 @@ func setup(p_mat: int, p_size: Vector3, p_pos: Vector3) -> Block:
 
 	if mat == Mat.STEEL:
 		_add_rivets()
-	elif mat == Mat.CRACKED:
-		_add_cracks()
 
 	add_to_group("blocks")
 	if INFO[mat].flammable:
@@ -223,84 +223,6 @@ func _add_rivets() -> void:
 				p.y = (j + 0.5) / nv * size.y - size.y * 0.5
 				p[axis] = side * (size[axis] * 0.5 + 0.015)
 				Models.box(_mesh, Vector3(0.07, 0.07, 0.07), p, rivet_mat)
-
-
-## 큰 면 두 개에 빽빽한 가는 균열: 폭마다 여러 줄이 위에서 아래로 꺾여 내려가며 점점 가늘어지고, 곳곳에서 잔가지가 갈라진다.
-## 묵은 때 얼룩도 몇 군데 낀다. (위치로 정해지는 모양이라 매번 같다)
-func _add_cracks() -> void:
-	var crack_mat := Models.mat(Color(0.12, 0.1, 0.09), 1.0)
-	crack_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var axis := 2 if size.z <= size.x else 0
-	var u := 0 if axis == 2 else 2
-	var seed := absf(position.x * 7.0 + position.y * 13.0 + position.z * 3.0)
-	var half_u := size[u] * 0.45
-	var grime := StandardMaterial3D.new()
-	grime.albedo_color = Color(0.25, 0.2, 0.14, 0.2)
-	grime.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	grime.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var lines := clampi(roundi(size[u] / 0.55), 2, 5)
-	for side in [-1.0, 1.0]:
-		for n in lines:
-			var x0 := (float(n) + 0.5) / lines - 0.5 + (_rand(seed, n) - 0.5) * 0.5 / lines
-			var cur := Vector2(x0 * size[u] * 0.9, size.y * 0.5 if n % 2 == 0 else size.y * (0.5 - 0.3 * _rand(seed, 90 + n)))
-			var steps := clampi(roundi((cur.y + size.y * 0.5) / 0.26), 3, 14)
-			var step_y := (cur.y + size.y * 0.47) / steps
-			var heading := 0.0
-			for i in steps:
-				heading = clampf(heading + (_rand(seed, 10 + i + n * 17) - 0.5) * 1.3, -0.9, 0.9)
-				var nxt := Vector2(clampf(cur.x + sin(heading) * step_y * 1.2, -half_u, half_u), cur.y - step_y)
-				_crack_segment(cur, nxt, lerpf(0.05, 0.02, float(i) / steps), axis, u, side, crack_mat)
-				# 잔가지: 자주 옆으로 짧게 두 마디
-				if _rand(seed, 40 + i + n * 17) < 0.5 and i > 0 and i < steps - 1:
-					var dir := -1.0 if _rand(seed, 70 + i + n * 17) < 0.5 else 1.0
-					var b1 := nxt + Vector2(dir * step_y * 0.7, -step_y * 0.5)
-					var b2 := b1 + Vector2(dir * step_y * 0.5, -step_y * 0.7)
-					b1.x = clampf(b1.x, -half_u, half_u)
-					b2.x = clampf(b2.x, -half_u, half_u)
-					_crack_segment(nxt, b1, 0.024, axis, u, side, crack_mat)
-					_crack_segment(b1, b2, 0.014, axis, u, side, crack_mat)
-				cur = nxt
-		# 묵은 때 얼룩
-		for g in 3:
-			var gw := 0.25 + _rand(seed, 120 + g) * 0.4
-			var gh := 0.2 + _rand(seed, 130 + g) * 0.4
-			var m := MeshInstance3D.new()
-			var bm := BoxMesh.new()
-			bm.size = Vector3(gw, gh, 0.02) if axis == 2 else Vector3(0.02, gh, gw)
-			m.mesh = bm
-			m.material_override = grime
-			var p := Vector3.ZERO
-			p[u] = (_rand(seed, 140 + g) - 0.5) * size[u] * 0.8
-			p.y = (_rand(seed, 150 + g) - 0.5) * size.y * 0.8
-			p[axis] = side * (size[axis] * 0.5 + 0.008)
-			m.position = p
-			_mesh.add_child(m)
-		seed += 3.0
-
-
-func _rand(seed: float, i: int) -> float:
-	return fposmod(sin(seed * 12.9898 + i * 78.233) * 43758.5453, 1.0)
-
-
-func _crack_segment(a: Vector2, b: Vector2, thick: float, axis: int, u: int, side: float, crack_mat: Material) -> void:
-	var seg := b - a
-	var m := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = Vector3(thick, seg.length() + thick * 0.5, 0.02) if axis == 2 else Vector3(0.02, seg.length() + thick * 0.5, thick)
-	m.mesh = bm
-	m.material_override = crack_mat
-	var mid := (a + b) * 0.5
-	var p := Vector3.ZERO
-	p[u] = mid.x
-	p.y = mid.y
-	p[axis] = side * (size[axis] * 0.5 + 0.012)
-	m.position = p
-	var ang := atan2(seg.x, -seg.y)
-	if axis == 2:
-		m.rotation.z = ang
-	else:
-		m.rotation.x = -ang
-	_mesh.add_child(m)
 
 
 ## 석재 문짝의 모양: 쇠 띠 둘과 징, 손잡이, 가운데 쪽 틈. inner: 문짝의 가운데 쪽이 +x(1)인지 -x(-1)인지.
