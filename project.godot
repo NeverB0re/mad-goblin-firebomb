@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Mad Goblin Firebomb"
 config/description="부족장을 납치당한 미친 고블린이 폭탄을 던져 인간 진지를 무너뜨린다"
-config/version="0.16.0"
+config/version="0.17.0"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 
