@@ -31,7 +31,7 @@ const INFO := {
 	# 내부 연료 배관: 검정에 흰 띠. 빨리 타고, 다 타면 그 자리에서 불길이 확 솟는다
 	Mat.FUEL: {"color": Color(0.08, 0.08, 0.08), "density": 1.0, "joint": 40.0, "flammable": true, "ignite": 0.25, "burn": 1.6, "ratio": 0.0},
 	# 금 간 석벽: 흰 석재와 같은 색에 가는 균열 (균열이 취약하다는 표시). 고폭탄으로 부서지고, 근처에 맞아도 조금씩 금이 커진다
-	Mat.CRACKED: {"color": Color(0.84, 0.82, 0.78), "density": 2.2, "joint": 110.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
+	Mat.CRACKED: {"color": Color(0.76, 0.73, 0.68), "density": 2.2, "joint": 110.0, "flammable": false, "ignite": 0.0, "burn": 0.0, "ratio": 0.6},
 }
 ## 재질별 로우폴리 겉모양 (LowPoly.block_mesh)
 const STYLE := {
@@ -194,14 +194,13 @@ func coat_oil() -> void:
 	_material.metallic = 0.2
 
 
-## 겉모양만 가는 금이 간 흰 석재로 바꾼다 (재질의 성질은 그대로: 강철 기둥이 석재 망대에 섞여 보이게).
-func look_like_cracked_stone() -> void:
+## 겉모양만 깨끗한 흰 석재로 바꾼다 (재질의 성질은 그대로: 강철 기둥이 석재 망대에 섞여 보이게).
+func look_like_stone() -> void:
 	for child in _mesh.get_children():
 		child.free()
-	_mesh.mesh = LowPoly.block_mesh("cracked", size)
+	_mesh.mesh = LowPoly.block_mesh("stone", size)
 	_base_color = INFO[Mat.STONE].color
 	_material.albedo_color = _base_color
-	_add_cracks()
 
 
 ## 폭발통: 붉은 통에 보랏빛 쇠테 둘, 네 면에 노란 폭발 표지 (한눈에 터지는 통임을 알린다).
@@ -226,8 +225,8 @@ func _add_rivets() -> void:
 				Models.box(_mesh, Vector3(0.07, 0.07, 0.07), p, rivet_mat)
 
 
-## 큰 면 두 개에 가는 균열: 위 가장자리에서 아래로 꺾여 내려가며 점점 가늘어지고, 곳곳에서 짧은 잔가지가 갈라진다.
-## (위치로 정해지는 모양이라 매번 같다)
+## 큰 면 두 개에 빽빽한 가는 균열: 폭마다 여러 줄이 위에서 아래로 꺾여 내려가며 점점 가늘어지고, 곳곳에서 잔가지가 갈라진다.
+## 묵은 때 얼룩도 몇 군데 낀다. (위치로 정해지는 모양이라 매번 같다)
 func _add_cracks() -> void:
 	var crack_mat := Models.mat(Color(0.12, 0.1, 0.09), 1.0)
 	crack_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -235,25 +234,47 @@ func _add_cracks() -> void:
 	var u := 0 if axis == 2 else 2
 	var seed := absf(position.x * 7.0 + position.y * 13.0 + position.z * 3.0)
 	var half_u := size[u] * 0.45
+	var grime := StandardMaterial3D.new()
+	grime.albedo_color = Color(0.25, 0.2, 0.14, 0.2)
+	grime.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	grime.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var lines := clampi(roundi(size[u] / 0.55), 2, 5)
 	for side in [-1.0, 1.0]:
-		var cur := Vector2((_rand(seed, 0) - 0.5) * size[u] * 0.5, size.y * 0.5)
-		var steps := clampi(roundi(size.y / 0.28), 5, 12)
-		var step_y := size.y * 0.94 / steps
-		var heading := 0.0
-		for i in steps:
-			heading = clampf(heading + (_rand(seed, 10 + i) - 0.5) * 1.3, -0.9, 0.9)
-			var nxt := Vector2(clampf(cur.x + sin(heading) * step_y * 1.2, -half_u, half_u), cur.y - step_y)
-			_crack_segment(cur, nxt, lerpf(0.05, 0.022, float(i) / steps), axis, u, side, crack_mat)
-			# 잔가지: 가끔 옆으로 짧게 두 마디
-			if _rand(seed, 40 + i) < 0.4 and i > 0 and i < steps - 1:
-				var dir := -1.0 if _rand(seed, 70 + i) < 0.5 else 1.0
-				var b1 := nxt + Vector2(dir * step_y * 0.7, -step_y * 0.5)
-				var b2 := b1 + Vector2(dir * step_y * 0.5, -step_y * 0.7)
-				b1.x = clampf(b1.x, -half_u, half_u)
-				b2.x = clampf(b2.x, -half_u, half_u)
-				_crack_segment(nxt, b1, 0.024, axis, u, side, crack_mat)
-				_crack_segment(b1, b2, 0.014, axis, u, side, crack_mat)
-			cur = nxt
+		for n in lines:
+			var x0 := (float(n) + 0.5) / lines - 0.5 + (_rand(seed, n) - 0.5) * 0.5 / lines
+			var cur := Vector2(x0 * size[u] * 0.9, size.y * 0.5 if n % 2 == 0 else size.y * (0.5 - 0.3 * _rand(seed, 90 + n)))
+			var steps := clampi(roundi((cur.y + size.y * 0.5) / 0.26), 3, 14)
+			var step_y := (cur.y + size.y * 0.47) / steps
+			var heading := 0.0
+			for i in steps:
+				heading = clampf(heading + (_rand(seed, 10 + i + n * 17) - 0.5) * 1.3, -0.9, 0.9)
+				var nxt := Vector2(clampf(cur.x + sin(heading) * step_y * 1.2, -half_u, half_u), cur.y - step_y)
+				_crack_segment(cur, nxt, lerpf(0.05, 0.02, float(i) / steps), axis, u, side, crack_mat)
+				# 잔가지: 자주 옆으로 짧게 두 마디
+				if _rand(seed, 40 + i + n * 17) < 0.5 and i > 0 and i < steps - 1:
+					var dir := -1.0 if _rand(seed, 70 + i + n * 17) < 0.5 else 1.0
+					var b1 := nxt + Vector2(dir * step_y * 0.7, -step_y * 0.5)
+					var b2 := b1 + Vector2(dir * step_y * 0.5, -step_y * 0.7)
+					b1.x = clampf(b1.x, -half_u, half_u)
+					b2.x = clampf(b2.x, -half_u, half_u)
+					_crack_segment(nxt, b1, 0.024, axis, u, side, crack_mat)
+					_crack_segment(b1, b2, 0.014, axis, u, side, crack_mat)
+				cur = nxt
+		# 묵은 때 얼룩
+		for g in 3:
+			var gw := 0.25 + _rand(seed, 120 + g) * 0.4
+			var gh := 0.2 + _rand(seed, 130 + g) * 0.4
+			var m := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(gw, gh, 0.02) if axis == 2 else Vector3(0.02, gh, gw)
+			m.mesh = bm
+			m.material_override = grime
+			var p := Vector3.ZERO
+			p[u] = (_rand(seed, 140 + g) - 0.5) * size[u] * 0.8
+			p.y = (_rand(seed, 150 + g) - 0.5) * size.y * 0.8
+			p[axis] = side * (size[axis] * 0.5 + 0.008)
+			m.position = p
+			_mesh.add_child(m)
 		seed += 3.0
 
 

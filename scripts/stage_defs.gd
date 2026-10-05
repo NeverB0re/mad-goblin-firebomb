@@ -150,11 +150,28 @@ static func watchtower(st: Structure, c: Vector3, legs := 4.0, half := 1.6, open
 		for sz in [-1, 1]:
 			st.add_block(M.WOOD_THIN, c + Vector3(sx * (half - 0.15), (post_from + roof_h) * 0.5, sz * (half - 0.15)), Vector3(0.2, roof_h - post_from, 0.2))
 	st.add_block(M.STRAW, c + Vector3(0, roof_h + 0.15, 0), Vector3(half * 2.0 + 0.4, 0.3, half * 2.0 + 0.4))
-	if open_rail:
-		_ladder(st, c, legs, half)
+	_ladder(st, c, legs, half)
 
 
 ## 망루 오른쪽에 기댄 나무 사다리 (장식: 충돌·판정 없음). 바닥 판자에 붙어 있어 망루가 무너지면 같이 넘어간다.
+## 석재·발리스타 망대의 바닥(host) 옆에 기댄 사다리. side: +1이면 +x 쪽, -1이면 -x 쪽. 장식이라 충돌·판정 없음.
+static func deck_ladder(host: Block, side: float) -> void:
+	var top := Vector3(host.position.x + side * (host.size.x * 0.5 - 0.1), host.position.y + host.size.y * 0.5 - 0.05, host.position.z)
+	var foot := Vector3(top.x + side * top.y * 0.18, 0.0, top.z)
+	var ladder := Node3D.new()
+	host.add_child(ladder)
+	var along := top - foot
+	var placed := Transform3D(Basis(Vector3.BACK, -atan2(along.x, along.y)), (foot + top) * 0.5)
+	ladder.transform = host.transform.affine_inverse() * placed
+	var length := along.length()
+	var wood := Models.mat(Color(0.5, 0.34, 0.2))
+	for sz in [-1, 1]:
+		Models.box(ladder, Vector3(0.09, length, 0.09), Vector3(0, 0, sz * 0.34), wood)
+	var rungs := int(length / 0.4)
+	for i in rungs:
+		Models.box(ladder, Vector3(0.06, 0.06, 0.76), Vector3(0, -length * 0.5 + (i + 0.6) * length / rungs, 0), wood)
+
+
 static func _ladder(st: Structure, c: Vector3, legs: float, half: float) -> void:
 	var k: float = st.stage.build_scale if st.stage else 1.0
 	var plank: Block = null

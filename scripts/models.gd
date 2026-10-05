@@ -145,24 +145,32 @@ static func burst(parent: Node3D, r: float, pos: Vector3, rot: Vector3, m: Mater
 
 ## 폭발통의 표지: 보랏빛 쇠테 둘과 네 면의 노란 폭발 마크 (반지름 r, 높이 h인 통의 겉에).
 static func keg_marks(parent: Node3D, r: float, h: float) -> void:
-	var hoop := mat(Color(0.42, 0.3, 0.62), 0.6, 0.3)
+	var hoop := mat(Color(0.22, 0.18, 0.16), 0.5, 0.5)
 	for y in [-0.36, 0.36]:
 		cyl(parent, r * 1.03, r * 1.03, h * 0.1, Vector3(0, h * y, 0), hoop, Vector3.ZERO, 10)
-	var disc := mat(Color(0.42, 0.3, 0.62), 0.6)
-	var star := mat(Color(1.0, 0.82, 0.15), 0.5, 0.0, 0.25)
 	var radius := h * 0.3
 	for k in 4:
 		var a := k * PI * 0.5
 		var out := Vector3(sin(a), 0, cos(a))
-		cyl(parent, radius, radius, 0.04, out * (r * 0.97), disc, Vector3(PI * 0.5, a, 0), 12)
-		burst(parent, radius * 0.85, out * (r + 0.03), Vector3(0, a, 0), star)
+		blast_mark(parent, radius, out * (r * 0.97), Vector3(0, a, 0))
 
 
 ## 폭발물 보관 표지판: 보랏빛 원판에 노란 폭발 마크 (+Z를 바라본다).
 static func blast_sign(parent: Node3D, pos: Vector3, radius: float) -> void:
-	var disc := cyl(parent, radius, radius, 0.05, pos, mat(Color(0.42, 0.3, 0.62), 0.6), Vector3(PI * 0.5, 0, 0), 12)
-	burst(parent, radius * 0.85, pos + Vector3(0, 0, 0.04), Vector3.ZERO, mat(Color(1.0, 0.82, 0.15), 0.5, 0.0, 0.25))
-	disc.name = "BlastSign"
+	blast_mark(parent, radius, pos, Vector3.ZERO).name = "BlastSign"
+
+
+## 폭발 마크: 노란 테두리의 진홍 원판에 노란 별 (+Z 방향이 앞, rot로 돌린다).
+static func blast_mark(parent: Node3D, radius: float, pos: Vector3, rot: Vector3) -> Node3D:
+	var root := Node3D.new()
+	root.position = pos
+	root.rotation = rot
+	parent.add_child(root)
+	var yellow := mat(Color(1.0, 0.82, 0.15), 0.5, 0.0, 0.25)
+	cyl(root, radius * 1.12, radius * 1.12, 0.04, Vector3.ZERO, yellow, Vector3(PI * 0.5, 0, 0), 12)
+	cyl(root, radius * 0.95, radius * 0.95, 0.05, Vector3.ZERO, mat(Color(0.62, 0.06, 0.05), 0.6), Vector3(PI * 0.5, 0, 0), 12)
+	burst(root, radius * 0.8, Vector3(0, 0, 0.04), Vector3.ZERO, yellow)
+	return root
 
 
 static func blob(parent: Node3D, r: float, pos: Vector3, m: Material, scl := Vector3.ONE, rot := Vector3.ZERO, segments := 8) -> MeshInstance3D:

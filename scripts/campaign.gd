@@ -765,6 +765,7 @@ static func _part_powder(s: Stage, c: Vector3, _o: Dictionary) -> void:
 			_pillar(st, M.STEEL if sx == 1 and sz == crack_side(c) else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
 	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
 	deck.support_ratio = 1.0
+	StageDefs.deck_ladder(deck, -1.0)
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
 			st.add_block(M.STONE, c + Vector3(sx * 1.6, h + 1.5, sz * 1.6), Vector3(0.3, 2.2, 0.3))
@@ -845,6 +846,7 @@ static func _part_pillars(s: Stage, c: Vector3, _o: Dictionary) -> void:
 			st.add_block(M.CRACKED if sx == crack_side(c) and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
 	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
 	deck.support_ratio = 1.0
+	StageDefs.deck_ladder(deck, -crack_side(c))
 	for sz in [-1, 1]:
 		st.add_block(M.STONE, c + Vector3(0, h + 0.8, sz * 1.65), Vector3(3.6, 0.8, 0.3))
 	_legs(st, func(b): return b.start_low < 0.05, 0)
@@ -898,6 +900,7 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 			_pillar(st, M.STEEL if sx == crack_side(c) and sz == 1 else M.STONE, c + Vector3(sx * 1.4, h * 0.5, sz * 1.4), Vector3(0.8, h, 0.8))
 	var deck := st.add_block(M.STONE, c + Vector3(0, h + 0.2, 0), Vector3(3.6, 0.4, 3.6))
 	deck.support_ratio = 1.0
+	StageDefs.deck_ladder(deck, -crack_side(c))
 	# 앞면: 창 난 돌벽 (창으로 지휘관이 보인다), 옆과 뒤는 낮은 돌 난간
 	StageDefs.window_wall(st, M.STONE, c + Vector3(0, h + 0.4, 1.65), 3.6, [0.9, 0.6, 0.9], 5, [2], 0.3)
 	st.add_block(M.STONE, c + Vector3(0, h + 0.8, -1.65), Vector3(3.6, 0.8, 0.3))
@@ -914,11 +917,11 @@ static func _part_fortress(s: Stage, c: Vector3, o: Dictionary) -> void:
 	s.add_guard(c + Vector3(5, 0, 2), 180.0)
 
 
-## 석재 망대의 기둥: 강철 기둥은 폭발통 같은 큰 폭발에만 부러지지만 겉모양은 금이 간 흰 석재로 맞춘다.
+## 석재 망대의 기둥: 강철 기둥은 폭발통 같은 큰 폭발에만 부러지지만 겉모양은 깨끗한 흰 석재로 맞춘다.
 static func _pillar(st: Structure, mat: int, center: Vector3, size: Vector3) -> void:
 	var b := st.add_block(mat, center, size)
 	if mat == M.STEEL:
-		b.look_like_cracked_stone()
+		b.look_like_stone()
 
 
 ## 도화선 한 줄 (a → b, 땅 위). 맞닿은 밧줄 토막을 따라 불이 번진다. 검정·노랑 줄무늬로 눈에 띈다.
@@ -1336,6 +1339,7 @@ static func _ballista(s: Stage, pos: Vector3, kind: String) -> void:
 	var deck := st.add_block(M.WOOD_THIN if wood else M.STONE, pos + Vector3(0, legs + 0.15, 0), Vector3(3.0, 0.3, 3.0))
 	if not wood:
 		deck.support_ratio = 1.0
+	StageDefs.deck_ladder(deck, -crack_side(pos))
 	var b := st.add_block(M.WOOD_BEAM, pos + Vector3(0, legs + 0.55, 0), Vector3(0.6, 0.5, 0.6))
 	s.add_ballista(b)
 	# 나무 탑은 다리 둘을 잃으면, 석재 탑은 금 간 기둥 하나만 잃어도 그쪽으로 기운다
