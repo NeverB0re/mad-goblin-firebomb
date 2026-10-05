@@ -69,6 +69,8 @@ var _projectiles: Array[Projectile] = []
 var _quiet := 0.0
 var _last_collapse_sound := -10.0
 var _flags: Array[Node3D] = []
+const FLAG_HEIGHT := 4.0
+const FLAG_HEIGHT_MAX := 12.0
 var _last_shot_warned := false
 ## 대기 중인 글라이더 폭격 고블린 모델들 (조명탄이 떨어지면 하나씩 날아간다)
 var _bombers: Array[Node3D] = []
@@ -429,10 +431,53 @@ func add_torch(pos: Vector3, height := 1.8) -> void:
 func finish_build() -> void:
 	for s in structures:
 		s.finalize()
+	_fit_flags()
 	Scenery.build(self)
 	if player and not ammo_slots.is_empty():
 		_update_held()
 	toast.emit.call_deferred(Texts.t("start"))
+
+
+## 지휘관 깃발은 위치 표식이다: 던지는 자리에서 천이 건물에 가리지 않을 때까지 깃대를 올린다.
+func _fit_flags() -> void:
+	if player == null:
+		return
+	var eye := player.position + Vector3(0, 1.7, 0)
+	var boxes: Array[AABB] = []
+	for st in structures:
+		for b in st.blocks:
+			boxes.append(AABB(b.position - b.size * 0.5, b.size))
+	# 안 부서지는 벽·바위·표지물
+	for n in get_children():
+		if n is StaticBody3D and not n.is_in_group("ground"):
+			for cs in n.get_children():
+				if cs is CollisionShape3D and cs.shape is BoxShape3D:
+					boxes.append(n.transform * AABB(-cs.shape.size * 0.5, cs.shape.size))
+	for i in _flags.size():
+		var old := _flags[i]
+		var height := FLAG_HEIGHT
+		while height < FLAG_HEIGHT_MAX and not _flag_visible(eye, old.position, height, boxes):
+			height += 0.5
+		if height == FLAG_HEIGHT:
+			continue
+		var tall := Models.flag(height)
+		tall.position = old.position
+		add_child(tall)
+		for c in commanders:
+			if c.get_meta("flag", null) == old:
+				c.set_meta("flag", tall)
+		_flags[i] = tall
+		old.queue_free()
+
+
+## 깃대 밑 base에서 깃발 높이가 height일 때, 눈 자리에서 천 한가운데와 끝이 모두 보이는가
+func _flag_visible(eye: Vector3, base: Vector3, height: float, boxes: Array[AABB]) -> bool:
+	for dx in [0.65, 1.3]:
+		var spot := base + Vector3(dx, height - 0.55, 0)
+		for box in boxes:
+			if box.intersects_segment(eye, spot):
+				return false
+	return true
 
 
 # ---------- 탄약 ----------

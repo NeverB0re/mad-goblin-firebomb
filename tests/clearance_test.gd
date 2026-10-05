@@ -73,6 +73,16 @@ func _run() -> void:
 					if Vector2(blk.position.x - a.position.x, blk.position.z - a.position.z).length() < 2.5:
 						close.append("%s ↔ %s" % [st.get_meta("prop"), a.get_script().get_global_name()])
 		_check(props.size() >= 2 and close.is_empty(), "%s 소품 %d개, 사람 곁에 없음%s" % [Campaign.label(i), props.size(), "" if close.is_empty() else ": " + ", ".join(close.slice(0, 3))])
+		# 지휘관 깃발: 던지는 자리에서 천 한가운데가 건물에 가려지지 않는다 (위치 표식)
+		var eye: Vector3 = s.player.position + Vector3(0, 1.7, 0)
+		var hidden := []
+		for c in s.commanders:
+			var cloth: Node3D = c.get_meta("flag").get_node("Cloth")
+			var spot := cloth.global_position + Vector3(0.65, 0, 0)
+			var hit := s.get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(eye, spot, Projectile.HIT_MASK))
+			if not hit.is_empty():
+				hidden.append("%s %s/%s" % [str(c.global_position.snapped(Vector3.ONE * 0.1)), hit.collider.get_class(), str(hit.collider.get_parent().name)])
+		_check(hidden.is_empty(), "%s 깃발이 가려지지 않는다%s" % [Campaign.label(i), "" if hidden.is_empty() else ": " + ", ".join(hidden)])
 		s.queue_free()
 		await process_frame
 	print("결과: ", "OK" if _failures == 0 else "%d개 실패" % _failures)
